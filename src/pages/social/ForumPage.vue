@@ -18,6 +18,11 @@
 
     <!-- 帖子列表 -->
     <div class="forum-content" ref="contentRef">
+      <!-- 全局错误提示（所有状态下都显示） -->
+      <div v-if="store.lastError" class="error-toast" @click="store.lastError = ''">
+        ⚠️ {{ store.lastError }}
+      </div>
+
       <!-- 加载中 -->
       <div v-if="store.forumLoading && store.forumThreads.length === 0" class="loading-state">
         <div class="loading-spinner">💬</div>
@@ -36,10 +41,6 @@
 
       <!-- 帖子卡片列表 -->
       <div v-else class="thread-list">
-        <!-- 错误提示 -->
-        <div v-if="store.lastError" class="error-toast" @click="store.lastError = ''">
-          ⚠️ {{ store.lastError }}
-        </div>
 
         <!-- 顶部加载指示 -->
         <div v-if="store.generating" class="top-loading">

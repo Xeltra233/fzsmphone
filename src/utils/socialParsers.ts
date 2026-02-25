@@ -1,7 +1,6 @@
 /**
  * 社交内容解析器
  * 从AI生成的文本中解析出论坛帖子、微博、朋友圈等结构化数据
- * 参考: mobile_ref 的 forum-ui.js / weibo-ui.js / friends-circle.js
  */
 
 // ==================== 论坛数据类型 ====================
@@ -154,17 +153,47 @@ export function generateId(prefix: string = 'item'): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
 
+// ==================== 通用文本预处理 ====================
+
+/**
+ * 预处理AI返回的内容：去除markdown代码块、多余空白等
+ */
+function preprocessContent(content: string): string {
+  let text = content || ''
+
+  // 去除 markdown 代码块包裹（```text ... ``` 或 ```...```）
+  text = text.replace(/```[\w]*\n?([\s\S]*?)```/g, '$1')
+
+  // 去除HTML代码块
+  text = text.replace(/<pre><code>([\s\S]*?)<\/code><\/pre>/g, '$1')
+
+  return text.trim()
+}
+
+/**
+ * 提取标记区域内容，如果标记不存在则返回整个文本
+ */
+function extractMarkedContent(content: string, startMarker: string, endMarker: string): string {
+  const regex = new RegExp(`${escapeRegex(startMarker)}([\\s\\S]*?)${escapeRegex(endMarker)}`)
+  const match = content.match(regex)
+  if (match) {
+    return match[1]
+  }
+  // 标记不存在，返回整个预处理后的文本
+  console.log(`[SocialParser] 未找到标记 ${startMarker}，将在全文中搜索格式化内容`)
+  return content
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // ==================== 论坛解析器 ====================
 
 export function parseForumContent(content: string): ForumData {
-  const forumRegex = /<!-- FORUM_CONTENT_START -->([\s\S]*?)<!-- FORUM_CONTENT_END -->/
-  const match = content.match(forumRegex)
+  const processed = preprocessContent(content)
+  const forumContent = extractMarkedContent(processed, '<!-- FORUM_CONTENT_START -->', '<!-- FORUM_CONTENT_END -->')
 
-  if (!match) {
-    return { threads: [], replies: {} }
-  }
-
-  const forumContent = match[1]
   const threads: ForumThread[] = []
   const replies: Record<string, ForumReply[]> = {}
 
@@ -227,7 +256,6 @@ export function parseForumContent(content: string): ForumData {
     }
 
     if (replies[threadId]) {
-      // 尝试匹配父楼层
       const parent = replies[threadId].find(
         r => r.author === parentFloor ||
           String(r.floor) === parentFloor ||
@@ -236,7 +264,6 @@ export function parseForumContent(content: string): ForumData {
       if (parent) {
         parent.subReplies.push(subReply)
       } else {
-        // 作为普通回复
         const floor = replies[threadId].length + 2
         replies[threadId].push({
           id: subReply.id,
@@ -259,20 +286,16 @@ export function parseForumContent(content: string): ForumData {
     thread.replies = replies[thread.id] || []
   })
 
+  console.log(`[SocialParser] 论坛解析结果: ${threads.length}个帖子`)
   return { threads, replies }
 }
 
 // ==================== 微博解析器 ====================
 
 export function parseWeiboContent(content: string): WeiboData {
-  const weiboRegex = /<!-- WEIBO_CONTENT_START -->([\s\S]*?)<!-- WEIBO_CONTENT_END -->/
-  const match = content.match(weiboRegex)
+  const processed = preprocessContent(content)
+  const weiboContent = extractMarkedContent(processed, '<!-- WEIBO_CONTENT_START -->', '<!-- WEIBO_CONTENT_END -->')
 
-  if (!match) {
-    return { posts: [], hotSearches: [], rankings: [] }
-  }
-
-  const weiboContent = match[1]
   const posts: WeiboItem[] = []
   const hotSearches: HotSearchItem[] = []
   const rankings: RankingItem[] = []
@@ -331,20 +354,16 @@ export function parseWeiboContent(content: string): WeiboData {
     })
   }
 
+  console.log(`[SocialParser] 微博解析结果: ${posts.length}条博文, ${hotSearches.length}条热搜, ${rankings.length}个榜单`)
   return { posts, hotSearches, rankings }
 }
 
 // ==================== 朋友圈解析器 ====================
 
 export function parseMomentsContent(content: string): MomentsData {
-  const momentsRegex = /<!-- MOMENTS_CONTENT_START -->([\s\S]*?)<!-- MOMENTS_CONTENT_END -->/
-  const match = content.match(momentsRegex)
+  const processed = preprocessContent(content)
+  const momentsContent = extractMarkedContent(processed, '<!-- MOMENTS_CONTENT_START -->', '<!-- MOMENTS_CONTENT_END -->')
 
-  if (!match) {
-    return { moments: [] }
-  }
-
-  const momentsContent = match[1]
   const moments: MomentItem[] = []
   let m: RegExpExecArray | null
 
@@ -412,6 +431,7 @@ export function parseMomentsContent(content: string): MomentsData {
     }
   }
 
+  console.log(`[SocialParser] 朋友圈解析结果: ${moments.length}条动态`)
   return { moments }
 }
 
@@ -420,11 +440,8 @@ export function parseMomentsContent(content: string): MomentsData {
 /** 格式化内容: 处理@用户、话题标签、换行 */
 export function formatContent(content: string): string {
   let formatted = content
-  // 处理@用户
   formatted = formatted.replace(/@([^\s@]+)/g, '<span class="mention">@$1</span>')
-  // 处理 #话题#
   formatted = formatted.replace(/#([^#]+)#/g, '<span class="topic-tag">#$1#</span>')
-  // 处理换行
   formatted = formatted.replace(/\n/g, '<br>')
   return formatted
 }

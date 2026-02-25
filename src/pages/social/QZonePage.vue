@@ -35,6 +35,12 @@
 
     <!-- 动态列表 -->
     <div class="moments-list">
+      <!-- 全局错误提示（内联显示） -->
+      <div v-if="store.lastError" class="error-banner" @click="store.lastError = ''">
+        ⚠️ {{ store.lastError }}
+        <span class="error-dismiss">点击关闭</span>
+      </div>
+
       <!-- 加载中 -->
       <div v-if="store.generating && store.moments.length === 0" class="loading-state">
         <div class="loading-spinner"></div>
@@ -218,12 +224,6 @@
       </Transition>
     </Teleport>
 
-    <!-- 错误提示 -->
-    <Transition name="toast">
-      <div v-if="store.lastError" class="error-toast">
-        {{ store.lastError }}
-      </div>
-    </Transition>
   </div>
 </template>
 
@@ -941,28 +941,23 @@ function clearAllData() {
 }
 
 /* ===== 错误提示 ===== */
-.error-toast {
-  position: fixed;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(50, 50, 50, 0.9);
-  color: #fff;
-  padding: 8px 20px;
-  border-radius: 20px;
+.error-banner {
+  background: #fff3cd;
+  color: #856404;
+  padding: 12px 16px;
+  margin: 0 12px 8px;
+  border-radius: 10px;
   font-size: 13px;
-  z-index: 200;
-  white-space: nowrap;
+  cursor: pointer;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.3s ease;
-}
-
-.toast-enter-from,
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(10px);
+.error-dismiss {
+  font-size: 11px;
+  color: #a07a1a;
+  opacity: 0.7;
 }
 </style>

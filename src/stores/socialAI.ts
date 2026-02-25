@@ -69,6 +69,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
   // ==================== 通用 ====================
   const generating = ref(false)
   const lastError = ref('')
+  const lastRawResponse = ref('')
 
   // ==================== 持久化 ====================
   function saveData(type: SocialType) {
@@ -135,6 +136,9 @@ export const useSocialAIStore = defineStore('socialAI', () => {
       { role: 'user', content: action || '请生成内容。' },
     ]
 
+    console.log(`[SocialAI] 调用AI (${type})，提示词长度: ${prompt.length}`)
+    console.log(`[SocialAI] API配置: url=${config.apiUrl}, model=${config.model}`)
+
     const response = await sendAIRequest({
       apiKey: config.apiKey,
       apiUrl: config.apiUrl,
@@ -144,6 +148,10 @@ export const useSocialAIStore = defineStore('socialAI', () => {
       temperature: config.temperature,
       stream: false,
     })
+
+    console.log(`[SocialAI] AI返回内容长度: ${response.content.length}`)
+    console.log(`[SocialAI] AI返回内容前500字: ${response.content.slice(0, 500)}`)
+    lastRawResponse.value = response.content
 
     return response.content
   }
@@ -170,7 +178,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
         }
         saveData('forum')
       } else {
-        lastError.value = 'AI未生成有效的论坛内容，请检查提示词设置'
+        lastError.value = 'AI未生成有效的论坛内容。请打开浏览器控制台(F12)查看AI原始回复，或检查提示词设置。'
       }
     } catch (e: any) {
       lastError.value = e.message || '生成失败'
@@ -254,7 +262,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
 
         saveData('weibo')
       } else {
-        lastError.value = 'AI未生成有效的微博内容，请检查提示词设置'
+        lastError.value = 'AI未生成有效的微博内容。请打开浏览器控制台(F12)查看AI原始回复，或检查提示词设置。'
       }
     } catch (e: any) {
       lastError.value = e.message || '生成失败'
@@ -337,7 +345,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
         }
         saveData('moments')
       } else {
-        lastError.value = 'AI未生成有效的朋友圈内容，请检查提示词设置'
+        lastError.value = 'AI未生成有效的朋友圈内容。请打开浏览器控制台(F12)查看AI原始回复，或检查提示词设置。'
       }
     } catch (e: any) {
       lastError.value = e.message || '生成失败'
@@ -478,6 +486,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     // 通用
     generating,
     lastError,
+    lastRawResponse,
     loadData,
     saveData,
     clearData,
