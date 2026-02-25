@@ -19,6 +19,7 @@ type Config struct {
 	DiscordRequiredRoleIDs []string
 	DiscordRoleMatch       string // "all" or "any"
 	DiscordAuthFailMessage string
+	DiscordAdminIDs        []string // Discord IDs that are auto-promoted to admin
 	FrontendURL            string
 	Environment            string
 }
@@ -36,6 +37,7 @@ func Load() (*Config, error) {
 		DiscordRequiredRoleIDs: parseCSV(getEnv("DISCORD_REQUIRED_ROLE_IDS", "")),
 		DiscordRoleMatch:       getEnv("DISCORD_ROLE_MATCH", "all"),
 		DiscordAuthFailMessage: getEnv("DISCORD_AUTH_FAIL_MESSAGE", "请先加入指定服务器并完成身份组验证"),
+		DiscordAdminIDs:        parseCSV(getEnv("DISCORD_ADMIN_IDS", "")),
 		FrontendURL:            getEnv("FRONTEND_URL", "http://localhost:3000"),
 		Environment:            getEnv("ENVIRONMENT", "development"),
 	}

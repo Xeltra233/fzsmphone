@@ -169,6 +169,13 @@ func (h *AuthHandler) DiscordCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Auto-promote configured admin Discord IDs
+	if role != "admin" && h.isAdminDiscordID(dUser.ID) {
+		role = "admin"
+		_, _ = h.DB.Pool.Exec(ctx, `UPDATE users SET role = 'admin', updated_at = NOW() WHERE id = $1`, userID)
+		log.Printf("[INFO] Auto-promoted user %s (%s) to admin", dUser.Username, dUser.ID)
+	}
+
 	// Generate JWT
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id":    userID,
@@ -296,6 +303,16 @@ func (h *AuthHandler) checkRoles(memberRoles []string) bool {
 		}
 	}
 	return true
+}
+
+// isAdminDiscordID checks if the given Discord ID is in the configured admin list.
+func (h *AuthHandler) isAdminDiscordID(discordID string) bool {
+	for _, id := range h.Cfg.DiscordAdminIDs {
+		if id == discordID {
+			return true
+		}
+	}
+	return false
 }
 
 // GET /api/auth/me
