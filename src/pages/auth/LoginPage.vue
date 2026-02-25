@@ -2,8 +2,15 @@
   <div class="login-page">
     <div class="login-bg"></div>
     <div class="login-content">
-      <div class="login-logo">📱</div>
-      <h1 class="login-title">fzsmphone</h1>
+      <div class="login-logo">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="14" y="4" width="36" height="56" rx="8" stroke="#fff" stroke-width="2.5"/>
+          <rect x="26" y="8" width="12" height="4" rx="2" fill="rgba(255,255,255,0.5)"/>
+          <circle cx="32" cy="52" r="2" fill="rgba(255,255,255,0.4)"/>
+          <rect x="18" y="16" width="28" height="30" rx="2" fill="rgba(255,255,255,0.08)"/>
+        </svg>
+      </div>
+      <h1 class="login-title">贩子死妈小手机</h1>
       <p class="login-subtitle">请登录以继续</p>
       <button class="discord-btn pressable" @click="loginWithDiscord">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -58,8 +65,14 @@ function loginWithDiscord() {
 }
 
 .login-logo {
-  font-size: 72px;
+  width: 80px;
+  height: 80px;
   margin-bottom: 8px;
+}
+
+.login-logo svg {
+  width: 100%;
+  height: 100%;
 }
 
 .login-title {

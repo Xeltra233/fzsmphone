@@ -70,7 +70,7 @@
       <!-- 退出登录 -->
       <button class="logout-btn" @click="handleLogout">退出登录</button>
 
-      <div class="version-info">fzsmphone v1.0.0</div>
+      <div class="version-info">贩子死妈小手机 v1.0.0</div>
     </div>
 
     <!-- 设置弹窗 -->
