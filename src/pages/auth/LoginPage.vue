@@ -11,15 +11,23 @@
         </svg>
         <span>使用 Discord 登录</span>
       </button>
+      <p class="login-hint">需要加入指定 Discord 服务器才能使用</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-const API_URL = import.meta.env.VITE_API_URL || ''
+const DISCORD_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || ''
+const REDIRECT_URI = import.meta.env.VITE_DISCORD_REDIRECT_URI || `${window.location.origin}/auth/callback`
 
 function loginWithDiscord() {
-  window.location.href = `${API_URL}/api/auth/discord`
+  const params = new URLSearchParams({
+    client_id: DISCORD_CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
+    response_type: 'code',
+    scope: 'identify email guilds',
+  })
+  window.location.href = `https://discord.com/api/oauth2/authorize?${params.toString()}`
 }
 </script>
 
@@ -64,6 +72,13 @@ function loginWithDiscord() {
   font-size: 15px;
   color: rgba(255, 255, 255, 0.6);
   margin-bottom: 24px;
+}
+
+.login-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 16px;
+  text-align: center;
 }
 
 .discord-btn {

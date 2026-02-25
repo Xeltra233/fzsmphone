@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -34,6 +35,13 @@ type discordUser struct {
 	Avatar        string `json:"avatar"`
 	Email         string `json:"email"`
 	Discriminator string `json:"discriminator"`
+}
+
+// discordGuildMember represents the Discord API response for a guild member.
+type discordGuildMember struct {
+	User  *discordUser `json:"user"`
+	Roles []string     `json:"roles"`
+	Nick  string       `json:"nick"`
 }
 
 // POST /api/auth/discord
@@ -67,8 +75,8 @@ func (h *AuthHandler) DiscordCallback(w http.ResponseWriter, r *http.Request) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		mw.Error(w, http.StatusBadGateway, fmt.Sprintf("Discord token error: %s", string(body)))
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		mw.Error(w, http.StatusBadGateway, fmt.Sprintf("Discord token error: %s", string(bodyBytes)))
 		return
 	}
 
@@ -79,7 +87,7 @@ func (h *AuthHandler) DiscordCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user info
-	req, _ := http.NewRequest("GET", "https://discord.com/api/users/@me", nil)
+	req, _ := http.NewRequest("GET", "https://discord.com/api/v10/users/@me", nil)
 	req.Header.Set("Authorization", "Bearer "+tokenResp.AccessToken)
 	userResp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -92,6 +100,41 @@ func (h *AuthHandler) DiscordCallback(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(userResp.Body).Decode(&dUser); err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to parse Discord user")
 		return
+	}
+
+	// ============================================================
+	// Discord Guild Membership + Role Verification
+	// If DISCORD_GUILD_ID is configured, verify the user:
+	//   1. Is a member of the specified Discord server
+	//   2. Has the required role(s) if DISCORD_REQUIRED_ROLE_IDS is set
+	// ============================================================
+	if h.Cfg.DiscordGuildID != "" {
+		failMsg := h.Cfg.DiscordAuthFailMessage
+
+		member, err := h.getGuildMember(dUser.ID)
+		if err != nil {
+			log.Printf("[WARN] Guild member lookup failed for user %s (%s): %v", dUser.Username, dUser.ID, err)
+			mw.Error(w, http.StatusForbidden, failMsg)
+			return
+		}
+		if member == nil {
+			log.Printf("[INFO] User %s (%s) denied: not a member of guild %s", dUser.Username, dUser.ID, h.Cfg.DiscordGuildID)
+			mw.Error(w, http.StatusForbidden, failMsg)
+			return
+		}
+
+		log.Printf("[INFO] User %s (%s) is a member of guild %s, roles: %v", dUser.Username, dUser.ID, h.Cfg.DiscordGuildID, member.Roles)
+
+		// Check required roles
+		if len(h.Cfg.DiscordRequiredRoleIDs) > 0 {
+			if !h.checkRoles(member.Roles) {
+				log.Printf("[INFO] User %s (%s) denied: missing required roles. Has: %v, Needs: %v (match=%s)",
+					dUser.Username, dUser.ID, member.Roles, h.Cfg.DiscordRequiredRoleIDs, h.Cfg.DiscordRoleMatch)
+				mw.Error(w, http.StatusForbidden, failMsg)
+				return
+			}
+			log.Printf("[INFO] User %s (%s) passed role verification", dUser.Username, dUser.ID)
+		}
 	}
 
 	// Build avatar URL
@@ -151,6 +194,74 @@ func (h *AuthHandler) DiscordCallback(w http.ResponseWriter, r *http.Request) {
 			"role":         role,
 		},
 	})
+}
+
+// getGuildMember retrieves a guild member using the Bot token.
+// Returns nil if the user is not a member (404).
+func (h *AuthHandler) getGuildMember(discordUserID string) (*discordGuildMember, error) {
+	if h.Cfg.DiscordBotToken == "" {
+		return nil, fmt.Errorf("DISCORD_BOT_TOKEN is required for guild verification")
+	}
+
+	apiURL := fmt.Sprintf("https://discord.com/api/v10/guilds/%s/members/%s", h.Cfg.DiscordGuildID, discordUserID)
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bot "+h.Cfg.DiscordBotToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("bot API request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return nil, nil // Not a member
+	}
+
+	if resp.StatusCode != 200 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("Discord API returned %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var member discordGuildMember
+	if err := json.NewDecoder(resp.Body).Decode(&member); err != nil {
+		return nil, fmt.Errorf("parse member: %w", err)
+	}
+
+	return &member, nil
+}
+
+// checkRoles verifies the member has the required Discord roles.
+// Supports "all" (must have all roles) and "any" (must have at least one role) match modes.
+func (h *AuthHandler) checkRoles(memberRoles []string) bool {
+	if len(h.Cfg.DiscordRequiredRoleIDs) == 0 {
+		return true
+	}
+
+	roleSet := make(map[string]bool, len(memberRoles))
+	for _, r := range memberRoles {
+		roleSet[r] = true
+	}
+
+	if h.Cfg.DiscordRoleMatch == "any" {
+		// User needs at least one of the required roles
+		for _, required := range h.Cfg.DiscordRequiredRoleIDs {
+			if roleSet[required] {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Default: "all" — user must have ALL required roles
+	for _, required := range h.Cfg.DiscordRequiredRoleIDs {
+		if !roleSet[required] {
+			return false
+		}
+	}
+	return true
 }
 
 // GET /api/auth/me
