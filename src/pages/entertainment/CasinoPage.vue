@@ -1,0 +1,810 @@
+<template>
+  <div class="casino-page">
+    <NavBar title="娱乐场" back />
+
+    <!-- 余额栏 -->
+    <div class="balance-bar">
+      <div class="balance-info">
+        <span class="balance-label">金币余额</span>
+        <span class="balance-value">🪙 {{ balance.toLocaleString() }}</span>
+      </div>
+      <button class="recharge-btn" @click="balance += 1000">+ 充值</button>
+    </div>
+
+    <!-- 游戏选项卡 -->
+    <div class="game-tabs">
+      <div
+        v-for="tab in gameTabs"
+        :key="tab.id"
+        class="game-tab"
+        :class="{ active: activeGame === tab.id }"
+        @click="activeGame = tab.id"
+      >
+        <span class="tab-emoji">{{ tab.icon }}</span>
+        <span class="tab-name">{{ tab.name }}</span>
+      </div>
+    </div>
+
+    <!-- 老虎机 -->
+    <div v-if="activeGame === 'slots'" class="game-area">
+      <div class="slots-machine">
+        <div class="slots-header">
+          <div class="jackpot-label">🏆 JACKPOT</div>
+          <div class="jackpot-value">{{ jackpot.toLocaleString() }}</div>
+        </div>
+        <div class="slots-reels">
+          <div v-for="(reel, i) in slotReels" :key="i" class="reel" :class="{ spinning: slotSpinning }">
+            <div class="reel-symbol">{{ reel }}</div>
+          </div>
+        </div>
+        <div v-if="slotResult" class="slot-result" :class="slotResult.type">
+          {{ slotResult.text }}
+        </div>
+        <div class="slots-bet">
+          <span>下注：</span>
+          <div class="bet-options">
+            <button
+              v-for="b in [10, 50, 100, 500]"
+              :key="b"
+              :class="{ active: slotBet === b }"
+              @click="slotBet = b"
+            >
+              {{ b }}
+            </button>
+          </div>
+        </div>
+        <button
+          class="spin-btn"
+          :disabled="slotSpinning || balance < slotBet"
+          @click="spinSlots"
+        >
+          {{ slotSpinning ? '旋转中...' : '🎰 SPIN' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- 骰子游戏 -->
+    <div v-if="activeGame === 'dice'" class="game-area">
+      <div class="dice-game">
+        <div class="dice-display">
+          <div v-for="(d, i) in diceValues" :key="i" class="dice" :class="{ rolling: diceRolling }">
+            {{ diceEmojis[d - 1] }}
+          </div>
+        </div>
+        <div v-if="diceTotal > 0 && !diceRolling" class="dice-total">
+          点数：{{ diceTotal }} — {{ diceTotal >= 11 ? '大' : '小' }}
+        </div>
+        <div v-if="diceResultText" class="dice-result" :class="diceResultType">
+          {{ diceResultText }}
+        </div>
+        <div class="dice-bet-section">
+          <div class="bet-amount-row">
+            <span>下注金额：</span>
+            <div class="bet-options">
+              <button
+                v-for="b in [10, 50, 100, 500]"
+                :key="b"
+                :class="{ active: diceBet === b }"
+                @click="diceBet = b"
+              >
+                {{ b }}
+              </button>
+            </div>
+          </div>
+          <div class="dice-choice">
+            <button
+              class="choice-btn big"
+              :class="{ active: diceChoice === 'big' }"
+              @click="diceChoice = 'big'"
+            >
+              大 (11-18)
+            </button>
+            <button
+              class="choice-btn small"
+              :class="{ active: diceChoice === 'small' }"
+              @click="diceChoice = 'small'"
+            >
+              小 (3-10)
+            </button>
+          </div>
+        </div>
+        <button
+          class="roll-btn"
+          :disabled="diceRolling || !diceChoice || balance < diceBet"
+          @click="rollDice"
+        >
+          {{ diceRolling ? '摇骰中...' : '🎲 摇骰子' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- 幸运转盘 -->
+    <div v-if="activeGame === 'wheel'" class="game-area">
+      <div class="wheel-game">
+        <div class="wheel-container">
+          <div class="wheel" :style="{ transform: `rotate(${wheelAngle}deg)`, transition: wheelTransition }">
+            <div
+              v-for="(seg, i) in wheelSegments"
+              :key="i"
+              class="wheel-segment"
+              :style="{ transform: `rotate(${i * segAngle}deg)`, background: seg.color }"
+            >
+              <div class="segment-content" :style="{ transform: `rotate(${segAngle / 2}deg)` }">
+                <span class="seg-emoji">{{ seg.emoji }}</span>
+                <span class="seg-label">{{ seg.label }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="wheel-pointer">▼</div>
+          <div class="wheel-center" @click="spinWheel">
+            {{ wheelSpinning ? '...' : 'GO' }}
+          </div>
+        </div>
+        <div v-if="wheelResult" class="wheel-result">
+          🎉 恭喜获得：{{ wheelResult }}
+        </div>
+        <div class="wheel-cost">
+          每次转动消耗 <strong>50</strong> 金币
+        </div>
+        <button
+          class="wheel-spin-btn"
+          :disabled="wheelSpinning || balance < 50"
+          @click="spinWheel"
+        >
+          {{ wheelSpinning ? '转动中...' : '🎡 转动转盘' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- 历史记录 -->
+    <div class="history-section">
+      <div class="history-header">
+        <span>📋 游戏记录</span>
+        <span class="clear-btn" @click="history = []">清空</span>
+      </div>
+      <div v-if="history.length === 0" class="history-empty">暂无记录</div>
+      <div v-else class="history-list">
+        <div v-for="(h, i) in history.slice().reverse().slice(0, 20)" :key="i" class="history-item">
+          <span class="h-game">{{ h.game }}</span>
+          <span class="h-detail">{{ h.detail }}</span>
+          <span class="h-result" :class="h.win ? 'win' : 'lose'">
+            {{ h.win ? '+' : '' }}{{ h.amount }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue'
+import NavBar from '@/components/common/NavBar.vue'
+
+interface HistoryItem {
+  game: string
+  detail: string
+  amount: number
+  win: boolean
+}
+
+const gameTabs = [
+  { id: 'slots', name: '老虎机', icon: '🎰' },
+  { id: 'dice', name: '骰子', icon: '🎲' },
+  { id: 'wheel', name: '转盘', icon: '🎡' },
+]
+
+const activeGame = ref('slots')
+const balance = ref(5000)
+const history = ref<HistoryItem[]>([])
+
+// ===== 老虎机 =====
+const slotSymbols = ['🍒', '🍋', '🍊', '🍇', '💎', '7️⃣', '🔔', '⭐']
+const slotReels = ref(['🍒', '🍒', '🍒'])
+const slotSpinning = ref(false)
+const slotBet = ref(50)
+const slotResult = ref<{ text: string; type: string } | null>(null)
+const jackpot = ref(88888)
+
+function spinSlots() {
+  if (slotSpinning.value || balance.value < slotBet.value) return
+  balance.value -= slotBet.value
+  slotSpinning.value = true
+  slotResult.value = null
+
+  // 动画：快速切换符号
+  let count = 0
+  const interval = setInterval(() => {
+    slotReels.value = slotReels.value.map(() =>
+      slotSymbols[Math.floor(Math.random() * slotSymbols.length)]
+    )
+    count++
+    if (count > 15) {
+      clearInterval(interval)
+      // 最终结果
+      const final = [0, 1, 2].map(() =>
+        slotSymbols[Math.floor(Math.random() * slotSymbols.length)]
+      )
+      slotReels.value = final
+      slotSpinning.value = false
+
+      // 判定
+      if (final[0] === final[1] && final[1] === final[2]) {
+        // 三连
+        const multiplier = final[0] === '7️⃣' ? 50 : final[0] === '💎' ? 20 : 10
+        const win = slotBet.value * multiplier
+        balance.value += win
+        slotResult.value = { text: `🎉 三连！赢得 ${win} 金币！`, type: 'win' }
+        history.value.push({ game: '🎰 老虎机', detail: `${final.join('')} 三连`, amount: win, win: true })
+      } else if (final[0] === final[1] || final[1] === final[2] || final[0] === final[2]) {
+        // 两连
+        const win = slotBet.value * 2
+        balance.value += win
+        slotResult.value = { text: `😊 两连！赢得 ${win} 金币`, type: 'win' }
+        history.value.push({ game: '🎰 老虎机', detail: `${final.join('')} 两连`, amount: win, win: true })
+      } else {
+        slotResult.value = { text: '😢 没有中奖', type: 'lose' }
+        history.value.push({ game: '🎰 老虎机', detail: final.join(''), amount: -slotBet.value, win: false })
+      }
+    }
+  }, 80)
+}
+
+// ===== 骰子 =====
+const diceEmojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅']
+const diceValues = ref([1, 1, 1])
+const diceTotal = ref(0)
+const diceRolling = ref(false)
+const diceBet = ref(50)
+const diceChoice = ref<'big' | 'small' | ''>('')
+const diceResultText = ref('')
+const diceResultType = ref('')
+
+function rollDice() {
+  if (diceRolling.value || !diceChoice.value || balance.value < diceBet.value) return
+  balance.value -= diceBet.value
+  diceRolling.value = true
+  diceResultText.value = ''
+
+  let count = 0
+  const interval = setInterval(() => {
+    diceValues.value = [
+      Math.ceil(Math.random() * 6),
+      Math.ceil(Math.random() * 6),
+      Math.ceil(Math.random() * 6),
+    ]
+    count++
+    if (count > 12) {
+      clearInterval(interval)
+      diceRolling.value = false
+      const total = diceValues.value.reduce((a, b) => a + b, 0)
+      diceTotal.value = total
+      const isBig = total >= 11
+      const playerWin = (diceChoice.value === 'big' && isBig) || (diceChoice.value === 'small' && !isBig)
+
+      if (playerWin) {
+        const win = diceBet.value * 2
+        balance.value += win
+        diceResultText.value = `🎉 猜对了！赢得 ${win} 金币`
+        diceResultType.value = 'win'
+        history.value.push({ game: '🎲 骰子', detail: `${total}点 ${isBig ? '大' : '小'} 猜${diceChoice.value === 'big' ? '大' : '小'}`, amount: win, win: true })
+      } else {
+        diceResultText.value = `😢 猜错了，${total}点是${isBig ? '大' : '小'}`
+        diceResultType.value = 'lose'
+        history.value.push({ game: '🎲 骰子', detail: `${total}点 猜错`, amount: -diceBet.value, win: false })
+      }
+    }
+  }, 100)
+}
+
+// ===== 幸运转盘 =====
+const wheelSegments = [
+  { label: '10币', emoji: '🪙', color: '#ff6b6b', value: 10 },
+  { label: '50币', emoji: '💰', color: '#ffd93d', value: 50 },
+  { label: '100币', emoji: '💎', color: '#6bcb77', value: 100 },
+  { label: '再来', emoji: '🔄', color: '#4d96ff', value: 0 },
+  { label: '200币', emoji: '🏆', color: '#ff6b6b', value: 200 },
+  { label: '20币', emoji: '⭐', color: '#ffd93d', value: 20 },
+  { label: '500币', emoji: '👑', color: '#6bcb77', value: 500 },
+  { label: '谢谢', emoji: '😅', color: '#4d96ff', value: -1 },
+]
+
+const segAngle = 360 / wheelSegments.length
+const wheelAngle = ref(0)
+const wheelSpinning = ref(false)
+const wheelResult = ref('')
+const wheelTransition = ref('none')
+
+function spinWheel() {
+  if (wheelSpinning.value || balance.value < 50) return
+  balance.value -= 50
+  wheelSpinning.value = true
+  wheelResult.value = ''
+
+  // 决定停的位置
+  const targetIdx = Math.floor(Math.random() * wheelSegments.length)
+  const targetAngle = 360 - (targetIdx * segAngle + segAngle / 2)
+  const spins = 5 + Math.floor(Math.random() * 3) // 5-7圈
+  const finalAngle = wheelAngle.value + spins * 360 + targetAngle - (wheelAngle.value % 360)
+
+  wheelTransition.value = 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)'
+  wheelAngle.value = finalAngle
+
+  setTimeout(() => {
+    wheelSpinning.value = false
+    wheelTransition.value = 'none'
+    const seg = wheelSegments[targetIdx]
+    if (seg.value > 0) {
+      balance.value += seg.value
+      wheelResult.value = `${seg.emoji} ${seg.label}`
+      history.value.push({ game: '🎡 转盘', detail: seg.label, amount: seg.value, win: true })
+    } else if (seg.value === 0) {
+      wheelResult.value = '🔄 免费再来一次！'
+      balance.value += 50 // 退还
+      history.value.push({ game: '🎡 转盘', detail: '免费一次', amount: 0, win: true })
+    } else {
+      wheelResult.value = '😅 谢谢参与'
+      history.value.push({ game: '🎡 转盘', detail: '未中奖', amount: -50, win: false })
+    }
+  }, 4200)
+}
+</script>
+
+<style scoped>
+.casino-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-primary);
+  overflow-y: auto;
+}
+
+.balance-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  margin: 8px 12px;
+  border-radius: 14px;
+  color: #fff;
+}
+
+.balance-label { font-size: 12px; opacity: 0.7; }
+.balance-value { font-size: 20px; font-weight: 700; display: block; margin-top: 2px; }
+
+.recharge-btn {
+  padding: 6px 16px;
+  border-radius: 16px;
+  border: none;
+  background: linear-gradient(135deg, #ffd700, #ff8c00);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.game-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.game-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--bg-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+
+.game-tab.active {
+  border-color: var(--color-primary);
+  background: var(--bg-tertiary);
+}
+
+.tab-emoji { font-size: 24px; }
+.tab-name { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+
+.game-area {
+  padding: 8px 12px;
+}
+
+/* ===== 老虎机 ===== */
+.slots-machine {
+  background: linear-gradient(180deg, #1a1a2e, #0f3460);
+  border-radius: 20px;
+  padding: 20px;
+  text-align: center;
+}
+
+.slots-header {
+  margin-bottom: 16px;
+}
+
+.jackpot-label {
+  font-size: 14px;
+  color: #ffd700;
+  font-weight: 700;
+}
+
+.jackpot-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.slots-reels {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.reel {
+  width: 80px;
+  height: 80px;
+  background: #fff;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid #ffd700;
+}
+
+.reel.spinning {
+  animation: reel-shake 0.1s infinite;
+}
+
+@keyframes reel-shake {
+  0%, 100% { transform: translateY(-2px); }
+  50% { transform: translateY(2px); }
+}
+
+.reel-symbol { font-size: 42px; }
+
+.slot-result {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  padding: 8px;
+  border-radius: 10px;
+}
+
+.slot-result.win { color: #4caf50; background: rgba(76, 175, 80, 0.15); }
+.slot-result.lose { color: #ff6b6b; background: rgba(255, 107, 107, 0.15); }
+
+.slots-bet {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+}
+
+.bet-options {
+  display: flex;
+  gap: 6px;
+}
+
+.bet-options button {
+  padding: 4px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bet-options button.active {
+  background: #ffd700;
+  color: #000;
+  border-color: #ffd700;
+  font-weight: 600;
+}
+
+.spin-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, #ff3b30, #ff6b6b);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 2px;
+}
+
+.spin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== 骰子 ===== */
+.dice-game {
+  background: linear-gradient(180deg, #0d7377, #14586b);
+  border-radius: 20px;
+  padding: 20px;
+  text-align: center;
+}
+
+.dice-display {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.dice {
+  font-size: 48px;
+  width: 70px;
+  height: 70px;
+  background: #fff;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dice.rolling {
+  animation: dice-roll 0.15s infinite;
+}
+
+@keyframes dice-roll {
+  0% { transform: rotate(-10deg) scale(1.05); }
+  50% { transform: rotate(10deg) scale(0.95); }
+  100% { transform: rotate(-10deg) scale(1.05); }
+}
+
+.dice-total {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.dice-result {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  padding: 8px;
+  border-radius: 10px;
+}
+
+.dice-result.win { color: #4caf50; background: rgba(76, 175, 80, 0.2); }
+.dice-result.lose { color: #ff6b6b; background: rgba(255, 107, 107, 0.2); }
+
+.dice-bet-section {
+  margin-bottom: 12px;
+}
+
+.bet-amount-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+}
+
+.dice-choice {
+  display: flex;
+  gap: 10px;
+}
+
+.choice-btn {
+  flex: 1;
+  padding: 12px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.choice-btn.big {
+  background: rgba(255, 59, 48, 0.2);
+  color: #ff6b6b;
+}
+
+.choice-btn.big.active {
+  background: #ff3b30;
+  color: #fff;
+  border-color: #ff6b6b;
+}
+
+.choice-btn.small {
+  background: rgba(52, 199, 89, 0.2);
+  color: #6bcb77;
+}
+
+.choice-btn.small.active {
+  background: #34c759;
+  color: #fff;
+  border-color: #6bcb77;
+}
+
+.roll-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, #ffd700, #ff8c00);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.roll-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== 转盘 ===== */
+.wheel-game {
+  text-align: center;
+  padding: 8px 0;
+}
+
+.wheel-container {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  margin: 0 auto 16px;
+}
+
+.wheel {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  border: 4px solid #ffd700;
+}
+
+.wheel-segment {
+  position: absolute;
+  width: 50%;
+  height: 50%;
+  top: 0;
+  right: 0;
+  transform-origin: bottom left;
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+
+.segment-content {
+  position: absolute;
+  top: 20px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.seg-emoji { font-size: 16px; }
+.seg-label { font-size: 9px; color: #fff; font-weight: 600; }
+
+.wheel-pointer {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 24px;
+  color: #ff3b30;
+  z-index: 10;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.wheel-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 50px;
+  height: 50px;
+  border-radius: 25px;
+  background: linear-gradient(135deg, #ffd700, #ff8c00);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.wheel-result {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  padding: 10px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+}
+
+.wheel-cost {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-bottom: 10px;
+}
+
+.wheel-spin-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.wheel-spin-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== 历史记录 ===== */
+.history-section {
+  padding: 12px;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.history-header .clear-btn {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-weight: 400;
+}
+
+.history-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-quaternary);
+  font-size: 13px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.h-game { font-weight: 600; color: var(--text-primary); flex-shrink: 0; }
+.h-detail { flex: 1; color: var(--text-tertiary); font-size: 12px; }
+.h-result { font-weight: 700; flex-shrink: 0; }
+.h-result.win { color: #34c759; }
+.h-result.lose { color: #ff3b30; }
+</style>

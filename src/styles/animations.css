@@ -1,0 +1,157 @@
+/* ===== iOS 页面转场动画 ===== */
+
+/* 向右推入（默认前进） */
+.slide-right-enter-active {
+  transition: all 0.35s var(--ease-default);
+}
+.slide-right-leave-active {
+  transition: all 0.3s var(--ease-default);
+}
+.slide-right-enter-from {
+  opacity: 0;
+  transform: translateX(100%);
+}
+.slide-right-leave-to {
+  opacity: 0;
+  transform: translateX(-30%);
+}
+
+/* 向左推出（返回） */
+.slide-left-enter-active {
+  transition: all 0.35s var(--ease-default);
+}
+.slide-left-leave-active {
+  transition: all 0.3s var(--ease-default);
+}
+.slide-left-enter-from {
+  opacity: 0;
+  transform: translateX(-30%);
+}
+.slide-left-leave-to {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+/* 淡入淡出 */
+.fade-enter-active {
+  transition: opacity 0.3s var(--ease-default);
+}
+.fade-leave-active {
+  transition: opacity 0.2s var(--ease-default);
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* 缩放淡入 */
+.scale-fade-enter-active {
+  transition: all 0.3s var(--ease-spring);
+}
+.scale-fade-leave-active {
+  transition: all 0.2s var(--ease-default);
+}
+.scale-fade-enter-from {
+  opacity: 0;
+  transform: scale(0.92);
+}
+.scale-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+/* 底部弹出（Sheet） */
+.slide-up-enter-active {
+  transition: all 0.4s var(--ease-spring);
+}
+.slide-up-leave-active {
+  transition: all 0.3s var(--ease-default);
+}
+.slide-up-enter-from {
+  transform: translateY(100%);
+}
+.slide-up-leave-to {
+  transform: translateY(100%);
+}
+
+/* 顶部下拉 */
+.slide-down-enter-active {
+  transition: all 0.35s var(--ease-spring);
+}
+.slide-down-leave-active {
+  transition: all 0.25s var(--ease-default);
+}
+.slide-down-enter-from {
+  opacity: 0;
+  transform: translateY(-100%);
+}
+.slide-down-leave-to {
+  opacity: 0;
+  transform: translateY(-100%);
+}
+
+/* 遮罩层 */
+.overlay-enter-active {
+  transition: opacity 0.3s var(--ease-default);
+}
+.overlay-leave-active {
+  transition: opacity 0.25s var(--ease-default);
+}
+.overlay-enter-from,
+.overlay-leave-to {
+  opacity: 0;
+}
+
+/* ===== 微交互关键帧 ===== */
+@keyframes bounce-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes ripple {
+  0% { transform: scale(0); opacity: 0.5; }
+  100% { transform: scale(4); opacity: 0; }
+}
+
+/* ===== 动画工具类 ===== */
+.animate-bounce-in {
+  animation: bounce-in 0.5s var(--ease-spring);
+}
+
+.animate-shake {
+  animation: shake 0.6s var(--ease-default);
+}
+
+.animate-pulse {
+  animation: pulse 2s var(--ease-in-out) infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-float {
+  animation: float 3s var(--ease-in-out) infinite;
+}

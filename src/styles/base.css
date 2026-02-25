@@ -1,0 +1,186 @@
+/* ===== 基础重置 ===== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+    'Helvetica Neue', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: 17px;
+  line-height: 1.47;
+  letter-spacing: -0.022em;
+  color: var(--text-primary);
+  background: #1a1a2e;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#app {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== 排版 ===== */
+.text-large-title {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: 0.37px;
+  line-height: 1.2;
+}
+
+.text-title1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0.36px;
+}
+
+.text-title2 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.35px;
+}
+
+.text-title3 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.38px;
+}
+
+.text-headline {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.41px;
+}
+
+.text-body {
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: -0.41px;
+}
+
+.text-callout {
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: -0.32px;
+}
+
+.text-subhead {
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: -0.24px;
+}
+
+.text-footnote {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: -0.08px;
+}
+
+.text-caption1 {
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.text-caption2 {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.07px;
+}
+
+/* ===== 输入框 ===== */
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-default),
+              box-shadow var(--duration-fast) var(--ease-default);
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-blue);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+input[type='checkbox'],
+input[type='radio'],
+input[type='range'] {
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* ===== 按钮基础 ===== */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ===== 可点击反馈 ===== */
+.pressable {
+  transition: transform var(--duration-instant) ease,
+              opacity var(--duration-instant) ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pressable:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
+/* ===== 滚动条 ===== */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* ===== 选中样式 ===== */
+::selection {
+  background: rgba(10, 132, 255, 0.3);
+  color: inherit;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+  body,
+  #app {
+    padding: 0;
+  }
+}
