@@ -1,0 +1,451 @@
+/**
+ * 社交内容解析器
+ * 从AI生成的文本中解析出论坛帖子、微博、朋友圈等结构化数据
+ * 参考: mobile_ref 的 forum-ui.js / weibo-ui.js / friends-circle.js
+ */
+
+// ==================== 论坛数据类型 ====================
+
+export interface ForumThread {
+  id: string
+  author: string
+  title: string
+  content: string
+  replies: ForumReply[]
+  timestamp: string
+  likes: number
+  isLiked: boolean
+}
+
+export interface ForumReply {
+  id: string
+  threadId: string
+  author: string
+  content: string
+  floor: number
+  timestamp: string
+  type: 'reply' | 'subreply'
+  parentFloor?: string
+  subReplies: ForumSubReply[]
+  likes: number
+  isLiked: boolean
+}
+
+export interface ForumSubReply {
+  id: string
+  threadId: string
+  author: string
+  content: string
+  parentFloor: string
+  timestamp: string
+  likes: number
+  isLiked: boolean
+}
+
+export interface ForumData {
+  threads: ForumThread[]
+  replies: Record<string, ForumReply[]>
+}
+
+// ==================== 微博数据类型 ====================
+
+export interface WeiboItem {
+  id: string
+  author: string
+  content: string
+  timestamp: string
+  likes: number
+  isLiked: boolean
+  reposts: number
+  comments: WeiboComment[]
+  showComments: boolean
+}
+
+export interface WeiboComment {
+  id: string
+  postId: string
+  author: string
+  content: string
+  timestamp: string
+  likes: number
+  isLiked: boolean
+}
+
+export interface HotSearchItem {
+  rank: number
+  title: string
+  heat: string
+}
+
+export interface RankingItem {
+  name: string
+  type: string
+  heat?: string
+}
+
+export interface WeiboData {
+  posts: WeiboItem[]
+  hotSearches: HotSearchItem[]
+  rankings: RankingItem[]
+}
+
+// ==================== 朋友圈数据类型 ====================
+
+export interface MomentItem {
+  id: string
+  author: string
+  content: string
+  timestamp: string
+  likes: number
+  isLiked: boolean
+  likedBy: string[]
+  comments: MomentComment[]
+  showInteraction: boolean
+  commentDraft: string
+}
+
+export interface MomentComment {
+  id: string
+  momentId: string
+  author: string
+  content: string
+  replyTo?: string
+  timestamp: string
+}
+
+export interface MomentsData {
+  moments: MomentItem[]
+}
+
+// ==================== 头像颜色系统 ====================
+
+const AVATAR_COLORS = [
+  'linear-gradient(135deg, #fad0c4 0%, #ffd1ff 100%)',
+  '#b28cb9', '#e2b3d4', '#f7d1e6', '#d49ec2',
+  '#f3c6d7', '#ec97b7', '#d66a88', '#b74d66',
+  '#e3d6a7', '#c8ac6d', '#a0d8e1', '#2e8b9b',
+  '#1a6369', '#0e3d45', '#6ba1e1', '#1f5e8d',
+  '#b7d3a8', '#3e7b41', '#f9e79f', '#a3b4e2',
+]
+
+export function hashUsername(username: string): number {
+  let hash = 0
+  if (!username || username.length === 0) return hash
+  for (let i = 0; i < username.length; i++) {
+    const char = username.charCodeAt(i)
+    hash = (hash << 5) - hash + char
+    hash = hash & hash
+  }
+  return Math.abs(hash)
+}
+
+export function getAvatarColor(username: string): string {
+  const hash = hashUsername(username)
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length]
+}
+
+// ==================== 时间工具 ====================
+
+export function generateTimestamp(): string {
+  return new Date().toISOString()
+}
+
+export function generateId(prefix: string = 'item'): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
+// ==================== 论坛解析器 ====================
+
+export function parseForumContent(content: string): ForumData {
+  const forumRegex = /<!-- FORUM_CONTENT_START -->([\s\S]*?)<!-- FORUM_CONTENT_END -->/
+  const match = content.match(forumRegex)
+
+  if (!match) {
+    return { threads: [], replies: {} }
+  }
+
+  const forumContent = match[1]
+  const threads: ForumThread[] = []
+  const replies: Record<string, ForumReply[]> = {}
+
+  // 解析标题: [标题|发帖人昵称|帖子id|标题内容|帖子详情]
+  const titleRegex = /\[标题\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  let m: RegExpExecArray | null
+
+  while ((m = titleRegex.exec(forumContent)) !== null) {
+    const thread: ForumThread = {
+      id: m[2].trim(),
+      author: m[1].trim(),
+      title: m[3].trim(),
+      content: m[4].trim(),
+      replies: [],
+      timestamp: generateTimestamp(),
+      likes: Math.floor(Math.random() * 50) + 5,
+      isLiked: false,
+    }
+    threads.push(thread)
+    replies[thread.id] = []
+  }
+
+  // 解析回复: [回复|回帖人昵称|帖子id|回复内容]
+  const replyRegex = /\[回复\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = replyRegex.exec(forumContent)) !== null) {
+    const threadId = m[2].trim()
+    if (!replies[threadId]) replies[threadId] = []
+    const floor = replies[threadId].length + 2
+
+    const reply: ForumReply = {
+      id: generateId('reply'),
+      threadId,
+      author: m[1].trim(),
+      content: m[3].trim(),
+      floor,
+      timestamp: generateTimestamp(),
+      type: 'reply',
+      subReplies: [],
+      likes: Math.floor(Math.random() * 10) + 1,
+      isLiked: false,
+    }
+    replies[threadId].push(reply)
+  }
+
+  // 解析楼中楼: [楼中楼|回帖人昵称|帖子id|父楼层|回复内容]
+  const subReplyRegex = /\[楼中楼\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = subReplyRegex.exec(forumContent)) !== null) {
+    const threadId = m[2].trim()
+    const parentFloor = m[3].trim()
+
+    const subReply: ForumSubReply = {
+      id: generateId('sub'),
+      threadId,
+      author: m[1].trim(),
+      content: m[4].trim(),
+      parentFloor,
+      timestamp: generateTimestamp(),
+      likes: Math.floor(Math.random() * 5),
+      isLiked: false,
+    }
+
+    if (replies[threadId]) {
+      // 尝试匹配父楼层
+      const parent = replies[threadId].find(
+        r => r.author === parentFloor ||
+          String(r.floor) === parentFloor ||
+          replies[threadId].indexOf(r) + 2 === parseInt(parentFloor)
+      )
+      if (parent) {
+        parent.subReplies.push(subReply)
+      } else {
+        // 作为普通回复
+        const floor = replies[threadId].length + 2
+        replies[threadId].push({
+          id: subReply.id,
+          threadId,
+          author: subReply.author,
+          content: subReply.content,
+          floor,
+          timestamp: subReply.timestamp,
+          type: 'reply',
+          subReplies: [],
+          likes: subReply.likes,
+          isLiked: false,
+        })
+      }
+    }
+  }
+
+  // 将回复绑定到帖子
+  threads.forEach(thread => {
+    thread.replies = replies[thread.id] || []
+  })
+
+  return { threads, replies }
+}
+
+// ==================== 微博解析器 ====================
+
+export function parseWeiboContent(content: string): WeiboData {
+  const weiboRegex = /<!-- WEIBO_CONTENT_START -->([\s\S]*?)<!-- WEIBO_CONTENT_END -->/
+  const match = content.match(weiboRegex)
+
+  if (!match) {
+    return { posts: [], hotSearches: [], rankings: [] }
+  }
+
+  const weiboContent = match[1]
+  const posts: WeiboItem[] = []
+  const hotSearches: HotSearchItem[] = []
+  const rankings: RankingItem[] = []
+  let m: RegExpExecArray | null
+
+  // 解析博文: [博文|发博人昵称|博文id|博文内容]
+  const postRegex = /\[博文\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = postRegex.exec(weiboContent)) !== null) {
+    posts.push({
+      id: m[2].trim(),
+      author: m[1].trim(),
+      content: m[3].trim(),
+      timestamp: generateTimestamp(),
+      likes: Math.floor(Math.random() * 200) + 10,
+      isLiked: false,
+      reposts: Math.floor(Math.random() * 50),
+      comments: [],
+      showComments: false,
+    })
+  }
+
+  // 解析评论: [评论|评论人昵称|博文id|评论内容]
+  const commentRegex = /\[评论\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = commentRegex.exec(weiboContent)) !== null) {
+    const postId = m[2].trim()
+    const post = posts.find(p => p.id === postId)
+    if (post) {
+      post.comments.push({
+        id: generateId('wc'),
+        postId,
+        author: m[1].trim(),
+        content: m[3].trim(),
+        timestamp: generateTimestamp(),
+        likes: Math.floor(Math.random() * 20),
+        isLiked: false,
+      })
+    }
+  }
+
+  // 解析热搜: [热搜|排名|热搜标题|热度值]
+  const hotRegex = /\[热搜\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = hotRegex.exec(weiboContent)) !== null) {
+    hotSearches.push({
+      rank: parseInt(m[1].trim()) || hotSearches.length + 1,
+      title: m[2].trim(),
+      heat: m[3].trim(),
+    })
+  }
+
+  // 解析榜单: [榜单|榜单名称|榜单类型]
+  const rankRegex = /\[榜单\|([^|]+)\|([^\]]+)\]/g
+  while ((m = rankRegex.exec(weiboContent)) !== null) {
+    rankings.push({
+      name: m[1].trim(),
+      type: m[2].trim(),
+    })
+  }
+
+  return { posts, hotSearches, rankings }
+}
+
+// ==================== 朋友圈解析器 ====================
+
+export function parseMomentsContent(content: string): MomentsData {
+  const momentsRegex = /<!-- MOMENTS_CONTENT_START -->([\s\S]*?)<!-- MOMENTS_CONTENT_END -->/
+  const match = content.match(momentsRegex)
+
+  if (!match) {
+    return { moments: [] }
+  }
+
+  const momentsContent = match[1]
+  const moments: MomentItem[] = []
+  let m: RegExpExecArray | null
+
+  // 解析动态: [动态|发布人昵称|动态id|动态内容]
+  const momentRegex = /\[动态\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = momentRegex.exec(momentsContent)) !== null) {
+    moments.push({
+      id: m[2].trim(),
+      author: m[1].trim(),
+      content: m[3].trim(),
+      timestamp: generateTimestamp(),
+      likes: 0,
+      isLiked: false,
+      likedBy: [],
+      comments: [],
+      showInteraction: false,
+      commentDraft: '',
+    })
+  }
+
+  // 解析点赞: [点赞|点赞人昵称|动态id]
+  const likeRegex = /\[点赞\|([^|]+)\|([^\]]+)\]/g
+  while ((m = likeRegex.exec(momentsContent)) !== null) {
+    const momentId = m[2].trim()
+    const moment = moments.find(mo => mo.id === momentId)
+    if (moment) {
+      const liker = m[1].trim()
+      if (!moment.likedBy.includes(liker)) {
+        moment.likedBy.push(liker)
+        moment.likes++
+      }
+    }
+  }
+
+  // 解析评论: [评论|评论人昵称|动态id|评论内容]
+  const commentRegex = /\[评论\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = commentRegex.exec(momentsContent)) !== null) {
+    const momentId = m[2].trim()
+    const moment = moments.find(mo => mo.id === momentId)
+    if (moment) {
+      moment.comments.push({
+        id: generateId('mc'),
+        momentId,
+        author: m[1].trim(),
+        content: m[3].trim(),
+        timestamp: generateTimestamp(),
+      })
+    }
+  }
+
+  // 解析回复评论: [回复评论|回复人昵称|动态id|被回复人昵称|回复内容]
+  const replyCommentRegex = /\[回复评论\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = replyCommentRegex.exec(momentsContent)) !== null) {
+    const momentId = m[2].trim()
+    const moment = moments.find(mo => mo.id === momentId)
+    if (moment) {
+      moment.comments.push({
+        id: generateId('mcr'),
+        momentId,
+        author: m[1].trim(),
+        content: m[4].trim(),
+        replyTo: m[3].trim(),
+        timestamp: generateTimestamp(),
+      })
+    }
+  }
+
+  return { moments }
+}
+
+// ==================== 内容格式化工具 ====================
+
+/** 格式化内容: 处理@用户、话题标签、换行 */
+export function formatContent(content: string): string {
+  let formatted = content
+  // 处理@用户
+  formatted = formatted.replace(/@([^\s@]+)/g, '<span class="mention">@$1</span>')
+  // 处理 #话题#
+  formatted = formatted.replace(/#([^#]+)#/g, '<span class="topic-tag">#$1#</span>')
+  // 处理换行
+  formatted = formatted.replace(/\n/g, '<br>')
+  return formatted
+}
+
+/** 截断文本 */
+export function truncateText(text: string, max: number): string {
+  return text.length > max ? text.slice(0, max) + '...' : text
+}
+
+/** 格式化时间为相对时间 */
+export function formatRelativeTime(dateStr: string): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+  if (diffMin < 1) return '刚刚'
+  if (diffMin < 60) return `${diffMin}分钟前`
+  const diffHour = Math.floor(diffMin / 60)
+  if (diffHour < 24) return `${diffHour}小时前`
+  const diffDay = Math.floor(diffHour / 24)
+  if (diffDay < 7) return `${diffDay}天前`
+  return `${d.getMonth() + 1}-${d.getDate()}`
+}

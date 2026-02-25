@@ -2,117 +2,124 @@
   <div class="forum-page">
     <NavBar title="论坛" back-to="/">
       <template #right>
-        <button class="icon-btn" @click="showCompose = true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-          </svg>
-        </button>
+        <div class="header-actions">
+          <button class="hdr-btn" @click="showPromptEditor = true" title="提示词设置">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+          <button class="hdr-btn" @click="handleRefresh" :disabled="store.generating" title="刷新">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" :class="{ spinning: store.generating }"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
+          <button class="hdr-btn compose-btn" @click="showCompose = true" title="发帖">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </button>
+        </div>
       </template>
     </NavBar>
 
-    <!-- Board Tabs -->
-    <div class="board-tabs">
-      <button
-        v-for="tab in boards"
-        :key="tab.id"
-        class="tab-btn"
-        :class="{ active: currentBoard === tab.id }"
-        @click="currentBoard = tab.id"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
-
-    <!-- Posts List -->
-    <div class="posts-list">
-      <div v-if="posts.length === 0" class="empty-state">
-        <div class="empty-emoji">📋</div>
-        <div class="empty-title">暂无帖子</div>
-        <div class="empty-subtitle">来发第一个帖子吧</div>
+    <!-- 帖子列表 -->
+    <div class="forum-content" ref="contentRef">
+      <!-- 加载中 -->
+      <div v-if="store.forumLoading && store.forumThreads.length === 0" class="loading-state">
+        <div class="loading-spinner">💬</div>
+        <div class="loading-text">正在生成论坛内容...</div>
       </div>
 
-      <div
-        v-for="post in posts"
-        :key="post.id"
-        class="post-card"
-        @click="$router.push(`/forum/post/${post.id}`)"
-      >
-        <!-- Pinned badge -->
-        <div v-if="post.pinned" class="pin-badge">📌 置顶</div>
+      <!-- 空状态 -->
+      <div v-else-if="store.forumThreads.length === 0" class="empty-state">
+        <div class="empty-icon">💬</div>
+        <div class="empty-text">暂无帖子</div>
+        <div class="empty-hint">点击右上角刷新按钮让AI生成帖子～</div>
+        <button class="generate-btn" @click="handleRefresh" :disabled="store.generating">
+          {{ store.generating ? '生成中...' : '✨ 生成论坛内容' }}
+        </button>
+      </div>
 
-        <div class="post-header">
-          <div class="post-author-avatar">
-            {{ post.author?.display_name?.charAt(0) || '👤' }}
-          </div>
-          <div class="post-author-info">
-            <span class="post-author-name">{{ post.author?.display_name || '匿名' }}</span>
-            <span class="post-date">{{ formatDate(post.created_at) }}</span>
-          </div>
-          <span class="post-board-tag">{{ getBoardLabel(post.board) }}</span>
+      <!-- 帖子卡片列表 -->
+      <div v-else class="thread-list">
+        <!-- 错误提示 -->
+        <div v-if="store.lastError" class="error-toast" @click="store.lastError = ''">
+          ⚠️ {{ store.lastError }}
         </div>
 
-        <h3 class="post-title">{{ post.title }}</h3>
-        <p class="post-content" v-if="post.content">{{ truncate(post.content, 120) }}</p>
+        <!-- 顶部加载指示 -->
+        <div v-if="store.generating" class="top-loading">
+          <span class="dot-loading">生成中</span>
+        </div>
 
-        <!-- Images preview -->
-        <div v-if="post.images?.length" class="post-images">
-          <div
-            v-for="(img, i) in post.images.slice(0, 3)"
-            :key="i"
-            class="post-img"
-          >
-            <img :src="img" alt="" />
-            <div v-if="i === 2 && post.images.length > 3" class="img-more">
-              +{{ post.images.length - 3 }}
+        <div
+          v-for="thread in store.forumThreads"
+          :key="thread.id"
+          class="thread-item"
+          @click="openThread(thread.id)"
+        >
+          <div class="thread-header">
+            <div class="author-avatar" :style="{ background: getColor(thread.author) }">
+              {{ thread.author[0] || '?' }}
             </div>
+            <div class="thread-author">
+              <div class="author-name">{{ thread.author }}</div>
+            </div>
+            <div class="thread-id-tag">t{{ thread.id }}</div>
+            <button class="delete-btn" @click.stop="handleDelete(thread.id)" title="删除">×</button>
           </div>
-        </div>
 
-        <div class="post-footer">
-          <div class="post-stat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-            </svg>
-            <span>{{ post.likes }}</span>
+          <div class="post-body">
+            <h3 class="thread-title">{{ thread.title }}</h3>
+            <div class="thread-content">{{ truncate(thread.content, 100) }}</div>
           </div>
-          <div class="post-stat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            <span>{{ post.comments }}</span>
+
+          <div class="thread-stats">
+            <button class="action-btn" :class="{ liked: thread.isLiked }" @click.stop="store.toggleForumLike(thread.id)">
+              <span>{{ thread.isLiked ? '❤️' : '🤍' }}</span>
+              <span>{{ thread.likes }}</span>
+            </button>
+            <button class="action-btn">
+              <span>💬</span>
+              <span>{{ thread.replies.length }}</span>
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Compose Modal -->
+    <!-- 发帖弹窗 -->
     <Teleport to="#phone-overlay">
       <Transition name="slide-up">
-        <div v-if="showCompose" class="compose-overlay">
+        <div v-if="showCompose" class="compose-overlay" @click.self="showCompose = false">
           <div class="compose-panel">
-            <div class="compose-header">
-              <button class="compose-cancel" @click="showCompose = false">取消</button>
-              <span class="compose-title">发帖</span>
-              <button class="compose-submit" :disabled="!canSubmit" @click="submitPost">发布</button>
+            <div class="dialog-header">
+              <button class="dialog-close" @click="showCompose = false">取消</button>
+              <h3>发新帖</h3>
+              <button class="dialog-submit" :disabled="!newTitle.trim() || store.generating" @click="submitPost">
+                {{ store.generating ? '发送中...' : '✈' }}
+              </button>
             </div>
+            <div class="dialog-body">
+              <input v-model="newTitle" type="text" class="post-title-input" placeholder="请输入帖子标题..." maxlength="100" />
+              <textarea v-model="newContent" class="post-content-input" placeholder="分享你的想法..." rows="5"></textarea>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
-            <div class="compose-body">
-              <select v-model="newPost.board" class="board-select">
-                <option v-for="b in boards" :key="b.id" :value="b.id">{{ b.label }}</option>
-              </select>
-              <input
-                v-model="newPost.title"
-                type="text"
-                class="compose-input title-input"
-                placeholder="标题"
-                maxlength="100"
-              />
-              <textarea
-                v-model="newPost.content"
-                class="compose-input content-input"
-                placeholder="说点什么..."
-                rows="6"
-              ></textarea>
+    <!-- 提示词编辑弹窗 -->
+    <Teleport to="#phone-overlay">
+      <Transition name="slide-up">
+        <div v-if="showPromptEditor" class="compose-overlay" @click.self="showPromptEditor = false">
+          <div class="compose-panel prompt-panel">
+            <div class="dialog-header">
+              <button class="dialog-close" @click="showPromptEditor = false">关闭</button>
+              <h3>论坛提示词</h3>
+              <button class="dialog-submit" @click="savePrompt">保存</button>
+            </div>
+            <div class="dialog-body">
+              <p class="prompt-hint">自定义AI生成论坛内容的提示词。支持变量：<code v-pre>{{characters}}</code> <code v-pre>{{user}}</code> <code v-pre>{{action}}</code></p>
+              <textarea v-model="promptText" class="prompt-textarea" rows="12"></textarea>
+              <div class="prompt-actions">
+                <button class="reset-btn" @click="resetPrompt">恢复默认</button>
+                <button class="clear-data-btn" @click="clearForumData">清除所有帖子</button>
+              </div>
             </div>
           </div>
         </div>
@@ -122,103 +129,72 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, reactive } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
-import { api } from '@/api/client'
+import { useSocialAIStore } from '@/stores/socialAI'
+import { getAvatarColor, truncateText } from '@/utils/socialParsers'
+import { getPromptTemplate, setPromptTemplate, resetPromptTemplate } from '@/utils/socialPrompts'
 
-interface PostAuthor {
-  display_name: string
-  avatar_url: string
-}
+const router = useRouter()
+const store = useSocialAIStore()
 
-interface Post {
-  id: number
-  user_id: number
-  board: string
-  title: string
-  content: string
-  images: string[]
-  likes: number
-  comments: number
-  pinned: boolean
-  created_at: string
-  author?: PostAuthor
-}
-
-const boards = [
-  { id: 'all', label: '全部' },
-  { id: 'general', label: '综合' },
-  { id: 'chat', label: '闲聊' },
-  { id: 'share', label: '分享' },
-  { id: 'question', label: '提问' },
-  { id: 'announce', label: '公告' },
-]
-
-const currentBoard = ref('all')
-const posts = ref<Post[]>([])
 const showCompose = ref(false)
+const showPromptEditor = ref(false)
+const newTitle = ref('')
+const newContent = ref('')
+const promptText = ref('')
+const contentRef = ref<HTMLElement>()
 
-const newPost = reactive({
-  board: 'general',
-  title: '',
-  content: '',
-})
-
-const canSubmit = computed(() => newPost.title.trim().length > 0)
-
-function getBoardLabel(boardId: string): string {
-  return boards.find(b => b.id === boardId)?.label || boardId
+function getColor(name: string) {
+  return getAvatarColor(name)
 }
 
-function formatDate(dateStr: string): string {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  const now = new Date()
-  const diffMs = now.getTime() - d.getTime()
-  const diffMin = Math.floor(diffMs / 60000)
-  if (diffMin < 1) return '刚刚'
-  if (diffMin < 60) return `${diffMin}分钟前`
-  const diffHour = Math.floor(diffMin / 60)
-  if (diffHour < 24) return `${diffHour}小时前`
-  const diffDay = Math.floor(diffHour / 24)
-  if (diffDay < 7) return `${diffDay}天前`
-  return `${d.getMonth() + 1}/${d.getDate()}`
+function truncate(text: string, max: number) {
+  return truncateText(text, max)
 }
 
-function truncate(text: string, max: number): string {
-  return text.length > max ? text.slice(0, max) + '...' : text
+function openThread(threadId: string) {
+  router.push(`/forum/post/${threadId}`)
 }
 
-async function fetchPosts() {
-  try {
-    const params = currentBoard.value !== 'all' ? `?board=${currentBoard.value}` : ''
-    const res = await api.get<{ data: Post[] }>(`/api/posts${params}`)
-    posts.value = res.data || []
-  } catch (e) {
-    console.error('Failed to fetch posts:', e)
-  }
+async function handleRefresh() {
+  await store.generateForumContent()
 }
 
 async function submitPost() {
-  if (!canSubmit.value) return
-  try {
-    await api.post('/api/posts', {
-      board: newPost.board,
-      title: newPost.title.trim(),
-      content: newPost.content.trim(),
-    })
-    showCompose.value = false
-    newPost.title = ''
-    newPost.content = ''
-    newPost.board = 'general'
-    fetchPosts()
-  } catch (e) {
-    console.error('Failed to create post:', e)
+  if (!newTitle.value.trim()) return
+  showCompose.value = false
+  await store.forumPost(newTitle.value.trim(), newContent.value.trim())
+  newTitle.value = ''
+  newContent.value = ''
+}
+
+function handleDelete(threadId: string) {
+  if (confirm('确定删除这个帖子吗？')) {
+    store.deleteForumThread(threadId)
+  }
+}
+
+function savePrompt() {
+  setPromptTemplate('forum', promptText.value)
+  showPromptEditor.value = false
+}
+
+function resetPrompt() {
+  resetPromptTemplate('forum')
+  promptText.value = getPromptTemplate('forum')
+}
+
+function clearForumData() {
+  if (confirm('确定清除所有帖子数据吗？')) {
+    store.clearData('forum')
   }
 }
 
 onMounted(() => {
-  fetchPosts()
+  store.loadData('forum')
+  promptText.value = getPromptTemplate('forum')
 })
 </script>
 
@@ -227,331 +203,396 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-secondary);
+  background: #fcfaf7;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', sans-serif;
 }
 
-/* Board Tabs */
-.board-tabs {
+/* 头部按钮 */
+.header-actions {
   display: flex;
-  gap: 0;
-  padding: 0 12px;
-  background: var(--bg-primary);
-  border-bottom: 0.5px solid var(--separator);
-  overflow-x: auto;
-  flex-shrink: 0;
-  -webkit-overflow-scrolling: touch;
-}
-
-.board-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.tab-btn {
-  padding: 10px 16px;
-  border: none;
-  background: none;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-  white-space: nowrap;
-  position: relative;
-  transition: color 0.2s;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.tab-btn.active {
-  color: var(--brand-primary);
-  font-weight: 600;
-}
-
-.tab-btn.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 20px;
-  height: 3px;
-  background: var(--brand-primary);
-  border-radius: 2px;
-}
-
-/* Posts List */
-.posts-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  -webkit-overflow-scrolling: touch;
-}
-
-.post-card {
-  background: var(--bg-primary);
-  border-radius: 14px;
-  padding: 14px 16px;
-  cursor: pointer;
-  transition: transform 0.15s var(--ease-ios);
-}
-
-.post-card:active {
-  transform: scale(0.98);
-}
-
-.pin-badge {
-  font-size: 12px;
-  color: var(--ios-orange);
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.post-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.post-author-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  color: white;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.post-author-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.post-author-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.post-date {
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.post-board-tag {
-  font-size: 11px;
-  color: var(--brand-primary);
-  background: rgba(88, 86, 214, 0.1);
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: 500;
-  flex-shrink: 0;
-}
-
-.post-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 6px;
-  line-height: 1.4;
-}
-
-.post-content {
-  font-size: 14px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  margin: 0 0 10px;
-}
-
-.post-images {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-.post-img {
-  width: 80px;
-  height: 80px;
-  border-radius: 8px;
-  overflow: hidden;
-  position: relative;
-  background: var(--fill-tertiary);
-}
-
-.post-img img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.img-more {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.post-footer {
-  display: flex;
-  gap: 20px;
-  padding-top: 8px;
-  border-top: 0.5px solid var(--separator);
-}
-
-.post-stat {
-  display: flex;
-  align-items: center;
   gap: 4px;
-  font-size: 13px;
-  color: var(--text-tertiary);
-}
-
-.post-stat svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* Empty */
-.empty-state {
-  display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: 60px 20px;
 }
 
-.empty-emoji { font-size: 48px; margin-bottom: 12px; }
-.empty-title { font-size: 17px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px; }
-.empty-subtitle { font-size: 14px; color: var(--text-tertiary); }
-
-/* Icon button */
-.icon-btn {
+.hdr-btn {
   width: 32px;
   height: 32px;
   border: none;
   background: none;
-  color: var(--brand-primary);
+  color: var(--brand-primary, #5856d6);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 8px;
   -webkit-tap-highlight-color: transparent;
 }
 
-.icon-btn:active { opacity: 0.5; }
-.icon-btn svg { width: 22px; height: 22px; }
+.hdr-btn:active { opacity: 0.5; }
+.hdr-btn:disabled { opacity: 0.3; }
 
-/* Compose */
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 内容区域 */
+.forum-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.forum-content::-webkit-scrollbar { display: none; }
+
+/* 加载状态 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  color: #8f8a82;
+}
+
+.loading-spinner {
+  font-size: 48px;
+  margin-bottom: 16px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+.loading-text { font-size: 14px; }
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  text-align: center;
+  color: #b8b2a9;
+  padding: 20px;
+}
+
+.empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.6; }
+.empty-text { font-size: 18px; font-weight: 600; color: #8f8a82; margin-bottom: 8px; }
+.empty-hint { font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+
+.generate-btn {
+  background: linear-gradient(135deg, #e8a0bf 0%, #e1c195 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 25px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(184, 169, 154, 0.3);
+  transition: all 0.3s ease;
+}
+
+.generate-btn:active { transform: scale(0.95); }
+.generate-btn:disabled { opacity: 0.5; }
+
+/* 错误提示 */
+.error-toast {
+  background: #fff3cd;
+  color: #856404;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* 顶部加载 */
+.top-loading {
+  text-align: center;
+  padding: 8px;
+  color: #e8a0bf;
+  font-size: 13px;
+}
+
+.dot-loading::after {
+  content: '';
+  animation: dots 1.5s steps(4) infinite;
+}
+
+@keyframes dots {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+}
+
+/* 帖子卡片 */
+.thread-item {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 12px;
+  cursor: pointer;
+  border: 1px solid #f1ede8;
+  box-shadow: 0 4px 15px rgba(184, 169, 154, 0.15);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.thread-item:active {
+  transform: scale(0.98);
+}
+
+.thread-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.author-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.thread-author { flex: 1; }
+
+.author-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: #5c554e;
+}
+
+.thread-id-tag {
+  background: #f1ede8;
+  color: #b8b2a9;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-weight: 500;
+}
+
+.delete-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: #9ca3af;
+  color: white;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.delete-btn:active { opacity: 1; }
+
+.post-body { margin-bottom: 8px; }
+
+.thread-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #5c554e;
+  line-height: 1.3;
+  margin: 0 0 4px;
+}
+
+.thread-content {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #8f8a82;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.thread-stats {
+  display: flex;
+  gap: 20px;
+}
+
+.action-btn {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  color: #8f8a82;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.action-btn:active { background: #e9ecef; }
+.action-btn.liked { background: rgba(231, 76, 60, 0.1); border-color: #e74c3c; color: #e74c3c; }
+
+/* 发帖弹窗 */
 .compose-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
   z-index: 1000;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: center;
 }
 
 .compose-panel {
-  width: 100%;
-  background: var(--bg-primary);
-  border-radius: 20px 20px 0 0;
+  background: white;
+  border-radius: 16px;
+  width: 90%;
   max-height: 80vh;
-  display: flex;
-  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
-.compose-header {
+.prompt-panel {
+  max-height: 90vh;
+}
+
+.dialog-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 16px;
-  border-bottom: 0.5px solid var(--separator);
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.compose-title {
+.dialog-header h3 {
+  margin: 0;
   font-size: 17px;
+  color: #333;
   font-weight: 600;
-  color: var(--text-primary);
 }
 
-.compose-cancel,
-.compose-submit {
+.dialog-close, .dialog-submit {
   border: none;
   background: none;
-  font-size: 16px;
+  font-size: 15px;
   cursor: pointer;
   padding: 4px 8px;
   -webkit-tap-highlight-color: transparent;
 }
 
-.compose-cancel { color: var(--text-secondary); }
-.compose-submit { color: var(--brand-primary); font-weight: 600; }
-.compose-submit:disabled { color: var(--text-quaternary); }
+.dialog-close { color: #8f8a82; }
+.dialog-submit { color: #e8a0bf; font-weight: 600; }
+.dialog-submit:disabled { opacity: 0.4; }
 
-.compose-body {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  overflow-y: auto;
+.dialog-body { padding: 20px; }
+
+.post-title-input {
+  width: 100%;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 16px;
+  margin-bottom: 12px;
+  outline: none;
+  box-sizing: border-box;
+  color: #333;
+  background: #fafbfc;
 }
 
-.board-select {
-  padding: 8px 12px;
-  border: 1px solid var(--separator);
-  border-radius: 10px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+.post-title-input:focus { border-color: #e8a0bf; }
+
+.post-content-input {
+  width: 100%;
+  min-height: 100px;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 12px 16px;
   font-size: 14px;
+  resize: vertical;
   outline: none;
-}
-
-.compose-input {
-  border: none;
-  background: none;
-  color: var(--text-primary);
-  font-size: 15px;
-  outline: none;
+  box-sizing: border-box;
   font-family: inherit;
+  color: #333;
+  background: #fafbfc;
 }
 
-.title-input {
-  font-size: 18px;
-  font-weight: 600;
-  padding: 0;
+.post-content-input:focus { border-color: #e8a0bf; }
+
+/* 提示词编辑 */
+.prompt-hint {
+  font-size: 12px;
+  color: #8f8a82;
+  margin: 0 0 12px;
+  line-height: 1.5;
 }
 
-.title-input::placeholder { color: var(--text-quaternary); font-weight: 400; }
-
-.content-input {
-  resize: none;
-  line-height: 1.6;
-  min-height: 120px;
+.prompt-hint code {
+  background: #f1ede8;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 11px;
 }
 
-.content-input::placeholder { color: var(--text-quaternary); }
-
-/* Transitions */
-.slide-up-enter-active,
-.slide-up-leave-active {
-  transition: all 0.3s var(--ease-ios);
+.prompt-textarea {
+  width: 100%;
+  min-height: 200px;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 13px;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  color: #333;
+  line-height: 1.5;
+  background: #fafbfc;
 }
 
-.slide-up-enter-from,
-.slide-up-leave-to {
-  transform: translateY(100%);
-  opacity: 0.8;
+.prompt-textarea:focus { border-color: #e8a0bf; }
+
+.prompt-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
 }
+
+.reset-btn, .clear-data-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid #e9ecef;
+  background: #f8f9fa;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.reset-btn:active, .clear-data-btn:active { background: #e9ecef; }
+.clear-data-btn { color: #e74c3c; border-color: #fed7d7; }
+
+/* 过渡 */
+.slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s ease; }
+.slide-up-enter-from, .slide-up-leave-to { transform: translateY(20px) scale(0.95); opacity: 0; }
 </style>

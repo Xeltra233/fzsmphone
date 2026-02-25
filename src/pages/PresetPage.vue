@@ -649,6 +649,13 @@ onMounted(() => {
   gap: 4px;
   padding: 4px 12px 8px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.category-tabs::after {
+  content: '';
+  flex-shrink: 0;
+  width: 12px;
 }
 
 .category-tabs::-webkit-scrollbar { display: none; }

@@ -101,6 +101,19 @@
         </div>
 
         <button
+          class="action-menu-btn"
+          :disabled="isTyping"
+          @click="showActionMenu = !showActionMenu"
+          title="更多操作"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="1" />
+            <circle cx="12" cy="5" r="1" />
+            <circle cx="12" cy="19" r="1" />
+          </svg>
+        </button>
+
+        <button
           class="send-btn"
           :class="{ active: inputText.trim() }"
           :disabled="!inputText.trim() || isTyping"
@@ -111,6 +124,25 @@
           </svg>
         </button>
       </div>
+
+      <!-- Action Menu -->
+      <Transition name="action-menu">
+        <div v-if="showActionMenu" class="action-menu-popup">
+          <button class="action-menu-item" @click="handleWaitReply">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span>等待回复</span>
+          </button>
+          <button class="action-menu-item" @click="handleRoll">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+            </svg>
+            <span>Roll (重新生成)</span>
+          </button>
+        </div>
+      </Transition>
     </div>
 
     <!-- Info Panel -->
@@ -178,6 +210,7 @@ const isTyping = ref(false)
 const streamingText = ref('')
 const showInfo = ref(false)
 const showEmojiPanel = ref(false)
+const showActionMenu = ref(false)
 const matchedWorldBookCount = ref(0)
 let abortController: AbortController | null = null
 
@@ -414,6 +447,89 @@ function clearChat() {
 
   showInfo.value = false
   scrollToBottom(false)
+}
+
+// 等待回复 - 不输入内容，直接触发AI回复
+async function triggerAIReply() {
+  if (!conversationId.value) return
+
+  const s = settingsStore.settings
+  if (!s.apiKey) {
+    chatStore.addMessage(conversationId.value, 'assistant', '⚠️ 请先在设置中配置 API Key 才能和我聊天哦~')
+    scrollToBottom()
+    return
+  }
+
+  isTyping.value = true
+  streamingText.value = ''
+  abortController = new AbortController()
+
+  try {
+    const aiMessages = buildMessageHistory()
+    const apiUrl = settingsStore.getApiUrl()
+    const isStream = s.streamEnabled
+
+    const response = await sendAIRequest({
+      apiKey: s.apiKey,
+      apiUrl: apiUrl,
+      model: s.model,
+      messages: aiMessages,
+      temperature: s.temperature,
+      maxTokens: s.maxLength,
+      stream: isStream,
+      timeout: s.timeout,
+      signal: abortController.signal,
+      onChunk: (chunk: string) => {
+        streamingText.value += chunk
+        scrollToBottom()
+      },
+    })
+
+    isTyping.value = false
+    const content = isStream ? streamingText.value.trim() : response.content
+    streamingText.value = ''
+
+    if (!content) {
+      chatStore.addMessage(conversationId.value!, 'assistant', '(AI 返回了空回复)')
+      scrollToBottom()
+      return
+    }
+
+    if (s.enableSplit) {
+      const segments = splitIntoSegments(content)
+      for (let i = 0; i < segments.length; i++) {
+        if (i > 0) {
+          isTyping.value = true
+          await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 500))
+          isTyping.value = false
+        }
+        chatStore.addMessage(conversationId.value!, 'assistant', segments[i])
+        scrollToBottom()
+      }
+    } else {
+      chatStore.addMessage(conversationId.value!, 'assistant', content)
+      scrollToBottom()
+    }
+  } catch (err: any) {
+    isTyping.value = false
+    streamingText.value = ''
+    if (err.name !== 'AbortError') {
+      chatStore.addMessage(conversationId.value!, 'assistant', `❌ AI 回复失败：${err.message}`)
+      scrollToBottom()
+    }
+  } finally {
+    abortController = null
+  }
+}
+
+function handleWaitReply() {
+  showActionMenu.value = false
+  triggerAIReply()
+}
+
+function handleRoll() {
+  showActionMenu.value = false
+  regenerateLast()
 }
 
 async function regenerateLast() {
@@ -690,6 +806,7 @@ onUnmounted(() => {
   border-top: 0.5px solid var(--separator);
   padding: 8px 12px;
   padding-bottom: max(8px, env(safe-area-inset-bottom));
+  position: relative;
 }
 
 .input-row {
@@ -883,6 +1000,91 @@ onUnmounted(() => {
 }
 
 .info-action-btn:active { opacity: 0.7; }
+
+/* Action Menu Button */
+.action-menu-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: var(--fill-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 50%;
+  transition: all 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.action-menu-btn:active { background: var(--bg-tertiary); transform: scale(0.9); }
+.action-menu-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.action-menu-btn svg { width: 20px; height: 20px; }
+
+/* Action Menu Popup */
+.action-menu-popup {
+  position: absolute;
+  bottom: 56px;
+  right: 48px;
+  background: var(--bg-primary);
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  min-width: 170px;
+  z-index: 10;
+  border: 0.5px solid var(--separator);
+}
+
+.action-menu-item {
+  width: 100%;
+  padding: 13px 16px;
+  border: none;
+  background: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.action-menu-item + .action-menu-item {
+  border-top: 0.5px solid var(--separator);
+}
+
+.action-menu-item:active {
+  background: var(--fill-tertiary);
+}
+
+.action-menu-item svg {
+  width: 20px;
+  height: 20px;
+  color: var(--brand-primary, #007aff);
+  flex-shrink: 0;
+}
+
+.action-menu-item span {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Action Menu Transition */
+.action-menu-enter-active {
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.action-menu-leave-active {
+  transition: all 0.15s ease-in;
+}
+.action-menu-enter-from {
+  opacity: 0;
+  transform: scale(0.9) translateY(8px);
+}
+.action-menu-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(4px);
+}
 
 /* Message transition */
 .msg-enter-active { transition: all 0.3s var(--ease-ios); }

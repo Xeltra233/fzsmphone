@@ -486,6 +486,12 @@ function resetToDefaults() {
   -webkit-overflow-scrolling: touch;
 }
 
+.tabs::after {
+  content: '';
+  flex-shrink: 0;
+  width: 4px;
+}
+
 .tabs::-webkit-scrollbar { display: none; }
 
 .tab-btn {
