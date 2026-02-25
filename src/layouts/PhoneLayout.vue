@@ -27,6 +27,9 @@
         <div class="home-indicator-wrap">
           <div class="home-indicator"></div>
         </div>
+
+        <!-- Teleport 目标：所有弹窗/菜单渲染到此处，限制在手机屏幕内 -->
+        <div id="phone-overlay"></div>
       </div>
     </div>
   </div>

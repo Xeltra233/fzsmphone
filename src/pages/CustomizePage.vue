@@ -324,7 +324,7 @@
     </div>
 
     <!-- 清除确认弹窗 -->
-    <Teleport to="body">
+    <Teleport to="#phone-overlay">
       <div v-if="showClearConfirm" class="modal-overlay" @click.self="showClearConfirm = false">
         <div class="confirm-dialog">
           <div class="confirm-icon">⚠️</div>
@@ -799,7 +799,7 @@ function resetToDefaults() {
 
 /* Modal */
 .modal-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;

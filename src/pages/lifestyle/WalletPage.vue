@@ -119,7 +119,7 @@
     </div>
 
     <!-- 交易历史弹窗 -->
-    <Teleport to="body">
+    <Teleport to="#phone-overlay">
       <div v-if="showHistory" class="modal-overlay" @click.self="showHistory = false">
         <div class="history-modal">
           <div class="modal-header">
@@ -449,7 +449,7 @@ function handleAction(action: string) {
 
 /* 历史弹窗 */
 .modal-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);

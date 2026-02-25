@@ -98,7 +98,7 @@
     </div>
 
     <!-- 创建角色弹窗 -->
-    <Teleport to="body">
+    <Teleport to="#phone-overlay">
       <div v-if="showCreateModal" class="modal-overlay" @click.self="showCreateModal = false">
         <div class="create-modal">
           <div class="modal-header">
@@ -151,7 +151,7 @@
     </Teleport>
 
     <!-- 删除确认 -->
-    <Teleport to="body">
+    <Teleport to="#phone-overlay">
       <div v-if="deleteTarget" class="modal-overlay" @click.self="deleteTarget = null">
         <div class="confirm-dialog">
           <p>确定要删除角色「{{ deleteTarget.name }}」吗？</p>
@@ -548,7 +548,7 @@ onMounted(async () => {
 
 /* 创建弹窗 */
 .modal-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);

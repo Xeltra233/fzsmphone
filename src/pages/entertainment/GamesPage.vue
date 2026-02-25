@@ -87,7 +87,7 @@
     </div>
 
     <!-- 游戏弹窗 -->
-    <Teleport to="body">
+    <Teleport to="#phone-overlay">
       <div v-if="activeGame" class="modal-overlay" @click.self="activeGame = null">
         <div class="game-modal">
           <div class="modal-header">
@@ -514,7 +514,7 @@ function rollDice() {
 
 /* 游戏弹窗 */
 .modal-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);

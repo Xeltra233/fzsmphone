@@ -103,7 +103,7 @@
     </div>
 
     <!-- 发布弹窗 -->
-    <Teleport to="body">
+    <Teleport to="#phone-overlay">
       <div v-if="showCompose" class="modal-overlay" @click.self="showCompose = false">
         <div class="compose-modal">
           <div class="modal-header">
@@ -136,7 +136,7 @@
     </Teleport>
 
     <!-- 图片预览 -->
-    <Teleport to="body">
+    <Teleport to="#phone-overlay">
       <div v-if="previewImg" class="preview-overlay" @click="previewImg = ''">
         <img :src="previewImg" alt="" class="preview-full" />
       </div>
@@ -595,7 +595,7 @@ onMounted(() => {
 
 /* 发布弹窗 */
 .modal-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);
@@ -729,7 +729,7 @@ onMounted(() => {
 
 /* 图片预览 */
 .preview-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.9);
   display: flex;

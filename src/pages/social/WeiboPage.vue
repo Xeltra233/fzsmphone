@@ -74,7 +74,7 @@
     </div>
 
     <!-- Compose -->
-    <Teleport to="body">
+    <Teleport to="#phone-overlay">
       <Transition name="slide-up">
         <div v-if="showCompose" class="compose-overlay" @click.self="showCompose = false">
           <div class="compose-sheet">
@@ -334,7 +334,7 @@ onMounted(fetchPosts)
 .icon-btn svg { width: 22px; height: 22px; }
 
 .compose-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+  position: absolute; inset: 0; background: rgba(0,0,0,0.3);
   z-index: 1000; display: flex; align-items: flex-end;
 }
 

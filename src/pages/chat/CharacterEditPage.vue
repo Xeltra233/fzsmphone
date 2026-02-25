@@ -132,7 +132,7 @@
     </div>
 
     <!-- 删除确认 -->
-    <Teleport to="body">
+    <Teleport to="#phone-overlay">
       <div v-if="showDeleteConfirm" class="modal-overlay" @click.self="showDeleteConfirm = false">
         <div class="confirm-dialog">
           <p>确定要删除角色「{{ form.name }}」吗？</p>
@@ -565,7 +565,7 @@ onMounted(() => {
 
 /* 确认弹窗 */
 .modal-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);

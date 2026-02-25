@@ -114,7 +114,7 @@
     </div>
 
     <!-- Create Menu Overlay -->
-    <Teleport to="body">
+    <Teleport to="#phone-overlay">
       <Transition name="fade">
         <div v-if="showMenu" class="menu-overlay" @click="showMenu = false">
           <div class="menu-popup" @click.stop>
@@ -495,7 +495,7 @@ onMounted(() => {
 
 /* Menu */
 .menu-overlay {
-  position: fixed;
+  position: absolute;
   top: 0;
   left: 0;
   right: 0;

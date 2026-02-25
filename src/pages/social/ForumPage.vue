@@ -86,7 +86,7 @@
     </div>
 
     <!-- Compose Modal -->
-    <Teleport to="body">
+    <Teleport to="#phone-overlay">
       <Transition name="slide-up">
         <div v-if="showCompose" class="compose-overlay">
           <div class="compose-panel">
@@ -455,7 +455,7 @@ onMounted(() => {
 
 /* Compose */
 .compose-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.3);
   z-index: 1000;
