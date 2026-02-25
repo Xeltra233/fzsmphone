@@ -3,7 +3,7 @@
     <NavBar title="短信" />
 
     <!-- 搜索栏 -->
-    <div class="search-bar">
+    <div v-if="!activeConv" class="search-bar">
       <input
         v-model="searchText"
         type="text"
@@ -13,7 +13,12 @@
     </div>
 
     <!-- 对话列表 -->
-    <div v-if="!activeChat" class="conversations-list">
+    <div v-if="!activeConv" class="conversations-list">
+      <div v-if="filteredConversations.length === 0" class="empty-state">
+        <span class="empty-icon">💬</span>
+        <p>暂无短信对话</p>
+        <p class="empty-hint">请先在角色管理中创建角色</p>
+      </div>
       <div
         v-for="conv in filteredConversations"
         :key="conv.id"
@@ -21,7 +26,8 @@
         @click="openChat(conv)"
       >
         <div class="conv-avatar" :style="{ background: conv.color }">
-          {{ conv.name.charAt(0) }}
+          <img v-if="conv.avatar" :src="conv.avatar" class="conv-avatar-img" />
+          <span v-else>{{ conv.name.charAt(0) }}</span>
         </div>
         <div class="conv-info">
           <div class="conv-top">
@@ -29,7 +35,7 @@
             <span class="conv-time">{{ conv.time }}</span>
           </div>
           <div class="conv-bottom">
-            <span class="conv-preview">{{ conv.lastMsg }}</span>
+            <span class="conv-preview">{{ conv.lastMsg || '暂无消息' }}</span>
             <span v-if="conv.unread" class="conv-badge">{{ conv.unread }}</span>
           </div>
         </div>
@@ -40,15 +46,27 @@
     </div>
 
     <!-- 聊天详情 -->
-    <template v-if="activeChat">
-      <div class="chat-header" @click="activeChat = null">
+    <template v-if="activeConv">
+      <div class="chat-header" @click="closeChat">
         <span class="back-arrow">‹</span>
-        <span class="chat-title">{{ activeChat.name }}</span>
+        <div class="chat-header-info">
+          <span class="chat-title">{{ activeConv.name }}</span>
+          <span v-if="activeConv.characterId" class="chat-subtitle">AI 角色</span>
+        </div>
+      </div>
+
+      <!-- API 未配置提示 -->
+      <div v-if="activeConv.characterId && !settingsStore.settings.apiKey" class="api-warning" @click="goToSettings">
+        ⚠️ 未配置 API Key，AI 无法回复，点击前往设置
       </div>
 
       <div class="messages-area" ref="messagesRef">
+        <div v-if="activeConv.messages.length === 0" class="empty-chat">
+          <span>💬</span>
+          <p>开始和 {{ activeConv.name }} 发短信吧~</p>
+        </div>
         <div
-          v-for="msg in activeChat.messages"
+          v-for="msg in activeConv.messages"
           :key="msg.id"
           class="sms-message"
           :class="{ 'is-self': msg.from === 'me' }"
@@ -57,6 +75,17 @@
             {{ msg.text }}
           </div>
           <span class="sms-time">{{ msg.time }}</span>
+        </div>
+
+        <!-- AI 正在输入 -->
+        <div v-if="isTyping" class="sms-message">
+          <div class="sms-bubble bubble-gray typing-bubble">
+            <div v-if="streamingText" class="streaming-text">{{ streamingText }}</div>
+            <div v-else class="typing-dots">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+          <span class="sms-time">{{ activeConv.name }} 正在输入...</span>
         </div>
       </div>
 
@@ -68,7 +97,7 @@
           class="sms-input"
           @keyup.enter="sendSms"
         />
-        <button class="sms-send" :disabled="!smsText.trim()" @click="sendSms">
+        <button class="sms-send" :disabled="!smsText.trim() || isTyping" @click="sendSms">
           发送
         </button>
       </div>
@@ -81,15 +110,43 @@
           <h3>新短信</h3>
           <button class="close-btn" @click="showNewSms = false">✕</button>
         </div>
+
+        <!-- 角色选择 -->
+        <div v-if="availableCharacters.length > 0" class="char-section">
+          <div class="section-label">选择角色</div>
+          <div class="char-list">
+            <div
+              v-for="char in availableCharacters"
+              :key="char.id"
+              class="char-option"
+              @click="createFromCharacter(char)"
+            >
+              <div class="char-avatar" :style="{ background: getCharColor(char.id) }">
+                <img v-if="char.avatar" :src="char.avatar" class="char-avatar-img" />
+                <span v-else>{{ (char.name || '?').charAt(0) }}</span>
+              </div>
+              <span class="char-name">{{ char.name }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider-line">
+          <span>或自定义</span>
+        </div>
+
         <div class="form-group">
           <label>收件人</label>
-          <input v-model="newRecipient" placeholder="输入号码或姓名" />
+          <input v-model="newRecipient" placeholder="输入名称" />
+        </div>
+        <div class="form-group">
+          <label>号码</label>
+          <input v-model="newNumber" placeholder="输入号码（可选）" />
         </div>
         <div class="form-group">
           <label>内容</label>
-          <textarea v-model="newContent" placeholder="输入短信内容..." rows="4"></textarea>
+          <textarea v-model="newContent" placeholder="输入第一条短信..." rows="3"></textarea>
         </div>
-        <button class="send-new-btn" :disabled="!newRecipient || !newContent" @click="sendNewSms">
+        <button class="send-new-btn" :disabled="!newRecipient" @click="sendNewSms">
           发送
         </button>
       </div>
@@ -98,117 +155,194 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
+import { useSmsStore } from '@/stores/sms'
+import { useSettingsStore } from '@/stores/settings'
+import {
+  sendAIRequest,
+  buildSmsMessages,
+  getCharacterById,
+} from '@/utils/aiService'
+import type { CharacterData } from '@/utils/aiService'
 
-interface SmsMessage {
-  id: number
-  from: 'me' | 'other'
-  text: string
-  time: string
-}
-
-interface SmsConversation {
-  id: number
-  name: string
-  number: string
-  color: string
-  lastMsg: string
-  time: string
-  unread: number
-  messages: SmsMessage[]
-}
+const router = useRouter()
+const smsStore = useSmsStore()
+const settingsStore = useSettingsStore()
 
 const searchText = ref('')
 const smsText = ref('')
-const activeChat = ref<SmsConversation | null>(null)
 const showNewSms = ref(false)
 const newRecipient = ref('')
+const newNumber = ref('')
 const newContent = ref('')
 const messagesRef = ref<HTMLElement | null>(null)
+const isTyping = ref(false)
+const streamingText = ref('')
+let abortController: AbortController | null = null
 
-const conversations = ref<SmsConversation[]>([
-  {
-    id: 1, name: '10086', number: '10086', color: '#007aff',
-    lastMsg: '您本月话费已出账，金额58.00元', time: '14:30', unread: 1,
-    messages: [
-      { id: 1, from: 'other', text: '【中国移动】尊敬的客户，您本月话费已出账，金额58.00元，请及时缴费。', time: '14:30' },
-      { id: 2, from: 'other', text: '【中国移动】您的流量已使用80%，建议购买流量包。', time: '昨天 10:00' },
-    ],
-  },
-  {
-    id: 2, name: '宝贝', number: '13800138000', color: '#ff2d55',
-    lastMsg: '到家了吗？', time: '12:15', unread: 0,
-    messages: [
-      { id: 1, from: 'other', text: '你在干嘛呀', time: '12:00' },
-      { id: 2, from: 'me', text: '在忙工作呢~', time: '12:05' },
-      { id: 3, from: 'other', text: '到家了吗？', time: '12:15' },
-      { id: 4, from: 'me', text: '快了快了，马上到', time: '12:16' },
-    ],
-  },
-  {
-    id: 3, name: '快递', number: '95311', color: '#ff9500',
-    lastMsg: '您的快递已签收', time: '昨天', unread: 0,
-    messages: [
-      { id: 1, from: 'other', text: '【顺丰速运】您的包裹已到达，请凭取件码到驿站取件。取件码：6688', time: '昨天 09:30' },
-      { id: 2, from: 'other', text: '【顺丰速运】您的快递已签收，感谢使用顺丰。', time: '昨天 15:00' },
-    ],
-  },
-  {
-    id: 4, name: '验证码', number: '106xxxx', color: '#5856d6',
-    lastMsg: '您的验证码为 886432', time: '前天', unread: 0,
-    messages: [
-      { id: 1, from: 'other', text: '【某APP】您的验证码为 886432，5分钟内有效，请勿泄露。', time: '前天 20:15' },
-    ],
-  },
-])
+// 当前活跃对话
+const activeConv = computed(() => smsStore.currentConversation)
 
+// 过滤后的对话列表
 const filteredConversations = computed(() => {
-  if (!searchText.value) return conversations.value
+  const list = smsStore.sortedConversations
+  if (!searchText.value) return list
   const q = searchText.value.toLowerCase()
-  return conversations.value.filter(
+  return list.filter(
     (c) => c.name.toLowerCase().includes(q) || c.lastMsg.toLowerCase().includes(q)
   )
 })
 
-function openChat(conv: SmsConversation) {
-  activeChat.value = conv
-  conv.unread = 0
+// 可用角色列表（用于新建短信）
+const availableCharacters = computed(() => {
+  try {
+    const charsStr = localStorage.getItem('characters')
+    if (!charsStr) return []
+    const chars = JSON.parse(charsStr)
+    if (!Array.isArray(chars)) return []
+    return chars.filter((c: any) => c.type === 'char')
+  } catch {
+    return []
+  }
+})
+
+function getCharColor(id: string): string {
+  const colors = ['#ff2d55', '#007aff', '#ff9500', '#5856d6', '#34c759', '#af52de', '#ff6348']
+  let hash = 0
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash) + id.charCodeAt(i)
+    hash |= 0
+  }
+  return colors[Math.abs(hash) % colors.length]
+}
+
+function openChat(conv: any) {
+  smsStore.openConversation(conv.id)
   nextTick(() => scrollToBottom())
 }
 
-function sendSms() {
-  if (!smsText.value.trim() || !activeChat.value) return
-  activeChat.value.messages.push({
-    id: Date.now(),
-    from: 'me',
-    text: smsText.value.trim(),
-    time: '刚刚',
-  })
-  activeChat.value.lastMsg = smsText.value.trim()
-  activeChat.value.time = '刚刚'
+function closeChat() {
+  smsStore.closeConversation()
+}
+
+function goToSettings() {
+  router.push('/customize')
+}
+
+async function sendSms() {
+  if (!smsText.value.trim() || isTyping.value) return
+  const conv = activeConv.value
+  if (!conv) return
+
+  const text = smsText.value.trim()
   smsText.value = ''
+
+  // 发送用户消息
+  smsStore.sendMessage(conv.id, text)
   scrollToBottom()
+
+  // 如果关联了角色，触发 AI 回复
+  if (conv.characterId) {
+    await triggerAIReply(conv.id, conv.characterId)
+  }
+}
+
+async function triggerAIReply(conversationId: string, characterId: string) {
+  const s = settingsStore.settings
+  if (!s.apiKey) return
+
+  const character = getCharacterById(characterId)
+  if (!character) return
+
+  // 模拟打字延迟（1-3秒）
+  isTyping.value = true
+  streamingText.value = ''
+  await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000))
+
+  abortController = new AbortController()
+
+  try {
+    // 构建短信消息历史
+    const history = smsStore.getMessageHistory(conversationId, 20)
+    const aiMessages = buildSmsMessages(
+      character,
+      history.map(m => ({ from: m.from, text: m.text })),
+    )
+
+    const apiUrl = settingsStore.getApiUrl()
+    const isStream = s.streamEnabled
+
+    const response = await sendAIRequest({
+      apiKey: s.apiKey,
+      apiUrl: apiUrl,
+      model: s.model,
+      messages: aiMessages,
+      temperature: s.temperature,
+      maxTokens: 200, // 短信回复限制更短
+      stream: isStream,
+      timeout: s.timeout,
+      signal: abortController.signal,
+      onChunk: (chunk: string) => {
+        streamingText.value += chunk
+        scrollToBottom()
+      },
+    })
+
+    isTyping.value = false
+    const content = isStream ? streamingText.value.trim() : response.content
+    streamingText.value = ''
+
+    if (!content) {
+      smsStore.addAIReply(conversationId, '（消息发送失败）')
+      scrollToBottom()
+      return
+    }
+
+    // 添加 AI 回复
+    smsStore.addAIReply(conversationId, content)
+    scrollToBottom()
+  } catch (err: any) {
+    isTyping.value = false
+    streamingText.value = ''
+
+    if (err.name === 'AbortError' || err.message?.includes('abort')) {
+      return
+    }
+
+    smsStore.addAIReply(conversationId, `❌ 回复失败：${err.message}`)
+    scrollToBottom()
+  } finally {
+    abortController = null
+  }
+}
+
+function createFromCharacter(char: any) {
+  const conv = smsStore.createConversation(char.id)
+  smsStore.openConversation(conv.id)
+  showNewSms.value = false
+  nextTick(() => scrollToBottom())
 }
 
 function sendNewSms() {
-  if (!newRecipient.value || !newContent.value) return
-  const newConv: SmsConversation = {
-    id: Date.now(),
-    name: newRecipient.value,
-    number: newRecipient.value,
-    color: '#34c759',
-    lastMsg: newContent.value,
-    time: '刚刚',
-    unread: 0,
-    messages: [
-      { id: 1, from: 'me', text: newContent.value, time: '刚刚' },
-    ],
+  if (!newRecipient.value) return
+
+  const conv = smsStore.createCustomConversation(
+    newRecipient.value,
+    newNumber.value || newRecipient.value,
+  )
+
+  if (newContent.value.trim()) {
+    smsStore.sendMessage(conv.id, newContent.value.trim())
   }
-  conversations.value.unshift(newConv)
+
+  smsStore.openConversation(conv.id)
   newRecipient.value = ''
+  newNumber.value = ''
   newContent.value = ''
   showNewSms.value = false
+  nextTick(() => scrollToBottom())
 }
 
 function scrollToBottom() {
@@ -218,6 +352,10 @@ function scrollToBottom() {
     }
   })
 }
+
+onMounted(() => {
+  smsStore.loadConversations()
+})
 </script>
 
 <style scoped>
@@ -244,6 +382,31 @@ function scrollToBottom() {
   box-sizing: border-box;
 }
 
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 32px;
+  color: var(--text-tertiary);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.empty-state p {
+  margin: 4px 0;
+  font-size: 15px;
+}
+
+.empty-hint {
+  font-size: 13px !important;
+  opacity: 0.7;
+}
+
 .conversations-list {
   flex: 1;
   overflow-y: auto;
@@ -257,6 +420,7 @@ function scrollToBottom() {
   padding: 14px 16px;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
+  transition: background 0.15s;
 }
 
 .conv-item:active {
@@ -274,6 +438,13 @@ function scrollToBottom() {
   font-size: 18px;
   font-weight: 700;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.conv-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .conv-info {
@@ -342,6 +513,17 @@ function scrollToBottom() {
   z-index: 10;
 }
 
+/* API 警告 */
+.api-warning {
+  background: linear-gradient(135deg, #ff9500, #ff6348);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
 /* 聊天详情 */
 .chat-header {
   display: flex;
@@ -358,16 +540,45 @@ function scrollToBottom() {
   font-weight: 300;
 }
 
+.chat-header-info {
+  display: flex;
+  flex-direction: column;
+}
+
 .chat-title {
   font-size: 16px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
+.chat-subtitle {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
 .messages-area {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+}
+
+.empty-chat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+  color: var(--text-tertiary);
+}
+
+.empty-chat span {
+  font-size: 40px;
+  margin-bottom: 8px;
+}
+
+.empty-chat p {
+  font-size: 14px;
+  margin: 0;
 }
 
 .sms-message {
@@ -408,6 +619,38 @@ function scrollToBottom() {
   padding: 0 4px;
 }
 
+/* 打字动画 */
+.typing-bubble {
+  padding: 14px 18px;
+}
+
+.typing-dots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.typing-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  animation: typingBounce 1.2s infinite;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+.streaming-text {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
 .sms-input-area {
   display: flex;
   gap: 8px;
@@ -439,6 +682,7 @@ function scrollToBottom() {
   border-radius: 20px;
   font-size: 14px;
   cursor: pointer;
+  transition: opacity 0.15s;
 }
 
 .sms-send:disabled {
@@ -459,10 +703,12 @@ function scrollToBottom() {
 
 .new-sms-panel {
   width: 100%;
-  max-width: 340px;
+  max-width: 360px;
+  max-height: 80vh;
   background: var(--bg-secondary);
   border-radius: 20px;
   padding: 24px;
+  overflow-y: auto;
 }
 
 .panel-header {
@@ -484,6 +730,86 @@ function scrollToBottom() {
   font-size: 18px;
   color: var(--text-tertiary);
   cursor: pointer;
+}
+
+/* 角色选择 */
+.char-section {
+  margin-bottom: 16px;
+}
+
+.section-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.char-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.char-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 12px;
+  transition: background 0.15s;
+  min-width: 64px;
+}
+
+.char-option:active {
+  background: var(--bg-tertiary);
+}
+
+.char-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.char-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.char-name {
+  font-size: 12px;
+  color: var(--text-primary);
+  max-width: 64px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.divider-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.divider-line::before,
+.divider-line::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
 }
 
 .form-group {

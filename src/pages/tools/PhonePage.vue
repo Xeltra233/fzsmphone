@@ -2,112 +2,140 @@
   <div class="phone-page">
     <NavBar title="电话" />
 
-    <!-- 号码显示 -->
-    <div class="number-display">
-      <span class="phone-number">{{ displayNumber || '输入号码' }}</span>
-      <button v-if="phoneNumber" class="backspace-btn" @click="backspace">⌫</button>
+    <!-- Tab 切换 -->
+    <div class="tab-bar">
+      <button
+        v-for="tab in tabs"
+        :key="tab.key"
+        class="tab-item"
+        :class="{ active: activeTab === tab.key }"
+        @click="activeTab = tab.key"
+      >
+        {{ tab.label }}
+      </button>
     </div>
 
     <!-- 拨号盘 -->
-    <div class="dial-pad">
-      <div
-        v-for="key in dialKeys"
-        :key="key.num"
-        class="dial-key"
-        @click="pressKey(key.num)"
-      >
-        <span class="key-num">{{ key.num }}</span>
-        <span class="key-letters">{{ key.letters }}</span>
+    <div v-if="activeTab === 'dial'" class="dial-view">
+      <div class="number-display">
+        <span class="phone-number">{{ displayNumber || '输入号码' }}</span>
+        <button v-if="phoneNumber" class="backspace-btn" @click="backspace">⌫</button>
       </div>
-    </div>
 
-    <!-- 操作按钮 -->
-    <div class="action-row">
-      <button class="action-btn" @click="addContact">
-        <span>➕</span>
-        <span class="action-label">添加联系人</span>
-      </button>
-      <button class="call-btn" @click="makeCall">
-        <span>📞</span>
-      </button>
-      <button class="action-btn" @click="showRecent = true">
-        <span>🕐</span>
-        <span class="action-label">通话记录</span>
-      </button>
-    </div>
+      <!-- 匹配的联系人提示 -->
+      <div v-if="matchedContact" class="matched-contact">
+        <div class="matched-avatar" :style="{ background: matchedContact.color }">
+          <img v-if="matchedContact.avatar" :src="matchedContact.avatar" class="matched-avatar-img" />
+          <span v-else>{{ matchedContact.name.charAt(0) }}</span>
+        </div>
+        <span class="matched-name">{{ matchedContact.name }}</span>
+        <span class="matched-tag">AI 角色</span>
+      </div>
 
-    <!-- 通话记录面板 -->
-    <div v-if="showRecent" class="overlay" @click.self="showRecent = false">
-      <div class="recent-panel">
-        <div class="panel-header">
-          <h3>通话记录</h3>
-          <button class="close-btn" @click="showRecent = false">✕</button>
-        </div>
-        <div v-if="callHistory.length === 0" class="empty-history">
-          <span>📱</span>
-          <p>暂无通话记录</p>
-        </div>
-        <div v-else class="history-list">
-          <div
-            v-for="call in callHistory"
-            :key="call.id"
-            class="history-item"
-            @click="phoneNumber = call.number; showRecent = false"
-          >
-            <div class="call-icon" :class="call.type">
-              {{ call.type === 'incoming' ? '📥' : call.type === 'outgoing' ? '📤' : '📵' }}
-            </div>
-            <div class="call-info">
-              <span class="call-name">{{ call.name || call.number }}</span>
-              <span class="call-time">{{ call.time }}</span>
-            </div>
-            <span class="call-duration">{{ call.duration }}</span>
-          </div>
+      <div class="dial-pad">
+        <div
+          v-for="key in dialKeys"
+          :key="key.num"
+          class="dial-key"
+          @click="pressKey(key.num)"
+        >
+          <span class="key-num">{{ key.num }}</span>
+          <span class="key-letters">{{ key.letters }}</span>
         </div>
       </div>
-    </div>
 
-    <!-- 通话中界面 -->
-    <div v-if="calling" class="calling-overlay">
-      <div class="calling-screen">
-        <div class="calling-avatar">📞</div>
-        <div class="calling-number">{{ displayNumber }}</div>
-        <div class="calling-status">{{ callStatus }}</div>
-        <div class="calling-timer" v-if="callTimer">{{ callTimer }}</div>
-        <div class="calling-actions">
-          <button class="calling-action-btn" @click="toggleMute">
-            <span>{{ muted ? '🔇' : '🔊' }}</span>
-            <span>{{ muted ? '取消静音' : '静音' }}</span>
-          </button>
-          <button class="calling-action-btn" @click="toggleSpeaker">
-            <span>{{ speaker ? '📢' : '🔈' }}</span>
-            <span>{{ speaker ? '关闭扬声器' : '扬声器' }}</span>
-          </button>
-          <button class="calling-action-btn" @click="toggleKeypad">
-            <span>⌨️</span>
-            <span>键盘</span>
-          </button>
-        </div>
-        <button class="hangup-btn" @click="hangUp">
-          <span>📵</span>
+      <div class="action-row">
+        <button class="action-btn" @click="activeTab = 'contacts'">
+          <span>👤</span>
+          <span class="action-label">通讯录</span>
+        </button>
+        <button class="call-btn" @click="makeCall('voice')">
+          <span>📞</span>
+        </button>
+        <button class="action-btn" @click="makeCall('video')">
+          <span>📹</span>
+          <span class="action-label">视频通话</span>
         </button>
       </div>
+    </div>
+
+    <!-- 通讯录 -->
+    <div v-if="activeTab === 'contacts'" class="contacts-view">
+      <div v-if="phoneStore.contacts.length === 0" class="empty-state">
+        <span class="empty-icon">👤</span>
+        <p>暂无联系人</p>
+        <p class="empty-hint">请先在角色管理中创建角色</p>
+      </div>
+      <div
+        v-for="contact in phoneStore.contacts"
+        :key="contact.id"
+        class="contact-item"
+      >
+        <div class="contact-avatar" :style="{ background: contact.color }">
+          <img v-if="contact.avatar" :src="contact.avatar" class="contact-avatar-img" />
+          <span v-else>{{ contact.name.charAt(0) }}</span>
+        </div>
+        <div class="contact-info">
+          <span class="contact-name">{{ contact.name }}</span>
+          <span class="contact-number">{{ formatPhoneDisplay(contact.number) }}</span>
+        </div>
+        <div class="contact-actions">
+          <button class="contact-call-btn" @click="callContact(contact, 'voice')">📞</button>
+          <button class="contact-call-btn" @click="callContact(contact, 'video')">📹</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 通话记录 -->
+    <div v-if="activeTab === 'history'" class="history-view">
+      <div v-if="phoneStore.callHistory.length === 0" class="empty-state">
+        <span class="empty-icon">📱</span>
+        <p>暂无通话记录</p>
+      </div>
+      <div
+        v-for="call in phoneStore.callHistory"
+        :key="call.id"
+        class="history-item"
+        @click="redial(call)"
+      >
+        <div class="call-icon" :class="call.type">
+          {{ call.type === 'incoming' ? '📥' : call.type === 'outgoing' ? '📤' : '📵' }}
+        </div>
+        <div class="call-info">
+          <span class="call-name" :class="{ missed: call.type === 'missed' }">
+            {{ call.name || call.number }}
+          </span>
+          <span class="call-meta">
+            {{ call.callType === 'video' ? '📹 视频' : '📞 语音' }} · {{ call.time }}
+          </span>
+        </div>
+        <span class="call-duration">{{ call.duration || '--' }}</span>
+      </div>
+      <button v-if="phoneStore.callHistory.length > 0" class="clear-history-btn" @click="clearHistory">
+        清除所有通话记录
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
+import { usePhoneStore } from '@/stores/phone'
+import type { Contact } from '@/stores/phone'
+
+const router = useRouter()
+const phoneStore = usePhoneStore()
 
 const phoneNumber = ref('')
-const showRecent = ref(false)
-const calling = ref(false)
-const callStatus = ref('正在拨号...')
-const callTimer = ref('')
-const muted = ref(false)
-const speaker = ref(false)
-let timerInterval: ReturnType<typeof setInterval> | null = null
+const activeTab = ref<'dial' | 'contacts' | 'history'>('dial')
+
+const tabs = [
+  { key: 'dial' as const, label: '拨号' },
+  { key: 'contacts' as const, label: '通讯录' },
+  { key: 'history' as const, label: '记录' },
+]
 
 const dialKeys = [
   { num: '1', letters: '' },
@@ -124,28 +152,26 @@ const dialKeys = [
   { num: '#', letters: '' },
 ]
 
-interface CallRecord {
-  id: number
-  name: string
-  number: string
-  type: 'incoming' | 'outgoing' | 'missed'
-  time: string
-  duration: string
-}
-
-const callHistory = ref<CallRecord[]>([
-  { id: 1, name: '宝贝', number: '13800138000', type: 'outgoing', time: '今天 14:30', duration: '5:23' },
-  { id: 2, name: '', number: '10086', type: 'incoming', time: '今天 11:15', duration: '2:01' },
-  { id: 3, name: '外卖小哥', number: '15912345678', type: 'missed', time: '昨天 18:45', duration: '' },
-  { id: 4, name: '妈妈', number: '13912345678', type: 'incoming', time: '昨天 12:00', duration: '15:42' },
-])
-
 const displayNumber = computed(() => {
   const num = phoneNumber.value
   if (num.length <= 3) return num
   if (num.length <= 7) return `${num.slice(0, 3)} ${num.slice(3)}`
   return `${num.slice(0, 3)} ${num.slice(3, 7)} ${num.slice(7)}`
 })
+
+// 根据输入的号码匹配联系人
+const matchedContact = computed(() => {
+  if (!phoneNumber.value || phoneNumber.value.length < 3) return null
+  return phoneStore.contacts.find(c =>
+    c.number.includes(phoneNumber.value) || phoneNumber.value.includes(c.number)
+  ) || null
+})
+
+function formatPhoneDisplay(num: string): string {
+  if (num.length <= 3) return num
+  if (num.length <= 7) return `${num.slice(0, 3)} ${num.slice(3)}`
+  return `${num.slice(0, 3)} ${num.slice(3, 7)} ${num.slice(7)}`
+}
 
 function pressKey(key: string) {
   if (phoneNumber.value.length < 15) {
@@ -157,52 +183,60 @@ function backspace() {
   phoneNumber.value = phoneNumber.value.slice(0, -1)
 }
 
-function makeCall() {
+function makeCall(callType: 'voice' | 'video') {
   if (!phoneNumber.value) return
-  calling.value = true
-  callStatus.value = '正在拨号...'
-  callTimer.value = ''
-  muted.value = false
-  speaker.value = false
 
-  // 模拟接通
-  setTimeout(() => {
-    callStatus.value = '通话中'
-    let seconds = 0
-    timerInterval = setInterval(() => {
-      seconds++
-      const m = Math.floor(seconds / 60)
-      const s = seconds % 60
-      callTimer.value = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-    }, 1000)
-  }, 2000)
-}
+  // 查找匹配的联系人
+  const contact = matchedContact.value
+  const characterId = contact?.characterId || ''
+  const name = contact?.name || ''
 
-function hangUp() {
-  calling.value = false
-  if (timerInterval) {
-    clearInterval(timerInterval)
-    timerInterval = null
-  }
-  // 添加到通话记录
-  callHistory.value.unshift({
-    id: Date.now(),
-    name: '',
-    number: phoneNumber.value,
-    type: 'outgoing',
-    time: '刚刚',
-    duration: callTimer.value || '0:00',
+  // 跳转到通话页面
+  const route = callType === 'video' ? '/video-call' : '/voice-call'
+  router.push({
+    path: route,
+    query: {
+      number: phoneNumber.value,
+      name: name,
+      characterId: characterId,
+    },
   })
 }
 
-function toggleMute() { muted.value = !muted.value }
-function toggleSpeaker() { speaker.value = !speaker.value }
-function toggleKeypad() { /* 可扩展 */ }
-
-function addContact() {
-  if (!phoneNumber.value) return
-  console.log('添加联系人:', phoneNumber.value)
+function callContact(contact: Contact, callType: 'voice' | 'video') {
+  const route = callType === 'video' ? '/video-call' : '/voice-call'
+  router.push({
+    path: route,
+    query: {
+      number: contact.number,
+      name: contact.name,
+      characterId: contact.characterId,
+    },
+  })
 }
+
+function redial(call: any) {
+  const route = call.callType === 'video' ? '/video-call' : '/voice-call'
+  router.push({
+    path: route,
+    query: {
+      number: call.number,
+      name: call.name,
+      characterId: call.characterId || '',
+    },
+  })
+}
+
+function clearHistory() {
+  if (confirm('确定清除所有通话记录？')) {
+    phoneStore.clearCallHistory()
+  }
+}
+
+onMounted(() => {
+  phoneStore.loadCallHistory()
+  phoneStore.loadContacts()
+})
 </script>
 
 <style scoped>
@@ -213,13 +247,45 @@ function addContact() {
   background: var(--bg-primary);
 }
 
+/* Tab Bar */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  padding: 0 16px;
+}
+
+.tab-item {
+  flex: 1;
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-item.active {
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+}
+
+/* 拨号盘视图 */
+.dial-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .number-display {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 16px 12px;
+  padding: 20px 16px 8px;
   gap: 8px;
-  min-height: 60px;
+  min-height: 50px;
 }
 
 .phone-number {
@@ -238,11 +304,53 @@ function addContact() {
   padding: 4px;
 }
 
+/* 匹配联系人提示 */
+.matched-contact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 16px 8px;
+}
+
+.matched-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.matched-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.matched-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.matched-tag {
+  font-size: 11px;
+  color: var(--accent-blue);
+  background: rgba(0, 122, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 .dial-pad {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
-  padding: 12px 40px;
+  padding: 8px 40px;
   flex: 1;
   align-content: center;
 }
@@ -286,7 +394,7 @@ function addContact() {
   align-items: center;
   justify-content: center;
   gap: 32px;
-  padding: 16px 16px 32px;
+  padding: 12px 16px 28px;
 }
 
 .action-btn {
@@ -327,64 +435,107 @@ function addContact() {
   transform: scale(0.92);
 }
 
-/* 通话记录 */
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 100;
+/* 通讯录 */
+.contacts-view {
+  flex: 1;
+  overflow-y: auto;
 }
 
-.recent-panel {
-  width: 100%;
-  max-width: 393px;
-  max-height: 70vh;
-  background: var(--bg-secondary);
-  border-radius: 20px 20px 0 0;
+.empty-state {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 32px;
+  color: var(--text-tertiary);
 }
 
-.panel-header {
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.empty-state p {
+  margin: 4px 0;
+  font-size: 15px;
+}
+
+.empty-hint {
+  font-size: 13px !important;
+  opacity: 0.7;
+}
+
+.contact-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 16px;
+  gap: 12px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--border-color);
 }
 
-.panel-header h3 {
-  margin: 0;
+.contact-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
   font-size: 16px;
+  font-weight: 700;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.contact-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.contact-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.contact-name {
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 18px;
+.contact-number {
+  font-size: 13px;
   color: var(--text-tertiary);
-  cursor: pointer;
 }
 
-.empty-history {
+.contact-actions {
   display: flex;
-  flex-direction: column;
+  gap: 8px;
+}
+
+.contact-call-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
   align-items: center;
-  padding: 40px;
-  color: var(--text-tertiary);
+  justify-content: center;
+  transition: background 0.15s;
 }
 
-.empty-history span {
-  font-size: 40px;
-  margin-bottom: 8px;
+.contact-call-btn:active {
+  background: var(--bg-tertiary);
 }
 
-.history-list {
+/* 通话记录 */
+.history-view {
   flex: 1;
   overflow-y: auto;
 }
@@ -396,6 +547,7 @@ function addContact() {
   padding: 14px 16px;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
+  transition: background 0.15s;
 }
 
 .history-item:active {
@@ -410,6 +562,7 @@ function addContact() {
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 2px;
 }
 
 .call-name {
@@ -418,11 +571,11 @@ function addContact() {
   color: var(--text-primary);
 }
 
-.call-info .missed .call-name {
+.call-name.missed {
   color: var(--accent-red);
 }
 
-.call-time {
+.call-meta {
   font-size: 12px;
   color: var(--text-tertiary);
 }
@@ -432,90 +585,21 @@ function addContact() {
   color: var(--text-secondary);
 }
 
-/* 通话中 */
-.calling-overlay {
-  position: fixed;
-  inset: 0;
-  background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 200;
-}
-
-.calling-screen {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  color: #fff;
-  width: 100%;
-  padding: 0 32px;
-}
-
-.calling-avatar {
-  font-size: 64px;
-  margin-bottom: 8px;
-}
-
-.calling-number {
-  font-size: 28px;
-  font-weight: 300;
-  letter-spacing: 2px;
-}
-
-.calling-status {
+.clear-history-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 16px auto;
+  padding: 12px;
+  background: none;
+  border: 1px solid var(--accent-red);
+  border-radius: 12px;
+  color: var(--accent-red);
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.calling-timer {
-  font-size: 18px;
-  font-weight: 300;
-  color: rgba(255, 255, 255, 0.8);
-  font-variant-numeric: tabular-nums;
-}
-
-.calling-actions {
-  display: flex;
-  gap: 24px;
-  margin: 32px 0;
-}
-
-.calling-action-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  border: none;
-  border-radius: 16px;
-  padding: 14px 18px;
   cursor: pointer;
-  color: #fff;
+  text-align: center;
 }
 
-.calling-action-btn span:first-child {
-  font-size: 24px;
-}
-
-.calling-action-btn span:last-child {
-  font-size: 11px;
-  opacity: 0.7;
-}
-
-.hangup-btn {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: #e74c3c;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  cursor: pointer;
-  margin-top: 16px;
-  box-shadow: 0 4px 16px rgba(231, 76, 60, 0.4);
+.clear-history-btn:active {
+  background: rgba(255, 59, 48, 0.1);
 }
 </style>

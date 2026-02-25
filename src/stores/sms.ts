@@ -1,0 +1,284 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import { getCharacterById } from '@/utils/aiService'
+
+export interface SmsMessage {
+  id: string
+  from: 'me' | 'other'
+  text: string
+  time: string
+  timestamp: number
+}
+
+export interface SmsConversation {
+  id: string
+  characterId: string
+  name: string
+  number: string
+  avatar?: string
+  color: string
+  lastMsg: string
+  time: string
+  unread: number
+  messages: SmsMessage[]
+  timestamp: number
+}
+
+const SMS_STORAGE_KEY = 'fzsm-sms-conversations'
+
+export const useSmsStore = defineStore('sms', () => {
+  const conversations = ref<SmsConversation[]>([])
+  const currentConversationId = ref<string | null>(null)
+
+  const sortedConversations = computed(() => {
+    return [...conversations.value].sort((a, b) => b.timestamp - a.timestamp)
+  })
+
+  const currentConversation = computed(() => {
+    return conversations.value.find(c => c.id === currentConversationId.value) || null
+  })
+
+  // 从 localStorage 加载
+  function loadConversations() {
+    try {
+      const saved = localStorage.getItem(SMS_STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          conversations.value = parsed
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // 如果没有数据，初始化角色关联的短信对话
+    if (conversations.value.length === 0) {
+      initFromCharacters()
+    }
+  }
+
+  function saveConversations() {
+    try {
+      // 每个对话只保留最近100条消息
+      const toSave = conversations.value.map(c => ({
+        ...c,
+        messages: c.messages.slice(-100),
+      }))
+      localStorage.setItem(SMS_STORAGE_KEY, JSON.stringify(toSave))
+    } catch {
+      // ignore
+    }
+  }
+
+  // 从角色列表初始化短信对话
+  function initFromCharacters() {
+    try {
+      const charsStr = localStorage.getItem('characters')
+      if (!charsStr) return
+      const chars = JSON.parse(charsStr)
+      if (!Array.isArray(chars)) return
+
+      const roleChars = chars.filter((c: any) => c.type === 'char')
+      const colors = ['#ff2d55', '#007aff', '#ff9500', '#5856d6', '#34c759', '#af52de', '#ff6348']
+
+      roleChars.forEach((char: any, index: number) => {
+        const existing = conversations.value.find(c => c.characterId === char.id)
+        if (!existing) {
+          conversations.value.push({
+            id: `sms-${char.id}`,
+            characterId: char.id,
+            name: char.name || '未命名',
+            number: generatePhoneNumber(char.id),
+            avatar: char.avatar || '',
+            color: colors[index % colors.length],
+            lastMsg: '',
+            time: '',
+            unread: 0,
+            messages: [],
+            timestamp: Date.now() - index * 1000,
+          })
+        }
+      })
+      saveConversations()
+    } catch {
+      // ignore
+    }
+  }
+
+  // 根据角色ID生成伪手机号
+  function generatePhoneNumber(charId: string): string {
+    let hash = 0
+    for (let i = 0; i < charId.length; i++) {
+      hash = ((hash << 5) - hash) + charId.charCodeAt(i)
+      hash |= 0
+    }
+    const num = Math.abs(hash) % 90000000 + 10000000
+    return `138${num}`
+  }
+
+  // 打开对话
+  function openConversation(id: string) {
+    currentConversationId.value = id
+    const conv = conversations.value.find(c => c.id === id)
+    if (conv) {
+      conv.unread = 0
+      saveConversations()
+    }
+  }
+
+  function closeConversation() {
+    currentConversationId.value = null
+  }
+
+  // 发送用户消息
+  function sendMessage(conversationId: string, text: string): SmsMessage {
+    const conv = conversations.value.find(c => c.id === conversationId)
+    if (!conv) throw new Error('对话不存在')
+
+    const now = new Date()
+    const msg: SmsMessage = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      from: 'me',
+      text,
+      time: formatTime(now),
+      timestamp: now.getTime(),
+    }
+    conv.messages.push(msg)
+    conv.lastMsg = text.slice(0, 50)
+    conv.time = formatTime(now)
+    conv.timestamp = now.getTime()
+    saveConversations()
+    return msg
+  }
+
+  // 添加AI回复消息
+  function addAIReply(conversationId: string, text: string): SmsMessage {
+    const conv = conversations.value.find(c => c.id === conversationId)
+    if (!conv) throw new Error('对话不存在')
+
+    const now = new Date()
+    const msg: SmsMessage = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      from: 'other',
+      text,
+      time: formatTime(now),
+      timestamp: now.getTime(),
+    }
+    conv.messages.push(msg)
+    conv.lastMsg = text.slice(0, 50)
+    conv.time = formatTime(now)
+    conv.timestamp = now.getTime()
+
+    // 如果不是当前打开的对话，增加未读
+    if (currentConversationId.value !== conversationId) {
+      conv.unread = (conv.unread || 0) + 1
+    }
+
+    saveConversations()
+    return msg
+  }
+
+  // 创建新对话（通过角色）
+  function createConversation(characterId: string): SmsConversation {
+    const existing = conversations.value.find(c => c.characterId === characterId)
+    if (existing) return existing
+
+    const char = getCharacterById(characterId)
+    const conv: SmsConversation = {
+      id: `sms-${characterId}`,
+      characterId,
+      name: char?.name || '未命名',
+      number: generatePhoneNumber(characterId),
+      avatar: char?.avatar || '',
+      color: '#007aff',
+      lastMsg: '',
+      time: '',
+      unread: 0,
+      messages: [],
+      timestamp: Date.now(),
+    }
+    conversations.value.unshift(conv)
+    saveConversations()
+    return conv
+  }
+
+  // 创建自定义对话（非角色关联）
+  function createCustomConversation(name: string, number: string): SmsConversation {
+    const conv: SmsConversation = {
+      id: `sms-custom-${Date.now()}`,
+      characterId: '',
+      name,
+      number,
+      color: '#34c759',
+      lastMsg: '',
+      time: '',
+      unread: 0,
+      messages: [],
+      timestamp: Date.now(),
+    }
+    conversations.value.unshift(conv)
+    saveConversations()
+    return conv
+  }
+
+  // 删除对话
+  function deleteConversation(id: string) {
+    conversations.value = conversations.value.filter(c => c.id !== id)
+    if (currentConversationId.value === id) {
+      currentConversationId.value = null
+    }
+    saveConversations()
+  }
+
+  // 刷新角色信息
+  function refreshCharacters() {
+    for (const conv of conversations.value) {
+      if (conv.characterId) {
+        const char = getCharacterById(conv.characterId)
+        if (char) {
+          conv.name = char.name || conv.name
+          conv.avatar = char.avatar || conv.avatar
+        }
+      }
+    }
+    saveConversations()
+  }
+
+  // 获取对话的AI消息历史（用于构建上下文）
+  function getMessageHistory(conversationId: string, limit = 20) {
+    const conv = conversations.value.find(c => c.id === conversationId)
+    if (!conv) return []
+    return conv.messages.slice(-limit)
+  }
+
+  // 总未读数
+  const totalUnread = computed(() => {
+    return conversations.value.reduce((sum, c) => sum + (c.unread || 0), 0)
+  })
+
+  function formatTime(date: Date): string {
+    const h = date.getHours().toString().padStart(2, '0')
+    const m = date.getMinutes().toString().padStart(2, '0')
+    return `${h}:${m}`
+  }
+
+  return {
+    conversations,
+    currentConversationId,
+    sortedConversations,
+    currentConversation,
+    totalUnread,
+    loadConversations,
+    saveConversations,
+    openConversation,
+    closeConversation,
+    sendMessage,
+    addAIReply,
+    createConversation,
+    createCustomConversation,
+    deleteConversation,
+    refreshCharacters,
+    getMessageHistory,
+  }
+})
