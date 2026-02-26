@@ -14,20 +14,50 @@
         <div class="widget-time">{{ timeStr }}</div>
       </div>
 
-      <!-- App 图标网格 -->
-      <div class="app-grid">
+      <!-- 滑动区域 -->
+      <div
+        class="swipe-container"
+        @touchstart="onTouchStart"
+        @touchmove="onTouchMove"
+        @touchend="onTouchEnd"
+        @mousedown="onMouseDown"
+      >
         <div
-          v-for="app in apps"
-          :key="app.name"
-          class="app-item pressable"
-          @click="openApp(app)"
+          class="swipe-track"
+          :style="swipeTrackStyle"
         >
-          <div class="app-icon" :style="{ background: app.color }">
-            <svg class="app-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" v-html="getIcon(app.iconKey)"></svg>
-            <div v-if="app.badge" class="app-badge">{{ app.badge }}</div>
+          <div
+            v-for="(pageApps, pageIndex) in pages"
+            :key="pageIndex"
+            class="swipe-page"
+          >
+            <div class="app-grid">
+              <div
+                v-for="app in pageApps"
+                :key="app.name"
+                class="app-item pressable"
+                @click="openApp(app)"
+              >
+                <div class="app-icon" :style="{ background: app.color }">
+                  <svg class="app-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" v-html="getIcon(app.iconKey)"></svg>
+                  <div v-if="app.badge" class="app-badge">{{ app.badge }}</div>
+                </div>
+                <span class="app-name">{{ app.name }}</span>
+              </div>
+            </div>
           </div>
-          <span class="app-name">{{ app.name }}</span>
         </div>
+      </div>
+
+      <!-- 页面指示器 -->
+      <div class="page-dots">
+        <div
+          v-for="(_, i) in pages"
+          :key="i"
+          class="dot"
+          :class="{ active: currentPage === i }"
+          @click="goToPage(i)"
+        ></div>
       </div>
     </div>
 
@@ -124,6 +154,21 @@ const apps = computed(() =>
   }),
 )
 
+// 每页最多显示的 App 数量
+const APPS_PER_PAGE = 12
+
+// 将 apps 分页
+const pages = computed(() => {
+  const result: AppItem[][] = []
+  const list = apps.value
+  for (let i = 0; i < list.length; i += APPS_PER_PAGE) {
+    result.push(list.slice(i, i + APPS_PER_PAGE))
+  }
+  // 至少保证有一页
+  if (result.length === 0) result.push([])
+  return result
+})
+
 const allDockApps: AppItem[] = [
   { name: '电话', iconKey: 'phone', color: 'linear-gradient(135deg, #2ED573, #7BED9F)', route: '/phone', featureId: 'phone' },
   { name: '短信', iconKey: 'sms', color: 'linear-gradient(135deg, #2ED573, #7BED9F)', route: '/sms', featureId: 'sms' },
@@ -139,7 +184,160 @@ const dockApps = computed(() =>
 )
 
 function openApp(app: AppItem) {
+  // 如果正在滑动，不触发点击
+  if (hasSwiped.value) return
   router.push(app.route)
+}
+
+// ===== 滑动相关 =====
+const currentPage = ref(0)
+const offsetX = ref(0)
+const isSwiping = ref(false)
+const isAnimating = ref(false)
+const hasSwiped = ref(false)
+
+let startX = 0
+let startY = 0
+let startTime = 0
+let directionLocked: 'horizontal' | 'vertical' | null = null
+
+const swipeTrackStyle = computed(() => {
+  const baseOffset = -currentPage.value * 100
+  const dragPercent = offsetX.value
+  return {
+    transform: `translateX(calc(${baseOffset}% + ${dragPercent}px))`,
+    transition: isSwiping.value ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+  }
+})
+
+function goToPage(index: number) {
+  if (index >= 0 && index < pages.value.length) {
+    currentPage.value = index
+    offsetX.value = 0
+  }
+}
+
+function onTouchStart(e: TouchEvent) {
+  if (isAnimating.value) return
+  const touch = e.touches[0]
+  startX = touch.clientX
+  startY = touch.clientY
+  startTime = Date.now()
+  isSwiping.value = true
+  hasSwiped.value = false
+  directionLocked = null
+  offsetX.value = 0
+}
+
+function onTouchMove(e: TouchEvent) {
+  if (!isSwiping.value) return
+  const touch = e.touches[0]
+  const dx = touch.clientX - startX
+  const dy = touch.clientY - startY
+
+  // 方向锁定
+  if (!directionLocked) {
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      directionLocked = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
+    }
+  }
+
+  if (directionLocked === 'vertical') return
+
+  // 水平滑动
+  e.preventDefault()
+  hasSwiped.value = Math.abs(dx) > 10
+
+  // 边界阻尼效果
+  const isAtStart = currentPage.value === 0 && dx > 0
+  const isAtEnd = currentPage.value === pages.value.length - 1 && dx < 0
+  if (isAtStart || isAtEnd) {
+    offsetX.value = dx * 0.3
+  } else {
+    offsetX.value = dx
+  }
+}
+
+function onTouchEnd() {
+  if (!isSwiping.value) return
+  isSwiping.value = false
+
+  const dx = offsetX.value
+  const elapsed = Date.now() - startTime
+  const velocity = Math.abs(dx) / elapsed
+
+  // 快速滑动或距离超过阈值
+  const threshold = 50
+  const shouldSwipe = Math.abs(dx) > threshold || velocity > 0.3
+
+  if (shouldSwipe) {
+    if (dx < 0 && currentPage.value < pages.value.length - 1) {
+      currentPage.value++
+    } else if (dx > 0 && currentPage.value > 0) {
+      currentPage.value--
+    }
+  }
+
+  offsetX.value = 0
+
+  // 短暂标记动画中，防止点击误触
+  isAnimating.value = true
+  setTimeout(() => {
+    isAnimating.value = false
+    hasSwiped.value = false
+  }, 350)
+}
+
+// 桌面端鼠标支持
+let mouseMoveBound = false
+
+function onMouseDown(e: MouseEvent) {
+  if (isAnimating.value) return
+  startX = e.clientX
+  startY = e.clientY
+  startTime = Date.now()
+  isSwiping.value = true
+  hasSwiped.value = false
+  directionLocked = null
+  offsetX.value = 0
+
+  if (!mouseMoveBound) {
+    mouseMoveBound = true
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+  }
+}
+
+function onMouseMove(e: MouseEvent) {
+  if (!isSwiping.value) return
+  const dx = e.clientX - startX
+  const dy = e.clientY - startY
+
+  if (!directionLocked) {
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      directionLocked = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical'
+    }
+  }
+
+  if (directionLocked === 'vertical') return
+
+  e.preventDefault()
+  hasSwiped.value = Math.abs(dx) > 10
+
+  const isAtStart = currentPage.value === 0 && dx > 0
+  const isAtEnd = currentPage.value === pages.value.length - 1 && dx < 0
+  if (isAtStart || isAtEnd) {
+    offsetX.value = dx * 0.3
+  } else {
+    offsetX.value = dx
+  }
+}
+
+function onMouseUp() {
+  mouseMoveBound = false
+  window.removeEventListener('mousemove', onMouseMove)
+  window.removeEventListener('mouseup', onMouseUp)
+  onTouchEnd()
 }
 
 onMounted(() => {
@@ -150,6 +348,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (timer) clearInterval(timer)
+  if (mouseMoveBound) {
+    window.removeEventListener('mousemove', onMouseMove)
+    window.removeEventListener('mouseup', onMouseUp)
+  }
 })
 </script>
 
@@ -194,12 +396,7 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 0 20px;
-  overflow-y: auto;
-}
-
-.home-content::-webkit-scrollbar {
-  display: none;
+  overflow: hidden;
 }
 
 /* 顶部间距 */
@@ -211,7 +408,7 @@ onUnmounted(() => {
 /* 日期时间小组件 */
 .datetime-widget {
   text-align: center;
-  padding: 8px 0 20px;
+  padding: 8px 20px 20px;
   flex-shrink: 0;
 }
 
@@ -232,12 +429,61 @@ onUnmounted(() => {
   text-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
 }
 
+/* 滑动容器 */
+.swipe-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  touch-action: pan-y;
+}
+
+.swipe-track {
+  display: flex;
+  height: 100%;
+  will-change: transform;
+}
+
+.swipe-page {
+  min-width: 100%;
+  flex-shrink: 0;
+  padding: 0 20px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+}
+
+/* 页面指示器 */
+.page-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0 8px;
+  flex-shrink: 0;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.dot.active {
+  background: rgba(255, 255, 255, 0.9);
+  transform: scale(1.2);
+}
+
 /* App 网格 */
 .app-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 24px 12px;
   padding: 8px 0 20px;
+  width: 100%;
+  align-content: start;
 }
 
 .app-item {
@@ -246,6 +492,8 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .app-icon {
@@ -315,6 +563,7 @@ onUnmounted(() => {
   position: relative;
   z-index: 1;
   padding: 12px 24px 28px;
+  flex-shrink: 0;
 }
 
 .dock-bg {
