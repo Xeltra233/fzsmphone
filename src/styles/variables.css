@@ -95,6 +95,10 @@
   --duration-slow: 0.4s;
   --duration-slower: 0.6s;
 
+  /* === 外观定制 === */
+  --wallpaper-gradient: linear-gradient(160deg, #0f0c29 0%, #1a1a3e 25%, #24243e 50%, #302b63 75%, #0f0c29 100%);
+  --font-size-base: 14px;
+
   /* === 毛玻璃 === */
   --blur-thin: blur(10px) saturate(180%);
   --blur-regular: blur(20px) saturate(180%);

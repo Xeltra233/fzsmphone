@@ -69,12 +69,13 @@ onUnmounted(() => {
   padding: 0 28px 8px;
   z-index: 100;
   pointer-events: none;
+  color: var(--status-bar-foreground, var(--text-primary));
 }
 
 .status-left .time {
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: currentColor;
   letter-spacing: -0.3px;
 }
 
@@ -87,7 +88,7 @@ onUnmounted(() => {
 .status-icon {
   width: 16px;
   height: 16px;
-  color: var(--text-primary);
+  color: currentColor;
 }
 
 /* 电池 */
@@ -101,7 +102,7 @@ onUnmounted(() => {
 .battery-body {
   width: 25px;
   height: 12px;
-  border: 1.5px solid var(--text-primary);
+  border: 1.5px solid currentColor;
   border-radius: 3px;
   padding: 1px;
   display: flex;
@@ -116,7 +117,7 @@ onUnmounted(() => {
 .battery-cap {
   width: 2px;
   height: 5px;
-  background: var(--text-primary);
+  background: currentColor;
   border-radius: 0 1px 1px 0;
   opacity: 0.4;
 }
@@ -128,6 +129,6 @@ onUnmounted(() => {
   left: 50%;
   top: 50%;
   transform: translate(-60%, -50%);
-  color: var(--text-primary);
+  color: currentColor;
 }
 </style>

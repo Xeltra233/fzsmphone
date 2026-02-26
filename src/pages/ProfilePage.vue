@@ -169,9 +169,10 @@ const menuItems: MenuItem[] = [
 ]
 
 const adminItems: MenuItem[] = [
-  { icon: '🛡️', label: '用户管理', color: 'linear-gradient(135deg, #E6162D, #FF4757)', action: 'manageUsers' },
-  { icon: '📊', label: '数据统计', color: 'linear-gradient(135deg, #3498DB, #2980B9)', action: 'viewStats' },
-  { icon: '🔧', label: '系统设置', color: 'linear-gradient(135deg, #636E72, #95A5A6)', action: 'systemSettings' },
+  { icon: '🛡️', label: '功能管理', color: 'linear-gradient(135deg, #FF6B6B, #EE5A24)', route: '/admin/features' },
+  { icon: '👥', label: '用户管理', color: 'linear-gradient(135deg, #E6162D, #FF4757)', route: '/admin/users' },
+  { icon: '📊', label: '数据统计', color: 'linear-gradient(135deg, #3498DB, #2980B9)', route: '/admin/stats' },
+  { icon: '🔧', label: '系统设置', color: 'linear-gradient(135deg, #636E72, #95A5A6)', route: '/admin/settings' },
 ]
 
 function handleMenuItem(item: MenuItem) {

@@ -10,7 +10,10 @@
       <!-- 屏幕区域 -->
       <div
         class="screen"
-        :style="{ filter: `brightness(${phone.brightness / 100})` }"
+        :style="{
+          filter: `brightness(${phone.brightness / 100})`,
+          '--status-bar-foreground': statusBarForeground,
+        }"
       >
         <!-- 状态栏 -->
         <StatusBar />
@@ -36,11 +39,20 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import StatusBar from '@/components/phone/StatusBar.vue'
 import DynamicIsland from '@/components/phone/DynamicIsland.vue'
 import { usePhoneStore } from '@/stores/phone'
 
 const phone = usePhoneStore()
+const route = useRoute()
+
+const statusBarForeground = computed(() => {
+  if (route.name === 'Weibo') return '#111111'
+  if (route.name === 'Home' || route.name === 'QZone' || route.name === 'Moments') return '#ffffff'
+  return 'var(--text-primary)'
+})
 </script>
 
 <style scoped>

@@ -369,14 +369,7 @@ onUnmounted(() => {
 .wallpaper {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    160deg,
-    #0f0c29 0%,
-    #1a1a3e 25%,
-    #24243e 50%,
-    #302b63 75%,
-    #0f0c29 100%
-  );
+  background: var(--wallpaper-gradient, linear-gradient(160deg, #0f0c29 0%, #1a1a3e 25%, #24243e 50%, #302b63 75%, #0f0c29 100%));
   z-index: 0;
 }
 

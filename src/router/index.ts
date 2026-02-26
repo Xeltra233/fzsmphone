@@ -249,6 +249,24 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/pages/admin/FeatureManagePage.vue'),
     meta: { admin: true },
   },
+  {
+    path: '/admin/users',
+    name: 'AdminUsers',
+    component: () => import('@/pages/admin/UserManagePage.vue'),
+    meta: { admin: true },
+  },
+  {
+    path: '/admin/stats',
+    name: 'AdminStats',
+    component: () => import('@/pages/admin/DataStatsPage.vue'),
+    meta: { admin: true },
+  },
+  {
+    path: '/admin/settings',
+    name: 'AdminSettings',
+    component: () => import('@/pages/admin/SystemSettingsPage.vue'),
+    meta: { admin: true },
+  },
 ]
 
 const router = createRouter({
