@@ -95,6 +95,39 @@ function normalizeApiUrl(url: string): string {
   return `${url.replace(/\/$/, '')}/v1/chat/completions`
 }
 
+function extractTextFromUnknownContent(value: any): string {
+  if (value == null) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) return value.map(extractTextFromUnknownContent).join('')
+  if (typeof value !== 'object') return ''
+
+  // Common fields across OpenAI-compatible and Responses-style payloads
+  if (typeof value.text === 'string') return value.text
+  if (typeof value.delta === 'string') return value.delta
+  if (typeof value.output_text === 'string') return value.output_text
+  if (typeof value.content === 'string') return value.content
+
+  if (Array.isArray(value.content)) {
+    const text = extractTextFromUnknownContent(value.content)
+    if (text) return text
+  }
+  if (Array.isArray(value.output)) {
+    const text = extractTextFromUnknownContent(value.output)
+    if (text) return text
+  }
+
+  return ''
+}
+
+function appendSnapshotAsDelta(existing: string, snapshot: string): string {
+  if (!snapshot) return ''
+  if (!existing) return snapshot
+  if (snapshot.startsWith(existing)) return snapshot.slice(existing.length)
+  if (existing.startsWith(snapshot)) return ''
+  return ''
+}
+
 /**
  * 闈炴祦寮忚姹?
  */
@@ -220,6 +253,43 @@ async function requestStream(options: AIRequestOptions): Promise<AIResponse> {
     let finishReason = ''
     let buffer = ''
 
+    const applyStreamEvent = (json: any) => {
+      const choice = json.choices?.[0]
+      const fr = choice?.finish_reason || json.finish_reason
+
+      // 1) Preferred incremental fields (delta-style streaming)
+      const deltaText =
+        extractTextFromUnknownContent(choice?.delta?.content) ||
+        extractTextFromUnknownContent(choice?.delta?.text) ||
+        (typeof json.delta === 'string' ? json.delta : '')
+
+      if (deltaText) {
+        fullContent += deltaText
+        options.onChunk?.(deltaText)
+      } else {
+        // 2) Snapshot-style fallback fields (append only incremental part)
+        const snapshotText =
+          extractTextFromUnknownContent(choice?.message?.content) ||
+          extractTextFromUnknownContent(json.output_text) ||
+          extractTextFromUnknownContent(json.response?.output_text) ||
+          extractTextFromUnknownContent(json.output) ||
+          extractTextFromUnknownContent(json.content) ||
+          extractTextFromUnknownContent(json.text)
+
+        if (snapshotText) {
+          const extra = appendSnapshotAsDelta(fullContent, snapshotText)
+          if (extra) {
+            fullContent += extra
+            options.onChunk?.(extra)
+          }
+        }
+      }
+
+      if (fr) {
+        finishReason = fr
+      }
+    }
+
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
@@ -241,21 +311,21 @@ async function requestStream(options: AIRequestOptions): Promise<AIResponse> {
         if (trimmed.startsWith('data: ')) {
           try {
             const json = JSON.parse(trimmed.slice(6))
-            const delta = json.choices?.[0]?.delta
-            const fr = json.choices?.[0]?.finish_reason
-
-            if (delta?.content) {
-              fullContent += delta.content
-              options.onChunk?.(delta.content)
-            }
-
-            if (fr) {
-              finishReason = fr
-            }
+            applyStreamEvent(json)
           } catch {
             // 蹇界暐瑙ｆ瀽澶辫触鐨勮
           }
         }
+      }
+    }
+
+    // Some providers end stream without trailing newline; consume buffered tail once.
+    const tail = buffer.trim()
+    if (tail.startsWith('data: ') && tail !== 'data: [DONE]') {
+      try {
+        applyStreamEvent(JSON.parse(tail.slice(6)))
+      } catch {
+        // ignore invalid tail
       }
     }
 

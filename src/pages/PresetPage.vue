@@ -117,7 +117,7 @@
     <!-- 底部操作 -->
     <div class="bottom-actions">
       <button class="import-btn" @click="triggerImport">📥 导入预设</button>
-      <input ref="importInput" type="file" accept=".json" style="display:none" @change="handleImport" />
+      <input ref="importInput" type="file" accept=".json,.txt" style="display:none" @change="handleImport" />
     </div>
 
     <!-- 编辑器弹窗 -->
@@ -680,66 +680,119 @@ function convertSillyTavernPreset(data: any, fileName: string): { name: string; 
   }
 }
 
+interface ImportedPresetPayload {
+  name: string
+  content: string
+  prefill: string
+  enablePrefill: boolean
+  emoji: string
+  category: string
+  description: string
+}
+
+function normalizeImportItem(data: any, fileName: string): ImportedPresetPayload | null {
+  let importName = ''
+  let importContent = ''
+  let importPrefill = ''
+  let importEnablePrefill = false
+  let importEmoji = data?.emoji || '🎭'
+  let importCategory = data?.category || '角色扮演'
+  let importDescription = data?.description || ''
+
+  if (isSillyTavernPreset(data)) {
+    const converted = convertSillyTavernPreset(data, fileName)
+    importName = converted.name
+    importContent = converted.content
+    importPrefill = converted.prefill
+    importEnablePrefill = !!converted.prefill
+    importEmoji = '🎭'
+    importCategory = '角色扮演'
+    importDescription = '从 SillyTavern 导入'
+
+    if (!importContent) {
+      return null
+    }
+  } else if (data?.name && data?.content) {
+    importName = data.name
+    importContent = data.content
+    importPrefill = data.prefill || ''
+    importEnablePrefill = data.enablePrefill || false
+    importEmoji = data.emoji || importEmoji
+    importCategory = data.category || importCategory
+    importDescription = data.description || importDescription
+  } else {
+    return null
+  }
+
+  return {
+    name: importName,
+    content: importContent,
+    prefill: importPrefill,
+    enablePrefill: importEnablePrefill,
+    emoji: importEmoji,
+    category: importCategory,
+    description: importDescription,
+  }
+}
+
 function handleImport(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
   const reader = new FileReader()
   reader.onload = () => {
     try {
-      const data = JSON.parse(reader.result as string)
-
-      let importName = ''
-      let importContent = ''
-      let importPrefill = ''
-      let importEnablePrefill = false
-      let importEmoji = data.emoji || '🎭'
-      let importCategory = data.category || '角色扮演'
-      let importDescription = data.description || ''
-
-      if (isSillyTavernPreset(data)) {
-        // SillyTavern 格式
-        const converted = convertSillyTavernPreset(data, file.name)
-        importName = converted.name
-        importContent = converted.content
-        importPrefill = converted.prefill
-        importEnablePrefill = !!converted.prefill
-        importEmoji = '🎭'
-        importCategory = '角色扮演'
-        importDescription = `从 SillyTavern 导入`
-
-        if (!importContent) {
-          alert('导入失败：无法从 SillyTavern 预设中提取有效内容')
-          return
+      const rawText = String(reader.result || '')
+      let parsed: any
+      try {
+        parsed = JSON.parse(rawText)
+      } catch {
+        // 允许直接导入纯文本预设
+        parsed = {
+          name: file.name.replace(/\.(json|txt)$/i, ''),
+          content: rawText.trim(),
+          prefill: '',
+          enablePrefill: false,
+          emoji: '🎭',
+          category: '角色扮演',
+          description: '从文本导入',
         }
-      } else if (data.name && data.content) {
-        // 本应用原生格式
-        importName = data.name
-        importContent = data.content
-        importPrefill = data.prefill || ''
-        importEnablePrefill = data.enablePrefill || false
-      } else {
+      }
+
+      const items = Array.isArray(parsed) ? parsed : [parsed]
+      const importedNames: string[] = []
+      const now = new Date()
+
+      for (const item of items) {
+        const normalized = normalizeImportItem(item, file.name)
+        if (!normalized) continue
+
+        presets.value.unshift({
+          id: `preset-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          name: normalized.name,
+          emoji: normalized.emoji,
+          category: normalized.category,
+          description: normalized.description,
+          shortDesc: normalized.description.slice(0, 20),
+          content: normalized.content,
+          prefill: normalized.prefill,
+          enablePrefill: normalized.enablePrefill,
+          gradient: 'linear-gradient(135deg, #667eea, #764ba2)',
+          updatedAt: formatDateStr(now),
+          createdAt: now.toISOString(),
+          isBuiltin: false,
+        })
+        importedNames.push(normalized.name)
+      }
+
+      if (importedNames.length === 0) {
         alert('无效的预设文件：无法识别格式（不是本应用格式，也不是 SillyTavern 格式）')
         return
       }
 
-      const now = new Date()
-      presets.value.unshift({
-        id: `preset-${Date.now()}`,
-        name: importName,
-        emoji: importEmoji,
-        category: importCategory,
-        description: importDescription,
-        shortDesc: importDescription.slice(0, 20),
-        content: importContent,
-        prefill: importPrefill,
-        enablePrefill: importEnablePrefill,
-        gradient: 'linear-gradient(135deg, #667eea, #764ba2)',
-        updatedAt: formatDateStr(now),
-        createdAt: now.toISOString(),
-        isBuiltin: false,
-      })
       saveToStorage()
-      applyToast.value = importName + ' (已导入)'
+      applyToast.value = importedNames.length === 1
+        ? `${importedNames[0]} (已导入)`
+        : `已导入 ${importedNames.length} 个预设`
       setTimeout(() => { applyToast.value = '' }, 2000)
     } catch {
       alert('导入失败：文件格式不正确')

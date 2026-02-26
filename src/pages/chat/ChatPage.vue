@@ -396,7 +396,11 @@ async function handleSend() {
     streamingText.value = ''
 
     if (!content) {
-      chatStore.addMessage(conversationId.value!, 'assistant', '(AI 返回了空回复)')
+      chatStore.addMessage(
+        conversationId.value!,
+        'assistant',
+        '(AI 没有返回文本内容，可能是模型拒答/上下文过长/流式异常，请重试或切换模型)'
+      )
       scrollToBottom()
       return
     }
@@ -490,7 +494,11 @@ async function triggerAIReply() {
     streamingText.value = ''
 
     if (!content) {
-      chatStore.addMessage(conversationId.value!, 'assistant', '(AI 返回了空回复)')
+      chatStore.addMessage(
+        conversationId.value!,
+        'assistant',
+        '(AI 没有返回文本内容，可能是模型拒答/上下文过长/流式异常，请重试或切换模型)'
+      )
       scrollToBottom()
       return
     }
