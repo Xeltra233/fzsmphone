@@ -30,7 +30,7 @@
     <input
       ref="fileInput"
       type="file"
-      accept=".json"
+      accept=".json,.png"
       @change="handleFileImport"
       style="display: none"
     />
@@ -205,67 +205,287 @@ const importCharacter = () => {
   fileInput.value?.click()
 }
 
+// 从 PNG tEXt/iTXt chunk 中提取角色卡数据（兼容 SillyTavern 两种编码方式）
+function parseSpecVersion(value: unknown): number {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : Number.NaN
+}
+
+function isSillyTavernCardData(data: any): boolean {
+  if (!data || typeof data !== 'object') return false
+
+  if (data.spec === 'chara_card_v2') return true
+  if (data.spec === 'chara_card_v3') {
+    const version = parseSpecVersion(data.spec_version)
+    return Number.isNaN(version) || (version >= 3 && version < 4)
+  }
+
+  const version = parseSpecVersion(data.spec_version)
+  return version >= 3 && version < 4
+}
+
+function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(v => String(v)).filter(Boolean)
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map(v => v.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+function normalizeCharacterBookPosition(entry: any): number {
+  if (typeof entry?.extensions?.position === 'number') return entry.extensions.position
+  if (typeof entry?.position === 'number') return entry.position
+  if (entry?.position === 'before_char') return 0
+  if (entry?.position === 'after_char') return 1
+  return 0
+}
+
+function normalizeCharacterBookEntries(characterBook: any): any[] {
+  const rawEntries = Array.isArray(characterBook?.entries)
+    ? characterBook.entries
+    : (characterBook?.entries && typeof characterBook.entries === 'object')
+      ? Object.values(characterBook.entries)
+      : []
+
+  return rawEntries.map((rawEntry: any, idx: number) => {
+    const entry = rawEntry || {}
+    const ext = entry.extensions || {}
+
+    const probability =
+      typeof ext.probability === 'number'
+        ? ext.probability
+        : (typeof entry.probability === 'number' ? entry.probability : 100)
+
+    return {
+      id: 'entry-' + Date.now() + '-' + (entry.id ?? entry.uid ?? idx) + '-' + idx,
+      title: String(entry.comment || entry.name || entry.title || ('Entry ' + (idx + 1))),
+      keywords: toStringArray(entry.keys ?? entry.key),
+      keysecondary: toStringArray(entry.secondary_keys ?? entry.keysecondary),
+      content: String(entry.content || ''),
+      enabled: typeof entry.enabled === 'boolean' ? entry.enabled : entry.disable !== true,
+      constant: !!entry.constant,
+      selective: entry.selective !== false,
+      selectiveLogic: typeof ext.selectiveLogic === 'number'
+        ? ext.selectiveLogic
+        : (typeof entry.selectiveLogic === 'number' ? entry.selectiveLogic : 0),
+      order: typeof entry.insertion_order === 'number'
+        ? entry.insertion_order
+        : (typeof entry.order === 'number' ? entry.order : idx),
+      position: normalizeCharacterBookPosition(entry),
+      depth: typeof ext.depth === 'number'
+        ? ext.depth
+        : (typeof entry.depth === 'number' ? entry.depth : 4),
+      probability,
+      useProbability: typeof ext.useProbability === 'boolean'
+        ? ext.useProbability
+        : (entry.useProbability !== false),
+      excludeRecursion: typeof ext.exclude_recursion === 'boolean'
+        ? ext.exclude_recursion
+        : !!entry.excludeRecursion,
+      role: typeof ext.role === 'number'
+        ? ext.role
+        : (typeof entry.role === 'number' ? entry.role : 0),
+      scanDepth: typeof ext.scan_depth === 'number'
+        ? ext.scan_depth
+        : (typeof entry.scanDepth === 'number' ? entry.scanDepth : null),
+      caseSensitive: typeof ext.case_sensitive === 'boolean'
+        ? ext.case_sensitive
+        : !!entry.caseSensitive,
+      matchWholeWords: typeof ext.match_whole_words === 'boolean'
+        ? ext.match_whole_words
+        : !!entry.matchWholeWords,
+    }
+  })
+}
+
+function extractKeywordAndTextFromChunk(
+  chunkType: string,
+  chunkData: Uint8Array,
+  decoder: TextDecoder
+): { keyword: string; text: string } | null {
+  if (chunkType === 'tEXt') {
+    const nullIdx = chunkData.indexOf(0)
+    if (nullIdx <= 0) return null
+    const keyword = decoder.decode(chunkData.slice(0, nullIdx)).toLowerCase()
+    const text = decoder.decode(chunkData.slice(nullIdx + 1))
+    return { keyword, text }
+  }
+
+  if (chunkType === 'iTXt') {
+    const nullIdx = chunkData.indexOf(0)
+    if (nullIdx <= 0) return null
+    const keyword = decoder.decode(chunkData.slice(0, nullIdx)).toLowerCase()
+    const compressionFlag = chunkData[nullIdx + 1]
+    if (compressionFlag === 1) return null
+
+    let pos = nullIdx + 3
+    while (pos < chunkData.length && chunkData[pos] !== 0) pos += 1
+    pos += 1
+    while (pos < chunkData.length && chunkData[pos] !== 0) pos += 1
+    pos += 1
+
+    const text = decoder.decode(chunkData.slice(pos))
+    return { keyword, text }
+  }
+
+  return null
+}
+
+function decodeCardPayload(base64Text: string): any {
+  return JSON.parse(atob(base64Text.trim().replace(/\0+$/, '')))
+}
+async function extractCharaFromPng(file: File): Promise<any> {
+  const buffer = await file.arrayBuffer()
+  const dataView = new DataView(buffer)
+  const decoder = new TextDecoder('utf-8')
+  let v3Payload: any = null
+  let v2Payload: any = null
+  let offset = 8 // 跳过 PNG 签名 (8 bytes)
+
+  while (offset < buffer.byteLength) {
+    const length = dataView.getUint32(offset)
+    const typeBytes = new Uint8Array(buffer, offset + 4, 4)
+    const type = decoder.decode(typeBytes)
+    const data = new Uint8Array(buffer, offset + 8, length)
+
+    const payload = extractKeywordAndTextFromChunk(type, data, decoder)
+    if (payload) {
+      try {
+        if (payload.keyword === 'ccv3') {
+          v3Payload = decodeCardPayload(payload.text)
+        } else if (payload.keyword === 'chara') {
+          v2Payload = decodeCardPayload(payload.text)
+        }
+      } catch {
+        // continue scanning
+      }
+    }
+
+    // 移动到下一个 chunk: 4(length) + 4(type) + length(data) + 4(crc)
+    offset += 12 + length
+
+    if (type === 'IEND') break
+  }
+
+  // SillyTavern: ccv3 takes precedence over chara.
+  if (v3Payload) return v3Payload
+  if (v2Payload) return v2Payload
+
+  throw new Error('PNG metadata does not contain ccv3/chara character card payload')
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+// 从 SillyTavern 角色卡数据构建角色对象
+function buildCharacterFromSTData(data: any, avatar: string = ''): any {
+  const charData = data.data || data
+
+  // 提取扩展字段（ST V2/V3 特有）
+  const stExtensions: any = {}
+  if (charData.alternate_greetings?.length) stExtensions.alternate_greetings = charData.alternate_greetings
+  if (charData.creator_notes) stExtensions.creator_notes = charData.creator_notes
+  if (charData.character_note) stExtensions.character_note = charData.character_note
+  if (charData.system_prompt) stExtensions.system_prompt = charData.system_prompt
+  if (charData.post_history_instructions) stExtensions.post_history_instructions = charData.post_history_instructions
+  if (charData.creator) stExtensions.creator = charData.creator
+  if (charData.character_version) stExtensions.character_version = charData.character_version
+  if (charData.character_book) stExtensions.character_book = charData.character_book
+  if (charData.extensions) stExtensions.extensions = charData.extensions
+  if (data.spec) stExtensions.spec = data.spec
+  if (data.spec_version) stExtensions.spec_version = data.spec_version
+
+  return {
+    id: Date.now() + Math.floor(Math.random() * 10000),
+    type: 'char',
+    name: charData.name || data.name || '未命名角色',
+    description: charData.description || data.description || '',
+    avatar,
+    persona: charData.personality || charData.system_prompt || data.personality || data.system_prompt || '',
+    scenario: charData.scenario || data.scenario || '',
+    firstMessage: charData.first_mes || data.first_mes || '',
+    exampleDialogue: charData.mes_example || data.mes_example || '',
+    tags: charData.tags || data.tags || [],
+    worldBooks: [],
+    // 保留 SillyTavern 扩展字段
+    ...(Object.keys(stExtensions).length > 0 ? { stExtensions } : {}),
+  }
+}
+
 const handleFileImport = async (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file) return
 
   try {
-    const text = await file.text()
-    const data = JSON.parse(text)
     let character: any = null
+    const fileName = file.name.toLowerCase()
 
-    // 支持酒馆 V3 格式
-    if (data.spec === 'chara_card_v3' || data.spec_version === '3.0') {
-      const charData = data.data || data
-      character = {
-        id: Date.now(),
-        type: 'char',
-        name: charData.name || data.name || '未命名角色',
-        description: charData.description || data.description || '',
-        avatar: '',
-        persona: charData.personality || data.personality || '',
-        scenario: charData.scenario || data.scenario || '',
-        firstMessage: charData.first_mes || data.first_mes || '',
-        exampleDialogue: charData.mes_example || data.mes_example || '',
-        tags: charData.tags || data.tags || [],
-        worldBooks: [],
+    // PNG 角色卡导入
+    if (fileName.endsWith('.png')) {
+      const data = await extractCharaFromPng(file)
+      const avatarBase64 = await fileToBase64(file)
+      character = buildCharacterFromSTData(data, avatarBase64)
+    }
+    // JSON 角色卡导入
+    else {
+      const text = await file.text()
+      const data = JSON.parse(text)
+
+      // 支持酒馆 V2/V3 格式
+      if (isSillyTavernCardData(data)) {
+        character = buildCharacterFromSTData(data)
+      }
+      // 通用格式
+      else if (data.name) {
+        character = {
+          id: Date.now(),
+          type: 'char',
+          name: data.name || '未命名角色',
+          description: data.description || '',
+          avatar: '',
+          persona: data.personality || data.persona || data.description || '',
+          scenario: data.scenario || '',
+          firstMessage: data.first_mes || data.firstMessage || '',
+          exampleDialogue: data.mes_example || data.exampleDialogue || '',
+          tags: data.tags || [],
+          worldBooks: [],
+        }
+      } else {
+        throw new Error('不支持的角色卡格式')
       }
     }
-    // 支持酒馆 V2 格式
-    else if (data.spec === 'chara_card_v2') {
-      const charData = data.data
-      character = {
-        id: Date.now(),
-        type: 'char',
-        name: charData.name || '未命名角色',
-        description: charData.description || '',
-        avatar: '',
-        persona: charData.personality || charData.description || '',
-        scenario: charData.scenario || '',
-        firstMessage: charData.first_mes || '',
-        exampleDialogue: charData.mes_example || '',
-        tags: [],
-        worldBooks: [],
+
+    // 如果角色卡内嵌了 character_book，自动导入为世界书
+    if (character.stExtensions?.character_book) {
+      try {
+        const charBook = character.stExtensions.character_book
+        const bookEntries = normalizeCharacterBookEntries(charBook)
+        if (bookEntries.length > 0) {
+          const worldBooks = JSON.parse(localStorage.getItem('worldBooks') || '[]')
+          const bookId = `wb-${Date.now()}`
+          worldBooks.unshift({
+            id: bookId,
+            name: charBook.name || `${character.name}的世界书`,
+            entries: bookEntries,
+            bindChars: [String(character.id)],
+            createdAt: new Date().toISOString(),
+          })
+          localStorage.setItem('worldBooks', JSON.stringify(worldBooks))
+          character.worldBooks = [bookId]
+        }
+      } catch (bookErr) {
+        console.warn('内嵌世界书导入失败:', bookErr)
       }
-    }
-    // 通用格式
-    else if (data.name) {
-      character = {
-        id: Date.now(),
-        type: 'char',
-        name: data.name || '未命名角色',
-        description: data.description || '',
-        avatar: '',
-        persona: data.personality || data.persona || data.description || '',
-        scenario: data.scenario || '',
-        firstMessage: data.first_mes || data.firstMessage || '',
-        exampleDialogue: data.mes_example || data.exampleDialogue || '',
-        tags: data.tags || [],
-        worldBooks: [],
-      }
-    } else {
-      throw new Error('不支持的角色卡格式')
     }
 
     characters.value.push(character)

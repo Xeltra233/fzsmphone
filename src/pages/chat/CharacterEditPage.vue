@@ -164,6 +164,8 @@ const showAvatarInput = ref(false)
 const avatarUrlInput = ref('')
 const showWorldBookSelector = ref(false)
 const worldBooks = ref<any[]>([])
+// 保存从 PNG 导入的 ST 扩展数据，编辑时不显示但需要保留
+const preservedStExtensions = ref<any>(null)
 
 const formData = ref({
   id: null as number | null,
@@ -241,11 +243,25 @@ const saveCharacter = () => {
 
   if (isNew.value) {
     formData.value.id = Date.now()
-    characters.push({ ...formData.value })
+    const newChar: any = { ...formData.value }
+    characters.push(newChar)
   } else {
     const index = characters.findIndex((c: any) => c.id === formData.value.id)
     if (index > -1) {
-      characters[index] = { ...formData.value }
+      // 合并保留的 stExtensions 和其他导入时的额外字段
+      const existing = characters[index]
+      const updated: any = { ...formData.value }
+      // 保留 stExtensions（PNG 角色卡导入的扩展数据）
+      if (preservedStExtensions.value) {
+        updated.stExtensions = preservedStExtensions.value
+      } else if (existing.stExtensions) {
+        updated.stExtensions = existing.stExtensions
+      }
+      // 保留 character_book（内嵌世界书引用）
+      if (existing.character_book) {
+        updated.character_book = existing.character_book
+      }
+      characters[index] = updated
     }
   }
 
@@ -297,6 +313,10 @@ const loadCharacter = () => {
     if (character) {
       formData.value = { ...character, worldBooks: character.worldBooks || [] }
       avatarPreview.value = character.avatar || ''
+      // 保存 stExtensions 以便编辑保存时能保留
+      if (character.stExtensions) {
+        preservedStExtensions.value = character.stExtensions
+      }
     }
   } else {
     isNew.value = true

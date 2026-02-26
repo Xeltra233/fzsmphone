@@ -552,6 +552,134 @@ function triggerImport() {
   importInput.value?.click()
 }
 
+/**
+ * 检测是否为 SillyTavern 预设格式
+ */
+function isSillyTavernPreset(data: any): boolean {
+  return !!(
+    data.prompts ||
+    data.system_prompt !== undefined ||
+    data.main_prompt !== undefined ||
+    data.jailbreak_prompt !== undefined ||
+    data.prompt_order !== undefined ||
+    data.chat_completion_source !== undefined
+  )
+}
+
+/**
+ * 将 SillyTavern 预设转换为本应用格式
+ */
+function convertSillyTavernPreset(data: any, fileName: string): { name: string; content: string; prefill: string } {
+  const parts: string[] = []
+
+  // 1. 从 prompts 数组提取内容（按 prompt_order 排序，或直接遍历）
+  if (Array.isArray(data.prompts)) {
+    // 如果有 prompt_order，按顺序处理；否则直接遍历
+    const orderedPrompts: any[] = []
+
+    if (Array.isArray(data.prompt_order)) {
+      // SillyTavern prompt_order 格式:
+      // [{ "character_id_value": [{ identifier: "...", enabled: true/false }, ...] }]
+      // 每个元素是一个对象，key 是 character_id（如 "100001"），value 是排序数组
+      // 也可能是简单的 [{identifier, enabled}] 数组
+      let orderItems: { identifier: string; enabled: boolean }[] = []
+
+      for (const entry of data.prompt_order) {
+        if (entry && typeof entry === 'object') {
+          // 检查是否是嵌套格式 { "some_id": [{identifier, enabled}] }
+          if (entry.identifier !== undefined) {
+            // 简单格式: 直接是 {identifier, enabled} 对象
+            orderItems.push(entry)
+          } else {
+            // 嵌套格式: { "character_id": [{identifier, enabled}] }
+            for (const key of Object.keys(entry)) {
+              const val = entry[key]
+              if (Array.isArray(val)) {
+                orderItems.push(...val)
+              }
+            }
+          }
+        }
+      }
+
+      for (const orderItem of orderItems) {
+        const id = typeof orderItem === 'string' ? orderItem : orderItem?.identifier
+        const isEnabled = typeof orderItem === 'string' ? true : orderItem?.enabled !== false
+        if (!isEnabled || !id) continue
+
+        const prompt = data.prompts.find((p: any) => p.identifier === id || p.name === id)
+        if (prompt && prompt.content && prompt.enabled !== false) {
+          orderedPrompts.push(prompt)
+        }
+      }
+    }
+
+    // 如果通过 prompt_order 没有找到或 prompt_order 不存在，直接遍历 prompts
+    const promptsToUse = orderedPrompts.length > 0 ? orderedPrompts : data.prompts
+    for (const p of promptsToUse) {
+      if (p.enabled === false || p.marker === true) continue
+      const content = (p.content || '').trim()
+      if (!content) continue
+
+      // 添加标记以便理解来源
+      const label = p.name || p.identifier || p.role || ''
+      if (label && label !== 'main' && label !== 'nsfw') {
+        parts.push(`[${label}]\n${content}`)
+      } else {
+        parts.push(content)
+      }
+    }
+  }
+
+  // 2. 如果没有 prompts 数组，从独立字段提取
+  if (parts.length === 0) {
+    if (data.system_prompt) {
+      parts.push(data.system_prompt)
+    }
+    if (data.main_prompt) {
+      parts.push(data.main_prompt)
+    }
+    if (data.nsfw_prompt) {
+      parts.push(data.nsfw_prompt)
+    }
+    if (data.jailbreak_prompt) {
+      parts.push(data.jailbreak_prompt)
+    }
+    if (data.enhance_definitions) {
+      parts.push(data.enhance_definitions)
+    }
+  }
+
+  // 3. 提取预填充（assistant_prefill / impersonation_prompt）
+  let prefill = ''
+  if (data.assistant_prefill) {
+    prefill = data.assistant_prefill
+  } else if (Array.isArray(data.prompts)) {
+    const prefillPrompt = data.prompts.find((p: any) =>
+      p.identifier === 'assistant_prefill' || p.identifier === 'chatHistory_lastAssistantPrefill'
+    )
+    if (prefillPrompt?.content) {
+      prefill = prefillPrompt.content
+    }
+  }
+
+  // 4. 确定名称
+  let name = data.name || ''
+  if (!name) {
+    // 从文件名提取
+    name = fileName.replace(/\.(json|txt)$/i, '').replace(/^preset[-_]/i, '')
+  }
+  if (!name) {
+    name = 'SillyTavern 预设'
+  }
+
+  return {
+    name,
+    content: parts.join('\n\n'),
+    prefill,
+  }
+}
+
 function handleImport(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
@@ -559,28 +687,59 @@ function handleImport(e: Event) {
   reader.onload = () => {
     try {
       const data = JSON.parse(reader.result as string)
-      if (!data.name || !data.content) {
-        alert('无效的预设文件：缺少 name 或 content 字段')
+
+      let importName = ''
+      let importContent = ''
+      let importPrefill = ''
+      let importEnablePrefill = false
+      let importEmoji = data.emoji || '🎭'
+      let importCategory = data.category || '角色扮演'
+      let importDescription = data.description || ''
+
+      if (isSillyTavernPreset(data)) {
+        // SillyTavern 格式
+        const converted = convertSillyTavernPreset(data, file.name)
+        importName = converted.name
+        importContent = converted.content
+        importPrefill = converted.prefill
+        importEnablePrefill = !!converted.prefill
+        importEmoji = '🎭'
+        importCategory = '角色扮演'
+        importDescription = `从 SillyTavern 导入`
+
+        if (!importContent) {
+          alert('导入失败：无法从 SillyTavern 预设中提取有效内容')
+          return
+        }
+      } else if (data.name && data.content) {
+        // 本应用原生格式
+        importName = data.name
+        importContent = data.content
+        importPrefill = data.prefill || ''
+        importEnablePrefill = data.enablePrefill || false
+      } else {
+        alert('无效的预设文件：无法识别格式（不是本应用格式，也不是 SillyTavern 格式）')
         return
       }
+
       const now = new Date()
       presets.value.unshift({
         id: `preset-${Date.now()}`,
-        name: data.name,
-        emoji: data.emoji || '🎭',
-        category: data.category || '角色扮演',
-        description: data.description || '',
-        shortDesc: (data.description || '').slice(0, 20),
-        content: data.content,
-        prefill: data.prefill || '',
-        enablePrefill: data.enablePrefill || false,
+        name: importName,
+        emoji: importEmoji,
+        category: importCategory,
+        description: importDescription,
+        shortDesc: importDescription.slice(0, 20),
+        content: importContent,
+        prefill: importPrefill,
+        enablePrefill: importEnablePrefill,
         gradient: 'linear-gradient(135deg, #667eea, #764ba2)',
         updatedAt: formatDateStr(now),
         createdAt: now.toISOString(),
         isBuiltin: false,
       })
       saveToStorage()
-      applyToast.value = data.name + ' (已导入)'
+      applyToast.value = importName + ' (已导入)'
       setTimeout(() => { applyToast.value = '' }, 2000)
     } catch {
       alert('导入失败：文件格式不正确')

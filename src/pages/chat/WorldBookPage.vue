@@ -149,6 +149,103 @@
               <span>启用此条目</span>
             </label>
           </div>
+          <!-- 高级设置 -->
+          <div class="advanced-toggle" @click="showAdvanced = !showAdvanced">
+            <span>⚙️ 高级设置 (SillyTavern)</span>
+            <span class="toggle-arrow" :class="{ expanded: showAdvanced }">›</span>
+          </div>
+          <template v-if="showAdvanced">
+            <div class="form-group">
+              <label>次要关键词 (Secondary Keys)</label>
+              <input v-model="secondaryKeysInput" placeholder="次要关键词，逗号分隔（selective模式下需同时匹配）" />
+              <div class="form-hint">当selective开启时，主关键词和次要关键词需同时匹配才触发</div>
+            </div>
+            <div class="form-row">
+              <label class="form-check">
+                <input type="checkbox" v-model="entryForm.constant" />
+                <span>常驻注入 (Constant)</span>
+              </label>
+              <div class="form-hint inline-hint">无需关键词匹配，始终注入到上下文中</div>
+            </div>
+            <div class="form-row">
+              <label class="form-check">
+                <input type="checkbox" v-model="entryForm.selective" />
+                <span>选择性匹配 (Selective)</span>
+              </label>
+              <div class="form-hint inline-hint">需同时匹配主关键词和次要关键词</div>
+            </div>
+            <div class="form-group compact">
+              <label>选择性逻辑 (Selective Logic)</label>
+              <select v-model.number="entryForm.selectiveLogic">
+                <option :value="0">AND ANY — 任意一个次要关键词匹配即可</option>
+                <option :value="1">NOT ALL — 非所有次要关键词匹配时触发</option>
+                <option :value="2">NOT ANY — 无任何次要关键词匹配时触发</option>
+                <option :value="3">AND ALL — 所有次要关键词都须匹配</option>
+              </select>
+              <div class="form-hint">控制次要关键词的匹配逻辑（仅Selective开启时有效）</div>
+            </div>
+            <div class="form-group compact">
+              <label>角色 (Role)</label>
+              <select v-model.number="entryForm.role">
+                <option :value="0">System</option>
+                <option :value="1">User</option>
+                <option :value="2">Assistant</option>
+              </select>
+              <div class="form-hint">注入时以什么角色身份添加到消息列表</div>
+            </div>
+            <div class="form-group compact">
+              <label>排序权重 (Order)</label>
+              <input type="number" v-model.number="entryForm.order" min="0" max="999" />
+            </div>
+            <div class="form-group compact">
+              <label>注入位置 (Position)</label>
+              <select v-model.number="entryForm.position">
+                <option :value="0">系统提示词之前</option>
+                <option :value="1">系统提示词之后</option>
+                <option :value="2">对话历史之前</option>
+                <option :value="3">对话历史之后</option>
+                <option :value="4">按深度插入 (D#)</option>
+              </select>
+            </div>
+            <div class="form-group compact">
+              <label>插入深度 (Depth)</label>
+              <input type="number" v-model.number="entryForm.depth" min="0" max="999" />
+              <div class="form-hint">从最新消息往前数第几条消息处插入（position=4时有效）</div>
+            </div>
+            <div class="form-group compact">
+              <label>扫描深度 (Scan Depth)</label>
+              <input type="number" v-model.number="entryForm.scanDepth" min="0" max="999" placeholder="留空=扫描全部" />
+              <div class="form-hint">仅扫描最近N条消息进行关键词匹配（0或留空=全部扫描）</div>
+            </div>
+            <div class="form-group compact">
+              <label>触发概率 (%) </label>
+              <input type="number" v-model.number="entryForm.probability" min="0" max="100" />
+            </div>
+            <div class="form-row">
+              <label class="form-check">
+                <input type="checkbox" v-model="entryForm.useProbability" />
+                <span>启用概率判定</span>
+              </label>
+            </div>
+            <div class="form-row">
+              <label class="form-check">
+                <input type="checkbox" v-model="entryForm.caseSensitive" />
+                <span>区分大小写 (Case Sensitive)</span>
+              </label>
+            </div>
+            <div class="form-row">
+              <label class="form-check">
+                <input type="checkbox" v-model="entryForm.matchWholeWords" />
+                <span>全词匹配 (Match Whole Words)</span>
+              </label>
+            </div>
+            <div class="form-row">
+              <label class="form-check">
+                <input type="checkbox" v-model="entryForm.excludeRecursion" />
+                <span>排除递归扫描</span>
+              </label>
+            </div>
+          </template>
         </div>
         <div class="editor-footer">
           <button class="btn-cancel" @click="showEntryForm = false">取消</button>
@@ -243,6 +340,21 @@ interface WorldBookEntry {
   keywords: string[]
   content: string
   enabled: boolean
+  // SillyTavern advanced fields
+  keysecondary: string[]
+  constant: boolean
+  selective: boolean
+  selectiveLogic: number    // 0=AND_ANY, 1=NOT_ALL, 2=NOT_ANY, 3=AND_ALL
+  role: number              // 0=system, 1=user, 2=assistant
+  scanDepth: number | null  // null = scan all messages
+  caseSensitive: boolean
+  matchWholeWords: boolean
+  order: number
+  position: number
+  depth: number
+  probability: number
+  useProbability: boolean
+  excludeRecursion: boolean
 }
 
 interface WorldBook {
@@ -264,6 +376,8 @@ const showBookMenu = ref(false)
 const editingEntry = ref<WorldBookEntry | null>(null)
 const keywordsInput = ref('')
 const importInput = ref<HTMLInputElement | null>(null)
+const showAdvanced = ref(false)
+const secondaryKeysInput = ref('')
 
 // AI批量创建状态
 const showAIBatchModal = ref(false)
@@ -278,6 +392,20 @@ const entryForm = ref({
   keywords: [] as string[],
   content: '',
   enabled: true,
+  // SillyTavern advanced fields
+  constant: false,
+  selective: false,
+  selectiveLogic: 0,
+  role: 0,
+  scanDepth: null as number | null,
+  caseSensitive: false,
+  matchWholeWords: false,
+  order: 0,
+  position: 0,
+  depth: 4,
+  probability: 100,
+  useProbability: true,
+  excludeRecursion: false,
 })
 
 const currentBook = computed(() => {
@@ -370,24 +498,45 @@ function deleteBook() {
 function exportBook() {
   if (!currentBook.value) return
 
-  // 导出为 SillyTavern 兼容格式
+  // 导出为 SillyTavern 兼容格式（使用实际存储的值）
   const exportData = {
     name: currentBook.value.name,
     entries: currentBook.value.entries.reduce((acc: any, entry: WorldBookEntry, idx: number) => {
       acc[idx] = {
         uid: idx,
         key: entry.keywords,
-        keysecondary: [],
+        keysecondary: entry.keysecondary || [],
+        secondary_keys: entry.keysecondary || [],
         comment: entry.title,
         content: entry.content,
-        constant: false,
-        selective: true,
-        order: idx,
-        position: 0,
+        constant: entry.constant ?? false,
+        selective: entry.selective ?? false,
+        selectiveLogic: entry.selectiveLogic ?? 0,
+        insertion_order: entry.order ?? idx,
+        order: entry.order ?? idx,
+        position: entry.position ?? 0,
         disable: !entry.enabled,
-        excludeRecursion: false,
-        probability: 100,
-        depth: 4,
+        enabled: entry.enabled !== false,
+        excludeRecursion: entry.excludeRecursion ?? false,
+        probability: entry.probability ?? 100,
+        useProbability: entry.useProbability !== false,
+        depth: entry.depth ?? 4,
+        role: entry.role ?? 0,
+        scanDepth: entry.scanDepth ?? null,
+        caseSensitive: entry.caseSensitive ?? false,
+        matchWholeWords: entry.matchWholeWords ?? false,
+        extensions: {
+          position: entry.position ?? 0,
+          depth: entry.depth ?? 4,
+          probability: entry.probability ?? 100,
+          useProbability: entry.useProbability !== false,
+          exclude_recursion: entry.excludeRecursion ?? false,
+          role: entry.role ?? 0,
+          scan_depth: entry.scanDepth ?? null,
+          case_sensitive: entry.caseSensitive ?? false,
+          match_whole_words: entry.matchWholeWords ?? false,
+          selectiveLogic: entry.selectiveLogic ?? 0,
+        },
       }
       return acc
     }, {}),
@@ -415,17 +564,46 @@ function openEntryEditor(entry: WorldBookEntry | null) {
       keywords: [...entry.keywords],
       content: entry.content,
       enabled: entry.enabled,
+      constant: entry.constant ?? false,
+      selective: entry.selective ?? false,
+      selectiveLogic: entry.selectiveLogic ?? 0,
+      role: entry.role ?? 0,
+      scanDepth: entry.scanDepth ?? null,
+      caseSensitive: entry.caseSensitive ?? false,
+      matchWholeWords: entry.matchWholeWords ?? false,
+      order: entry.order ?? 0,
+      position: entry.position ?? 0,
+      depth: entry.depth ?? 4,
+      probability: entry.probability ?? 100,
+      useProbability: entry.useProbability !== false,
+      excludeRecursion: entry.excludeRecursion ?? false,
     }
     keywordsInput.value = entry.keywords.join(', ')
+    secondaryKeysInput.value = (entry.keysecondary || []).join(', ')
   } else {
     entryForm.value = {
       title: '',
       keywords: [],
       content: '',
       enabled: true,
+      constant: false,
+      selective: false,
+      selectiveLogic: 0,
+      role: 0,
+      scanDepth: null,
+      caseSensitive: false,
+      matchWholeWords: false,
+      order: 0,
+      position: 0,
+      depth: 4,
+      probability: 100,
+      useProbability: true,
+      excludeRecursion: false,
     }
     keywordsInput.value = ''
+    secondaryKeysInput.value = ''
   }
+  showAdvanced.value = false
   showEntryForm.value = true
 }
 
@@ -438,26 +616,46 @@ function saveEntry() {
     .map(k => k.trim())
     .filter(k => k.length > 0)
 
+  const keysecondary = secondaryKeysInput.value
+    .split(/[,，]/)
+    .map(k => k.trim())
+    .filter(k => k.length > 0)
+
+  const entryData: Omit<WorldBookEntry, 'id'> = {
+    title: entryForm.value.title.trim(),
+    keywords,
+    content: entryForm.value.content,
+    enabled: entryForm.value.enabled,
+    keysecondary,
+    constant: entryForm.value.constant,
+    selective: entryForm.value.selective,
+    selectiveLogic: entryForm.value.selectiveLogic,
+    role: entryForm.value.role,
+    scanDepth: entryForm.value.scanDepth,
+    caseSensitive: entryForm.value.caseSensitive,
+    matchWholeWords: entryForm.value.matchWholeWords,
+    order: entryForm.value.order,
+    position: entryForm.value.position,
+    depth: entryForm.value.depth,
+    probability: entryForm.value.probability,
+    useProbability: entryForm.value.useProbability,
+    excludeRecursion: entryForm.value.excludeRecursion,
+  }
+
   if (editingEntry.value) {
     // 更新
     const idx = currentBook.value.entries.findIndex(e => e.id === editingEntry.value!.id)
     if (idx >= 0) {
       currentBook.value.entries[idx] = {
         ...currentBook.value.entries[idx],
-        title: entryForm.value.title.trim(),
-        keywords,
-        content: entryForm.value.content,
-        enabled: entryForm.value.enabled,
+        ...entryData,
       }
     }
   } else {
     // 新建
     currentBook.value.entries.push({
       id: `entry-${Date.now()}`,
-      title: entryForm.value.title.trim(),
-      keywords,
-      content: entryForm.value.content,
-      enabled: entryForm.value.enabled,
+      ...entryData,
     })
   }
 
@@ -495,17 +693,68 @@ function handleImport(e: Event) {
 
       const entries: WorldBookEntry[] = []
 
-      // 支持 SillyTavern 格式
+      // 支持 SillyTavern 格式（保留所有高级字段）
       if (data.entries && typeof data.entries === 'object') {
         const entryObj = data.entries
         for (const key of Object.keys(entryObj)) {
           const e = entryObj[key]
+          const ext = e.extensions || {}
           entries.push({
             id: `entry-${Date.now()}-${key}`,
             title: e.comment || e.title || `条目${key}`,
-            keywords: Array.isArray(e.key) ? e.key : (typeof e.key === 'string' ? e.key.split(',').map((k: string) => k.trim()) : []),
+            keywords: Array.isArray(e.key)
+              ? e.key
+              : (Array.isArray(e.keys)
+                ? e.keys
+                : (Array.isArray(e.keywords)
+                  ? e.keywords
+                  : (typeof e.key === 'string'
+                    ? e.key.split(',').map((k: string) => k.trim())
+                    : []))),
             content: e.content || '',
-            enabled: !e.disable,
+            enabled: typeof e.enabled === 'boolean' ? e.enabled : !e.disable,
+            keysecondary: Array.isArray(e.keysecondary)
+              ? e.keysecondary
+              : (Array.isArray(e.secondary_keys)
+                ? e.secondary_keys
+                : (typeof e.keysecondary === 'string'
+                  ? e.keysecondary.split(',').map((k: string) => k.trim()).filter(Boolean)
+                  : [])),
+            constant: e.constant ?? false,
+            selective: e.selective ?? true,
+            selectiveLogic: typeof ext.selectiveLogic === 'number'
+              ? ext.selectiveLogic
+              : (typeof e.selectiveLogic === 'number' ? e.selectiveLogic : 0),
+            role: typeof ext.role === 'number'
+              ? ext.role
+              : (typeof e.role === 'number' ? e.role : 0),
+            scanDepth: typeof ext.scan_depth === 'number'
+              ? ext.scan_depth
+              : (typeof e.scanDepth === 'number' ? e.scanDepth : null),
+            caseSensitive: typeof ext.case_sensitive === 'boolean'
+              ? ext.case_sensitive
+              : !!e.caseSensitive,
+            matchWholeWords: typeof ext.match_whole_words === 'boolean'
+              ? ext.match_whole_words
+              : !!e.matchWholeWords,
+            order: typeof e.insertion_order === 'number'
+              ? e.insertion_order
+              : (typeof e.order === 'number' ? e.order : parseInt(key) || 0),
+            position: typeof ext.position === 'number'
+              ? ext.position
+              : (typeof e.position === 'number' ? e.position : 0),
+            depth: typeof ext.depth === 'number'
+              ? ext.depth
+              : (typeof e.depth === 'number' ? e.depth : 4),
+            probability: typeof ext.probability === 'number'
+              ? ext.probability
+              : (typeof e.probability === 'number' ? e.probability : 100),
+            useProbability: typeof ext.useProbability === 'boolean'
+              ? ext.useProbability
+              : (e.useProbability !== false),
+            excludeRecursion: typeof ext.exclude_recursion === 'boolean'
+              ? ext.exclude_recursion
+              : !!e.excludeRecursion,
           })
         }
       }
@@ -518,6 +767,20 @@ function handleImport(e: Event) {
             keywords: Array.isArray(e.keywords) ? e.keywords : [],
             content: e.content || '',
             enabled: e.enabled !== false,
+            keysecondary: Array.isArray(e.keysecondary) ? e.keysecondary : [],
+            constant: e.constant ?? false,
+            selective: e.selective ?? false,
+            selectiveLogic: typeof e.selectiveLogic === 'number' ? e.selectiveLogic : 0,
+            role: typeof e.role === 'number' ? e.role : 0,
+            scanDepth: typeof e.scanDepth === 'number' ? e.scanDepth : null,
+            caseSensitive: e.caseSensitive ?? false,
+            matchWholeWords: e.matchWholeWords ?? false,
+            order: e.order ?? 0,
+            position: e.position ?? 0,
+            depth: e.depth ?? 4,
+            probability: e.probability ?? 100,
+            useProbability: e.useProbability !== false,
+            excludeRecursion: e.excludeRecursion ?? false,
           })
         }
       }
@@ -615,6 +878,20 @@ async function generateBatchEntries() {
       keywords: Array.isArray(item.keywords) ? item.keywords.map(String) : [],
       content: String(item.content || ''),
       enabled: true,
+      keysecondary: [],
+      constant: false,
+      selective: false,
+      selectiveLogic: 0,
+      role: 0,
+      scanDepth: null,
+      caseSensitive: false,
+      matchWholeWords: false,
+      order: idx,
+      position: 0,
+      depth: 4,
+      probability: 100,
+      useProbability: true,
+      excludeRecursion: false,
     }))
 
     currentBook.value.entries.push(...newEntries)
@@ -1181,6 +1458,65 @@ onMounted(() => {
   border-top-color: #fff;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
+}
+
+/* 高级设置 */
+.advanced-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  margin-bottom: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary, #007aff);
+  border-top: 1px solid var(--separator);
+  user-select: none;
+}
+
+.toggle-arrow {
+  font-size: 16px;
+  font-weight: 700;
+  transition: transform 0.2s;
+}
+
+.toggle-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.form-group.compact {
+  margin-bottom: 8px;
+}
+
+.form-group.compact label {
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.form-group.compact input[type="number"] {
+  width: 100px;
+}
+
+.form-hint.inline-hint {
+  margin-top: 0;
+  margin-left: 26px;
+  margin-bottom: 4px;
+}
+
+.form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--separator);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 @keyframes spin {

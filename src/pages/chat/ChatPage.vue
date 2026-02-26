@@ -363,7 +363,7 @@ async function handleSend() {
 
     // 更新世界书匹配计数
     const character = currentCharacter.value
-    const allEntries = getCharacterWorldBookEntries(character?.id)
+    const allEntries = getCharacterWorldBookEntries(character?.id, character?.worldBooks)
     const recentText = chatStore.currentMessages
       .filter(m => m.role === 'user' || m.role === 'assistant')
       .slice(-10)
