@@ -246,7 +246,7 @@ onMounted(async () => {
   loading.value = true
   try {
     const res: any = await api.get('/api/users')
-    users.value = Array.isArray(res) ? res : (res.users || [])
+    users.value = Array.isArray(res) ? res : (res.data || [])
   } catch (e: any) {
     console.error('Failed to load users:', e)
   } finally {

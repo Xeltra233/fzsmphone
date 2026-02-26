@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"fzsmphone/internal/database"
 	mw "fzsmphone/internal/middleware"
@@ -18,7 +19,7 @@ type UserHandler struct {
 // GET /api/users
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.DB.Pool.Query(r.Context(), `
-		SELECT id, discord_id, username, display_name, avatar_url, role, created_at, updated_at
+		SELECT id, discord_id, username, display_name, COALESCE(avatar_url, ''), role, created_at, updated_at
 		FROM users
 		ORDER BY created_at DESC
 	`)
@@ -29,14 +30,14 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type userResp struct {
-		ID          int64  `json:"id"`
-		DiscordID   string `json:"discord_id"`
-		Username    string `json:"username"`
-		DisplayName string `json:"display_name"`
-		AvatarURL   string `json:"avatar_url"`
-		Role        string `json:"role"`
-		CreatedAt   string `json:"created_at"`
-		UpdatedAt   string `json:"updated_at"`
+		ID          int64     `json:"id"`
+		DiscordID   string    `json:"discord_id"`
+		Username    string    `json:"username"`
+		DisplayName string    `json:"display_name"`
+		AvatarURL   string    `json:"avatar_url"`
+		Role        string    `json:"role"`
+		CreatedAt   time.Time `json:"created_at"`
+		UpdatedAt   time.Time `json:"updated_at"`
 	}
 
 	var users []userResp
@@ -65,18 +66,18 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var u struct {
-		ID          int64  `json:"id"`
-		DiscordID   string `json:"discord_id"`
-		Username    string `json:"username"`
-		DisplayName string `json:"display_name"`
-		AvatarURL   string `json:"avatar_url"`
-		Role        string `json:"role"`
-		CreatedAt   string `json:"created_at"`
-		UpdatedAt   string `json:"updated_at"`
+		ID          int64     `json:"id"`
+		DiscordID   string    `json:"discord_id"`
+		Username    string    `json:"username"`
+		DisplayName string    `json:"display_name"`
+		AvatarURL   string    `json:"avatar_url"`
+		Role        string    `json:"role"`
+		CreatedAt   time.Time `json:"created_at"`
+		UpdatedAt   time.Time `json:"updated_at"`
 	}
 
 	err = h.DB.Pool.QueryRow(r.Context(), `
-		SELECT id, discord_id, username, display_name, avatar_url, role, created_at, updated_at
+		SELECT id, discord_id, username, display_name, COALESCE(avatar_url, ''), role, created_at, updated_at
 		FROM users WHERE id = $1
 	`, id).Scan(&u.ID, &u.DiscordID, &u.Username, &u.DisplayName,
 		&u.AvatarURL, &u.Role, &u.CreatedAt, &u.UpdatedAt)
