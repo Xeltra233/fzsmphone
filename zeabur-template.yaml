@@ -6,7 +6,7 @@ spec:
   description: >-
     iOS-style phone simulator web app for immersive social RP.
     AI-powered chat, social, entertainment, lifestyle & tools — 45+ pages.
-  icon: https://raw.githubusercontent.com/907606864-hub/fzsmphone/master/public/icon.png
+  icon: https://raw.githubusercontent.com/907606864-hub/fzsmphone/master/public/icon.svg
   tags:
     - Tool
     - Entertainment
@@ -93,7 +93,7 @@ spec:
 
     # ---------- fzsmphone (App) ----------
     - name: fzsmphone
-      icon: https://raw.githubusercontent.com/907606864-hub/fzsmphone/master/public/icon.png
+      icon: https://raw.githubusercontent.com/907606864-hub/fzsmphone/master/public/icon.svg
       template: GIT
       domainKey: PUBLIC_DOMAIN
       dependencies:
