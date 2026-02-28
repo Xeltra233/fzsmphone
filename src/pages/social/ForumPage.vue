@@ -31,22 +31,22 @@
     <div class="forum-content" ref="contentRef">
       <!-- 全局错误提示 -->
       <div v-if="store.lastError" class="error-toast" @click="store.lastError = ''">
-        ⚠️ {{ store.lastError }}
+        △ {{ store.lastError }}
       </div>
 
       <!-- ==================== 知乎 Tab ==================== -->
       <template v-if="activeTab === 'zhihu'">
         <div v-if="store.zhihuLoading && store.zhihuQuestions.length === 0" class="loading-state">
-          <div class="loading-spinner">🔍</div>
+          <div class="loading-spinner">◎</div>
           <div class="loading-text">正在生成知乎内容...</div>
         </div>
 
         <div v-else-if="store.zhihuQuestions.length === 0" class="empty-state">
-          <div class="empty-icon">💡</div>
+          <div class="empty-icon">★</div>
           <div class="empty-text">暂无问答</div>
           <div class="empty-hint">点击刷新按钮让AI生成知乎内容～</div>
           <button class="generate-btn zhihu-btn" @click="handleRefresh" :disabled="store.generating">
-            {{ store.generating ? '生成中...' : '✨ 生成知乎内容' }}
+            {{ store.generating ? '生成中...' : '✦ 生成知乎内容' }}
           </button>
         </div>
 
@@ -87,7 +87,7 @@
                 >
                   ▼
                 </button>
-                <span class="zhihu-comment-count">💬 {{ answer.comments.length }}</span>
+                <span class="zhihu-comment-count">◌ {{ answer.comments.length }}</span>
               </div>
 
               <!-- 评论 -->
@@ -108,16 +108,16 @@
       <!-- ==================== 小红书 Tab ==================== -->
       <template v-if="activeTab === 'xiaohongshu'">
         <div v-if="store.xhsLoading && store.xhsNotes.length === 0" class="loading-state">
-          <div class="loading-spinner">📕</div>
+          <div class="loading-spinner">▤</div>
           <div class="loading-text">正在生成小红书内容...</div>
         </div>
 
         <div v-else-if="store.xhsNotes.length === 0" class="empty-state">
-          <div class="empty-icon">📕</div>
+          <div class="empty-icon">▤</div>
           <div class="empty-text">暂无笔记</div>
           <div class="empty-hint">点击刷新按钮让AI生成小红书内容～</div>
           <button class="generate-btn xhs-btn" @click="handleRefresh" :disabled="store.generating">
-            {{ store.generating ? '生成中...' : '✨ 生成小红书内容' }}
+            {{ store.generating ? '生成中...' : '✦ 生成小红书内容' }}
           </button>
         </div>
 
@@ -143,10 +143,10 @@
                   </div>
                   <div class="xhs-actions">
                     <button class="xhs-action" :class="{ liked: note.isLiked }" @click.stop="store.toggleXhsLike(note.id)">
-                      {{ note.isLiked ? '❤️' : '🤍' }} {{ formatCount(note.likes) }}
+                      {{ note.isLiked ? '♥' : '♡' }} {{ formatCount(note.likes) }}
                     </button>
                     <button class="xhs-action" :class="{ collected: note.isCollected }" @click.stop="store.toggleXhsCollect(note.id)">
-                      {{ note.isCollected ? '⭐' : '☆' }} {{ formatCount(note.collects) }}
+                      {{ note.isCollected ? '★' : '☆' }} {{ formatCount(note.collects) }}
                     </button>
                   </div>
                 </div>
@@ -173,16 +173,16 @@
       <!-- ==================== 抖音 Tab ==================== -->
       <template v-if="activeTab === 'douyin'">
         <div v-if="store.douyinLoading && store.douyinVideos.length === 0" class="loading-state douyin-loading">
-          <div class="loading-spinner">🎵</div>
+          <div class="loading-spinner">♪</div>
           <div class="loading-text">正在生成抖音内容...</div>
         </div>
 
         <div v-else-if="store.douyinVideos.length === 0" class="empty-state douyin-empty">
-          <div class="empty-icon">🎬</div>
+          <div class="empty-icon">▷</div>
           <div class="empty-text">暂无视频</div>
           <div class="empty-hint">点击刷新按钮让AI生成抖音内容～</div>
           <button class="generate-btn douyin-btn" @click="handleRefresh" :disabled="store.generating">
-            {{ store.generating ? '生成中...' : '✨ 生成抖音内容' }}
+            {{ store.generating ? '生成中...' : '✦ 生成抖音内容' }}
           </button>
         </div>
 
@@ -207,11 +207,11 @@
               <!-- 右侧操作栏 -->
               <div class="douyin-side-actions">
                 <div class="douyin-side-item" @click="store.toggleDouyinLike(video.id)">
-                  <span class="douyin-side-icon" :class="{ liked: video.isLiked }">{{ video.isLiked ? '❤️' : '🤍' }}</span>
+                  <span class="douyin-side-icon" :class="{ liked: video.isLiked }">{{ video.isLiked ? '♥' : '♡' }}</span>
                   <span class="douyin-side-count">{{ formatCount(video.likes) }}</span>
                 </div>
                 <div class="douyin-side-item" @click="toggleDouyinComments(video.id)">
-                  <span class="douyin-side-icon">💬</span>
+                  <span class="douyin-side-icon">◌</span>
                   <span class="douyin-side-count">{{ formatCount(video.commentCount) }}</span>
                 </div>
                 <div class="douyin-side-item">
@@ -219,7 +219,7 @@
                   <span class="douyin-side-count">{{ formatCount(video.shares) }}</span>
                 </div>
                 <div class="douyin-side-item" @click="store.deleteDouyinVideo(video.id)">
-                  <span class="douyin-side-icon">🗑️</span>
+                  <span class="douyin-side-icon">✕</span>
                 </div>
               </div>
             </div>
@@ -244,7 +244,7 @@
                       :class="{ liked: comment.isLiked }"
                       @click="store.toggleDouyinCommentLike(video.id, comment.id)"
                     >
-                      {{ comment.isLiked ? '❤️' : '🤍' }} {{ formatCount(comment.likes) }}
+                      {{ comment.isLiked ? '♥' : '♡' }} {{ formatCount(comment.likes) }}
                     </button>
                   </div>
                 </div>
@@ -294,9 +294,9 @@ const store = useSocialAIStore()
 type TabKey = 'zhihu' | 'xiaohongshu' | 'douyin'
 
 const tabs = [
-  { key: 'zhihu' as TabKey, label: '知乎', icon: '💡' },
-  { key: 'xiaohongshu' as TabKey, label: '小红书', icon: '📕' },
-  { key: 'douyin' as TabKey, label: '抖音', icon: '🎵' },
+  { key: 'zhihu' as TabKey, label: '知乎', icon: '★' },
+  { key: 'xiaohongshu' as TabKey, label: '小红书', icon: '▤' },
+  { key: 'douyin' as TabKey, label: '抖音', icon: '♪' },
 ]
 
 const tabTitles: Record<TabKey, string> = {

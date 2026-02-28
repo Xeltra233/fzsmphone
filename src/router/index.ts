@@ -36,6 +36,9 @@ const routeFeatureMap: Record<string, string> = {
   ReversePhonePeek: 'reverse_phone_peek',
   OfflineDate: 'offline_date',
   Preset: 'preset',
+  Zhihu: 'zhihu',
+  Xiaohongshu: 'xiaohongshu',
+  Douyin: 'douyin',
 }
 
 const routes: RouteRecordRaw[] = [
@@ -123,6 +126,16 @@ const routes: RouteRecordRaw[] = [
     name: 'CoupleSpace',
     component: () => import('@/pages/social/CoupleSpacePage.vue'),
   },
+  {
+    path: '/zhihu',
+    name: 'Zhihu',
+    component: () => import('@/pages/social/ZhihuPage.vue'),
+  },
+  {
+    path: '/xiaohongshu',
+    name: 'Xiaohongshu',
+    component: () => import('@/pages/social/XiaohongshuPage.vue'),
+  },
   // === 生活服务 ===
   {
     path: '/takeaway',
@@ -174,6 +187,11 @@ const routes: RouteRecordRaw[] = [
     path: '/mini-theater',
     name: 'MiniTheater',
     component: () => import('@/pages/entertainment/MiniTheaterPage.vue'),
+  },
+  {
+    path: '/douyin',
+    name: 'Douyin',
+    component: () => import('@/pages/entertainment/DouyinPage.vue'),
   },
   // === 工具 ===
   {

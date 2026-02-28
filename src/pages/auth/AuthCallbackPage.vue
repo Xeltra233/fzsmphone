@@ -1,7 +1,7 @@
 <template>
   <div class="callback-page">
     <div v-if="error" class="callback-error">
-      <div class="error-icon">⚠️</div>
+      <div class="error-icon">△</div>
       <p class="error-title">登录失败</p>
       <p class="error-message">{{ error }}</p>
       <button class="retry-btn pressable" @click="goBack">返回登录</button>

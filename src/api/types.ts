@@ -303,3 +303,112 @@ export interface OrderInput {
   address: string
   note?: string
 }
+
+// ========== 预设 ==========
+export interface Preset {
+  id: number
+  user_id: number
+  name: string
+  emoji: string
+  category: string
+  description: string
+  content: string
+  prefill: string
+  enable_prefill: boolean
+  is_builtin: boolean
+  gradient: string
+  created_at: string
+  updated_at: string
+}
+
+export interface PresetInput {
+  name: string
+  emoji?: string
+  category?: string
+  description?: string
+  content: string
+  prefill?: string
+  enable_prefill?: boolean
+  is_builtin?: boolean
+  gradient?: string
+}
+
+// ========== 通话记录 ==========
+export interface CallRecord {
+  id: number
+  user_id: number
+  character_id: string
+  name: string
+  number: string
+  avatar: string
+  type: string
+  call_type: string
+  duration: string
+  created_at: string
+}
+
+export interface CallRecordInput {
+  character_id: string
+  name: string
+  number: string
+  avatar?: string
+  type: string
+  call_type: string
+  duration: string
+}
+
+// ========== 短信 ==========
+export interface SmsThread {
+  id: number
+  user_id: number
+  recipient: string
+  number: string
+  character_id: string
+  avatar: string
+  last_content: string
+  last_at: string
+  created_at: string
+}
+
+export interface SmsThreadInput {
+  recipient: string
+  number?: string
+  character_id?: string
+  avatar?: string
+}
+
+export interface SmsMessage {
+  id: number
+  thread_id: number
+  role: string
+  content: string
+  created_at: string
+}
+
+export interface SmsMessageInput {
+  role?: string
+  content: string
+}
+
+// ========== 钱包 ==========
+export interface WalletInfo {
+  balance: number
+}
+
+export interface WalletTransaction {
+  id: number
+  user_id: number
+  type: string
+  amount: number
+  description: string
+  target: string
+  created_at: string
+}
+
+export interface WalletTransactionInput {
+  type: string
+  amount: number
+  description?: string
+  target?: string
+}
+

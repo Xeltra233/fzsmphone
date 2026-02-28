@@ -15,6 +15,9 @@ import {
   parseZhihuContent,
   parseXhsContent,
   parseDouyinContent,
+  parseMusicContent,
+  parseLiveContent,
+  parseTheaterContent,
   generateId,
 } from '@/utils/socialParsers'
 import type {
@@ -26,6 +29,10 @@ import type {
   ZhihuQuestion,
   XhsNote,
   DouyinVideo,
+  MusicTrack,
+  MusicPlaylist,
+  LiveStreamer,
+  TheaterDrama,
 } from '@/utils/socialParsers'
 
 // ==================== 存储键 ====================
@@ -36,6 +43,9 @@ const STORAGE_KEYS = {
   zhihu: 'social-data-zhihu',
   xiaohongshu: 'social-data-xiaohongshu',
   douyin: 'social-data-douyin',
+  music: 'social-data-music',
+  live: 'social-data-live',
+  theater: 'social-data-theater',
 }
 
 // ==================== AI配置读取 ====================
@@ -84,6 +94,19 @@ export const useSocialAIStore = defineStore('socialAI', () => {
   const douyinVideos = ref<DouyinVideo[]>([])
   const douyinLoading = ref(false)
 
+  // ==================== 音乐状态 ====================
+  const musicTracks = ref<MusicTrack[]>([])
+  const musicPlaylists = ref<MusicPlaylist[]>([])
+  const musicLoading = ref(false)
+
+  // ==================== 直播状态 ====================
+  const liveStreamers = ref<LiveStreamer[]>([])
+  const liveLoading = ref(false)
+
+  // ==================== 小剧场状态 ====================
+  const theaterDramas = ref<TheaterDrama[]>([])
+  const theaterLoading = ref(false)
+
   // ==================== 通用 ====================
   const generating = ref(false)
   const lastError = ref('')
@@ -114,6 +137,15 @@ export const useSocialAIStore = defineStore('socialAI', () => {
           break
         case 'douyin':
           localStorage.setItem(STORAGE_KEYS.douyin, JSON.stringify(douyinVideos.value))
+          break
+        case 'music':
+          localStorage.setItem(STORAGE_KEYS.music, JSON.stringify({ tracks: musicTracks.value, playlists: musicPlaylists.value }))
+          break
+        case 'live':
+          localStorage.setItem(STORAGE_KEYS.live, JSON.stringify(liveStreamers.value))
+          break
+        case 'theater':
+          localStorage.setItem(STORAGE_KEYS.theater, JSON.stringify(theaterDramas.value))
           break
       }
     } catch { /* ignore */ }
@@ -164,6 +196,29 @@ export const useSocialAIStore = defineStore('socialAI', () => {
           const saved = localStorage.getItem(STORAGE_KEYS.douyin)
           if (saved) {
             douyinVideos.value = JSON.parse(saved)
+          }
+          break
+        }
+        case 'music': {
+          const saved = localStorage.getItem(STORAGE_KEYS.music)
+          if (saved) {
+            const data = JSON.parse(saved)
+            musicTracks.value = data.tracks || []
+            musicPlaylists.value = data.playlists || []
+          }
+          break
+        }
+        case 'live': {
+          const saved = localStorage.getItem(STORAGE_KEYS.live)
+          if (saved) {
+            liveStreamers.value = JSON.parse(saved)
+          }
+          break
+        }
+        case 'theater': {
+          const saved = localStorage.getItem(STORAGE_KEYS.theater)
+          if (saved) {
+            theaterDramas.value = JSON.parse(saved)
           }
           break
         }
@@ -647,6 +702,76 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     saveData('douyin')
   }
 
+  // ==================== 音乐操作 ====================
+  async function generateMusicContent(action?: string) {
+    if (generating.value) return
+    generating.value = true
+    musicLoading.value = true
+    lastError.value = ''
+    try {
+      const raw = await callAI('music', action)
+      const data = parseMusicContent(raw)
+      if (data.tracks.length > 0) {
+        musicTracks.value = data.tracks
+        musicPlaylists.value = data.playlists
+        saveData('music')
+      } else {
+        lastError.value = 'AI returned no music content'
+      }
+    } catch (e: any) {
+      lastError.value = e.message || 'Unknown error'
+    } finally {
+      generating.value = false
+      musicLoading.value = false
+    }
+  }
+
+  // ==================== 直播操作 ====================
+  async function generateLiveContent(action?: string) {
+    if (generating.value) return
+    generating.value = true
+    liveLoading.value = true
+    lastError.value = ''
+    try {
+      const raw = await callAI('live', action)
+      const data = parseLiveContent(raw)
+      if (data.streamers.length > 0) {
+        liveStreamers.value = data.streamers
+        saveData('live')
+      } else {
+        lastError.value = 'AI returned no live content'
+      }
+    } catch (e: any) {
+      lastError.value = e.message || 'Unknown error'
+    } finally {
+      generating.value = false
+      liveLoading.value = false
+    }
+  }
+
+  // ==================== 小剧场操作 ====================
+  async function generateTheaterContent(action?: string) {
+    if (generating.value) return
+    generating.value = true
+    theaterLoading.value = true
+    lastError.value = ''
+    try {
+      const raw = await callAI('theater', action)
+      const data = parseTheaterContent(raw)
+      if (data.dramas.length > 0) {
+        theaterDramas.value = data.dramas
+        saveData('theater')
+      } else {
+        lastError.value = 'AI returned no theater content'
+      }
+    } catch (e: any) {
+      lastError.value = e.message || 'Unknown error'
+    } finally {
+      generating.value = false
+      theaterLoading.value = false
+    }
+  }
+
   // ==================== 清除数据 ====================
   function clearData(type: SocialType) {
     switch (type) {
@@ -669,6 +794,16 @@ export const useSocialAIStore = defineStore('socialAI', () => {
         break
       case 'douyin':
         douyinVideos.value = []
+        break
+      case 'music':
+        musicTracks.value = []
+        musicPlaylists.value = []
+        break
+      case 'live':
+        liveStreamers.value = []
+        break
+      case 'theater':
+        theaterDramas.value = []
         break
     }
     saveData(type)
@@ -745,6 +880,22 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     toggleDouyinLike,
     toggleDouyinCommentLike,
     deleteDouyinVideo,
+
+    // 音乐
+    musicTracks,
+    musicPlaylists,
+    musicLoading,
+    generateMusicContent,
+
+    // 直播
+    liveStreamers,
+    liveLoading,
+    generateLiveContent,
+
+    // 小剧场
+    theaterDramas,
+    theaterLoading,
+    generateTheaterContent,
 
     // 通用
     generating,

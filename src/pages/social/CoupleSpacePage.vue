@@ -7,15 +7,15 @@
       <div class="banner-bg"></div>
       <div class="couple-avatars">
         <div class="avatar-wrapper">
-          <div class="avatar">💑</div>
+          <div class="avatar">♥</div>
           <span class="avatar-name">{{ partnerA }}</span>
         </div>
         <div class="heart-icon">
-          <span class="heart-beat">❤️</span>
+          <span class="heart-beat">♥</span>
           <span class="days-count">{{ daysTogether }} 天</span>
         </div>
         <div class="avatar-wrapper">
-          <div class="avatar">💕</div>
+          <div class="avatar">♥</div>
           <span class="avatar-name">{{ partnerB }}</span>
         </div>
       </div>
@@ -70,7 +70,7 @@
       </div>
       <div v-else class="photo-grid">
         <div v-for="(photo, idx) in photos" :key="idx" class="photo-item">
-          <div class="photo-placeholder">📷</div>
+          <div class="photo-placeholder">▣</div>
           <span class="photo-date">{{ photo.date }}</span>
         </div>
       </div>
@@ -89,7 +89,7 @@
           :class="{ completed: task.done }"
           @click="toggleTask(task)"
         >
-          <div class="task-check">{{ task.done ? '✅' : '⬜' }}</div>
+          <div class="task-check">{{ task.done ? '✓' : '☐' }}</div>
           <span class="task-text">{{ task.text }}</span>
         </div>
       </div>
@@ -129,7 +129,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
 
 const partnerA = ref('我')
@@ -137,12 +137,12 @@ const partnerB = ref('TA')
 const daysTogether = ref(365)
 
 const features = [
-  { icon: '📅', label: '纪念日', action: 'anniversary' },
-  { icon: '📸', label: '相册', action: 'album' },
-  { icon: '💌', label: '情书', action: 'letter' },
-  { icon: '🎯', label: '心愿单', action: 'wish' },
-  { icon: '🎮', label: '小游戏', action: 'game' },
-  { icon: '📍', label: '足迹', action: 'footprint' },
+  { icon: '▦', label: '纪念日', action: 'anniversary' },
+  { icon: '▣', label: '相册', action: 'album' },
+  { icon: '✉', label: '情书', action: 'letter' },
+  { icon: '◎', label: '心愿单', action: 'wish' },
+  { icon: '▶', label: '小游戏', action: 'game' },
+  { icon: '◆', label: '足迹', action: 'footprint' },
 ]
 
 interface Anniversary {
@@ -154,17 +154,17 @@ interface Anniversary {
 }
 
 const anniversaries = ref<Anniversary[]>([
-  { id: 1, title: '在一起纪念日', date: '2024-02-14', icon: '❤️', daysLeft: 354 },
-  { id: 2, title: '第一次旅行', date: '2024-05-01', icon: '✈️', daysLeft: 65 },
+  { id: 1, title: '在一起纪念日', date: '2024-02-14', icon: '♥', daysLeft: 354 },
+  { id: 2, title: '第一次旅行', date: '2024-05-01', icon: '➤', daysLeft: 65 },
 ])
 
-const annIcons = ['❤️', '🎂', '✈️', '💍', '🌹', '🎄', '🎆', '🏠']
+const annIcons = ['♥', '◈', '➤', '○', '✿', '✦', '✸', '⌂']
 
 const showAddAnniversary = ref(false)
 const newAnn = reactive({
   title: '',
   date: '',
-  icon: '❤️',
+  icon: '♥',
 })
 
 function addAnniversary() {
@@ -181,7 +181,7 @@ function addAnniversary() {
   })
   newAnn.title = ''
   newAnn.date = ''
-  newAnn.icon = '❤️'
+  newAnn.icon = '♥'
   showAddAnniversary.value = false
 }
 
@@ -217,12 +217,56 @@ const tasks = ref<CoupleTask[]>([
 
 function toggleTask(task: CoupleTask) {
   task.done = !task.done
+  saveData()
 }
 
 function handleFeature(action: string) {
-  // 各功能入口，目前仅滚动到对应区域
   console.log('Feature:', action)
 }
+
+const COUPLE_KEY = 'couple-space-data'
+
+function saveData() {
+  try {
+    const data = {
+      anniversaries: anniversaries.value,
+      photos: photos.value,
+      tasks: tasks.value,
+      partnerA: partnerA.value,
+      partnerB: partnerB.value,
+    }
+    localStorage.setItem(COUPLE_KEY, JSON.stringify(data))
+  } catch { /* ignore */ }
+}
+
+function recalcDaysLeft() {
+  const now = new Date()
+  anniversaries.value.forEach(ann => {
+    const target = new Date(ann.date)
+    // Set target to this year
+    target.setFullYear(now.getFullYear())
+    if (target < now) target.setFullYear(now.getFullYear() + 1)
+    ann.daysLeft = Math.ceil((target.getTime() - now.getTime()) / 86400000)
+  })
+}
+
+watch(anniversaries, () => { recalcDaysLeft(); saveData() }, { deep: true })
+watch(photos, saveData, { deep: true })
+
+onMounted(() => {
+  try {
+    const saved = localStorage.getItem(COUPLE_KEY)
+    if (saved) {
+      const data = JSON.parse(saved)
+      if (data.anniversaries) anniversaries.value = data.anniversaries
+      if (data.photos) photos.value = data.photos
+      if (data.tasks) tasks.value = data.tasks
+      if (data.partnerA) partnerA.value = data.partnerA
+      if (data.partnerB) partnerB.value = data.partnerB
+    }
+  } catch { /* ignore */ }
+  recalcDaysLeft()
+})
 </script>
 
 <style scoped>

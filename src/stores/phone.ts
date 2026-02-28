@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getCharacterById } from '@/utils/aiService'
+import { callApi } from '@/api/services'
 
 export interface CallRecord {
   id: string
@@ -81,41 +82,66 @@ export const usePhoneStore = defineStore('phone', () => {
   const callHistory = ref<CallRecord[]>([])
   const contacts = ref<Contact[]>([])
 
-  function loadCallHistory() {
+  async function loadCallHistory() {
+    try {
+      const res = await callApi.list()
+      if (res.data) {
+        callHistory.value = res.data.map((r: any) => ({
+          id: String(r.id),
+          name: r.name || '',
+          number: r.number || '',
+          characterId: r.character_id || '',
+          avatar: r.avatar || '',
+          type: r.type || 'outgoing',
+          callType: r.call_type || 'voice',
+          time: r.time || '',
+          duration: r.duration || '',
+          timestamp: new Date(r.created_at || Date.now()).getTime(),
+        }))
+        return
+      }
+    } catch { /* API failed, fallback */ }
     try {
       const saved = localStorage.getItem(CALL_HISTORY_KEY)
-      if (saved) {
-        callHistory.value = JSON.parse(saved)
-      }
-    } catch {
-      // ignore
-    }
+      if (saved) callHistory.value = JSON.parse(saved)
+    } catch { /* ignore */ }
   }
 
-  function saveCallHistory() {
+  function saveCallHistoryLocal() {
     try {
-      // 只保留最近50条
       const toSave = callHistory.value.slice(0, 50)
       localStorage.setItem(CALL_HISTORY_KEY, JSON.stringify(toSave))
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }
 
-  function addCallRecord(record: Omit<CallRecord, 'id' | 'timestamp'>) {
+  // Keep backward compat alias
+  const saveCallHistory = saveCallHistoryLocal
+
+  async function addCallRecord(record: Omit<CallRecord, 'id' | 'timestamp'>) {
     const newRecord: CallRecord = {
       ...record,
       id: `call-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       timestamp: Date.now(),
     }
     callHistory.value.unshift(newRecord)
-    saveCallHistory()
+    saveCallHistoryLocal()
+    try {
+      await callApi.create({
+        name: record.name,
+        number: record.number,
+        character_id: record.characterId,
+        type: record.type,
+        call_type: record.callType,
+        duration: record.duration,
+      })
+    } catch { /* ignore API error */ }
     return newRecord
   }
 
-  function clearCallHistory() {
+  async function clearCallHistory() {
     callHistory.value = []
-    saveCallHistory()
+    saveCallHistoryLocal()
+    try { await callApi.clear() } catch { /* ignore */ }
   }
 
   // === 联系人（从角色同步） ===

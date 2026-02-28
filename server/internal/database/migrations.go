@@ -284,4 +284,110 @@ var migrations = []migration{
 			);
 		`,
 	},
+	{
+		Version: 15,
+		Name:    "create_presets",
+		SQL: `
+			CREATE TABLE IF NOT EXISTS presets (
+				id              BIGSERIAL PRIMARY KEY,
+				user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				name            TEXT NOT NULL,
+				emoji           TEXT NOT NULL DEFAULT '🎭',
+				category        TEXT NOT NULL DEFAULT '',
+				description     TEXT NOT NULL DEFAULT '',
+				content         TEXT NOT NULL DEFAULT '',
+				prefill         TEXT NOT NULL DEFAULT '',
+				enable_prefill  BOOLEAN NOT NULL DEFAULT false,
+				is_builtin      BOOLEAN NOT NULL DEFAULT false,
+				gradient        TEXT NOT NULL DEFAULT 'linear-gradient(135deg, #667eea, #764ba2)',
+				created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE INDEX IF NOT EXISTS idx_presets_user ON presets(user_id);
+		`,
+	},
+	{
+		Version: 16,
+		Name:    "create_call_records",
+		SQL: `
+			CREATE TABLE IF NOT EXISTS call_records (
+				id            BIGSERIAL PRIMARY KEY,
+				user_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				character_id  TEXT NOT NULL DEFAULT '',
+				name          TEXT NOT NULL,
+				number        TEXT NOT NULL DEFAULT '',
+				avatar        TEXT NOT NULL DEFAULT '',
+				type          TEXT NOT NULL DEFAULT 'outgoing',
+				call_type     TEXT NOT NULL DEFAULT 'voice',
+				duration      TEXT NOT NULL DEFAULT '',
+				created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE INDEX IF NOT EXISTS idx_call_records_user ON call_records(user_id, created_at DESC);
+		`,
+	},
+	{
+		Version: 17,
+		Name:    "create_sms",
+		SQL: `
+			CREATE TABLE IF NOT EXISTS sms_threads (
+				id            BIGSERIAL PRIMARY KEY,
+				user_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				recipient     TEXT NOT NULL,
+				number        TEXT NOT NULL DEFAULT '',
+				character_id  TEXT NOT NULL DEFAULT '',
+				avatar        TEXT NOT NULL DEFAULT '',
+				last_content  TEXT NOT NULL DEFAULT '',
+				last_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE INDEX IF NOT EXISTS idx_sms_threads_user ON sms_threads(user_id, last_at DESC);
+
+			CREATE TABLE IF NOT EXISTS sms_messages (
+				id          BIGSERIAL PRIMARY KEY,
+				thread_id   BIGINT NOT NULL REFERENCES sms_threads(id) ON DELETE CASCADE,
+				role        TEXT NOT NULL DEFAULT 'user',
+				content     TEXT NOT NULL,
+				created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE INDEX IF NOT EXISTS idx_sms_messages_thread ON sms_messages(thread_id, created_at);
+		`,
+	},
+	{
+		Version: 18,
+		Name:    "create_wallet",
+		SQL: `
+			CREATE TABLE IF NOT EXISTS wallets (
+				id       BIGSERIAL PRIMARY KEY,
+				user_id  BIGINT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				balance  NUMERIC(12,2) NOT NULL DEFAULT 10000.00
+			);
+
+			CREATE TABLE IF NOT EXISTS wallet_transactions (
+				id          BIGSERIAL PRIMARY KEY,
+				user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				type        TEXT NOT NULL,
+				amount      NUMERIC(12,2) NOT NULL,
+				description TEXT NOT NULL DEFAULT '',
+				target      TEXT NOT NULL DEFAULT '',
+				created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE INDEX IF NOT EXISTS idx_wallet_tx_user ON wallet_transactions(user_id, created_at DESC);
+		`,
+	},
+	{
+		Version: 19,
+		Name:    "create_game_records",
+		SQL: `
+			CREATE TABLE IF NOT EXISTS game_records (
+				id          BIGSERIAL PRIMARY KEY,
+				user_id     BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				game        TEXT NOT NULL,
+				detail      TEXT NOT NULL DEFAULT '',
+				amount      NUMERIC(12,2) NOT NULL DEFAULT 0,
+				win         BOOLEAN NOT NULL DEFAULT false,
+				created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE INDEX IF NOT EXISTS idx_game_records_user ON game_records(user_id, created_at DESC);
+		`,
+	},
 }

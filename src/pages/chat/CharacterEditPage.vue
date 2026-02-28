@@ -12,7 +12,7 @@
         <div class="avatar-preview" @click="showAvatarInput = true">
           <img v-if="avatarPreview" :src="avatarPreview" alt="头像" />
           <div v-else class="avatar-placeholder">
-            <span class="placeholder-icon">📷</span>
+            <span class="placeholder-icon">▣</span>
             <span>点击设置头像</span>
           </div>
         </div>
@@ -46,7 +46,7 @@
             </div>
             <div class="divider"><span>或</span></div>
             <div class="input-group">
-              <button class="upload-local-btn" @click="triggerFileInput">📷 本地上传（可能卡顿）</button>
+              <button class="upload-local-btn" @click="triggerFileInput">▣ 本地上传（可能卡顿）</button>
             </div>
           </div>
         </div>

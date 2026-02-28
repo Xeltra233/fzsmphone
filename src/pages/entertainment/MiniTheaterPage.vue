@@ -40,7 +40,7 @@
           <div class="meta-row">
             <span class="meta-tag">{{ currentDrama.category }}</span>
             <span class="meta-tag">{{ currentDrama.year }}</span>
-            <span class="meta-rating">⭐ {{ currentDrama.rating }}</span>
+            <span class="meta-rating">★ {{ currentDrama.rating }}</span>
             <span class="meta-views">{{ formatViews(currentDrama.views) }}播放</span>
           </div>
           <p class="drama-desc">{{ currentDrama.desc }}</p>
@@ -80,7 +80,7 @@
                 <div class="comment-text">{{ c.text }}</div>
                 <div class="comment-actions">
                   <span @click="c.liked = !c.liked; c.likes += c.liked ? 1 : -1">
-                    {{ c.liked ? '❤️' : '🤍' }} {{ c.likes }}
+                    {{ c.liked ? '♥' : '♡' }} {{ c.likes }}
                   </span>
                 </div>
               </div>
@@ -92,7 +92,13 @@
 
     <!-- 列表模式 -->
     <template v-else>
-      <NavBar title="小剧场" back />
+      <NavBar title="小剧场" back>
+        <template #right>
+          <button class="gen-btn" @click="handleGenerate" :disabled="aiStore.generating">
+            {{ aiStore.theaterLoading ? 'AI生成中...' : 'AI生成' }}
+          </button>
+        </template>
+      </NavBar>
 
       <!-- 分类标签 -->
       <div class="category-tabs">
@@ -109,7 +115,7 @@
 
       <!-- 热门推荐 -->
       <div v-if="activeCategory === 'all'" class="hot-section">
-        <div class="section-title">🔥 热门推荐</div>
+        <div class="section-title">▲ 热门推荐</div>
         <div class="hot-scroll">
           <div
             v-for="d in hotDramas"
@@ -122,7 +128,7 @@
               <div class="hot-badge">{{ d.category }}</div>
             </div>
             <div class="hot-title">{{ d.title }}</div>
-            <div class="hot-info">⭐{{ d.rating }} · {{ d.episodes.length }}集</div>
+            <div class="hot-info">★{{ d.rating }} · {{ d.episodes.length }}集</div>
           </div>
         </div>
       </div>
@@ -145,7 +151,7 @@
               <span class="d-tag">{{ d.category }}</span>
               <span class="d-tag">{{ d.year }}</span>
             </div>
-            <div class="drama-rating">⭐ {{ d.rating }} · {{ formatViews(d.views) }}播放</div>
+            <div class="drama-rating">★ {{ d.rating }} · {{ formatViews(d.views) }}播放</div>
             <div class="drama-brief">{{ d.desc }}</div>
           </div>
         </div>
@@ -153,7 +159,7 @@
 
       <!-- 历史记录 -->
       <div v-if="watchHistory.length > 0" class="history-section">
-        <div class="section-title">📝 观看历史</div>
+        <div class="section-title">▤ 观看历史</div>
         <div class="history-list">
           <div v-for="h in watchHistory" :key="h.id" class="history-item" @click="openDrama(h.drama, h.episode)">
             <span class="h-emoji">{{ h.drama.emoji }}</span>
@@ -169,6 +175,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
+import { useSocialAIStore } from '@/stores/socialAI'
+
+const aiStore = useSocialAIStore()
 
 interface Drama {
   id: number
@@ -211,14 +220,14 @@ const categories = [
 const activeCategory = ref('all')
 
 const allDramas = ref<Drama[]>([
-  { id: 1, title: '甜蜜追击', emoji: '💕', category: '甜宠', year: 2024, rating: 9.2, views: 2840000, desc: '霸道总裁爱上我，一场甜蜜的追逐战，每一集都让人心跳加速。', bgGradient: 'linear-gradient(135deg, #ff9a9e, #fecfef)', episodes: [1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id: 2, title: '长安幻梦', emoji: '🏯', category: '古装', year: 2024, rating: 9.0, views: 1920000, desc: '大唐盛世下的一段奇幻旅程，穿越千年的爱恨情仇。', bgGradient: 'linear-gradient(135deg, #a18cd1, #fbc2eb)', episodes: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16] },
-  { id: 3, title: '迷雾真相', emoji: '🔍', category: '悬疑', year: 2024, rating: 9.5, views: 3210000, desc: '一桩离奇失踪案牵出惊天阴谋，层层推理揭开真相。', bgGradient: 'linear-gradient(135deg, #667eea, #764ba2)', episodes: [1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id: 4, title: '奶爸日记', emoji: '👶', category: '搞笑', year: 2024, rating: 8.8, views: 1580000, desc: '新手奶爸的爆笑育儿之路，笑中带泪的温馨故事。', bgGradient: 'linear-gradient(135deg, #43e97b, #38f9d7)', episodes: [1,2,3,4,5,6,7,8] },
-  { id: 5, title: '星辰恋语', emoji: '⭐', category: '甜宠', year: 2024, rating: 9.1, views: 2150000, desc: '天文系学霸和音乐才女的浪漫邂逅，在星空下许下永恒。', bgGradient: 'linear-gradient(135deg, #fa709a, #fee140)', episodes: [1,2,3,4,5,6,7,8,9,10] },
-  { id: 6, title: '都市暗影', emoji: '🌃', category: '都市', year: 2024, rating: 8.9, views: 1750000, desc: '金融精英的双面人生，白天是职场强者，夜晚追寻真相。', bgGradient: 'linear-gradient(135deg, #4facfe, #00f2fe)', episodes: [1,2,3,4,5,6,7,8,9,10,11,12] },
-  { id: 7, title: '花间词', emoji: '🌸', category: '古装', year: 2024, rating: 8.7, views: 1320000, desc: '江南才女的诗词人生，一曲花间词道尽悲欢离合。', bgGradient: 'linear-gradient(135deg, #ffecd2, #fcb69f)', episodes: [1,2,3,4,5,6,7,8,9,10,11,12,13,14] },
-  { id: 8, title: '职场反击战', emoji: '💼', category: '都市', year: 2024, rating: 9.3, views: 2680000, desc: '被陷害离职的女主角绝地反击，一路逆袭登上巅峰。', bgGradient: 'linear-gradient(135deg, #89f7fe, #66a6ff)', episodes: [1,2,3,4,5,6,7,8,9,10] },
+  { id: 1, title: '甜蜜追击', emoji: '♥', category: '甜宠', year: 2024, rating: 9.2, views: 2840000, desc: '霸道总裁爱上我，一场甜蜜的追逐战，每一集都让人心跳加速。', bgGradient: 'linear-gradient(135deg, #ff9a9e, #fecfef)', episodes: [1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id: 2, title: '长安幻梦', emoji: '◈', category: '古装', year: 2024, rating: 9.0, views: 1920000, desc: '大唐盛世下的一段奇幻旅程，穿越千年的爱恨情仇。', bgGradient: 'linear-gradient(135deg, #a18cd1, #fbc2eb)', episodes: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16] },
+  { id: 3, title: '迷雾真相', emoji: '◎', category: '悬疑', year: 2024, rating: 9.5, views: 3210000, desc: '一桩离奇失踪案牵出惊天阴谋，层层推理揭开真相。', bgGradient: 'linear-gradient(135deg, #667eea, #764ba2)', episodes: [1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id: 4, title: '奶爸日记', emoji: '◎', category: '搞笑', year: 2024, rating: 8.8, views: 1580000, desc: '新手奶爸的爆笑育儿之路，笑中带泪的温馨故事。', bgGradient: 'linear-gradient(135deg, #43e97b, #38f9d7)', episodes: [1,2,3,4,5,6,7,8] },
+  { id: 5, title: '星辰恋语', emoji: '★', category: '甜宠', year: 2024, rating: 9.1, views: 2150000, desc: '天文系学霸和音乐才女的浪漫邂逅，在星空下许下永恒。', bgGradient: 'linear-gradient(135deg, #fa709a, #fee140)', episodes: [1,2,3,4,5,6,7,8,9,10] },
+  { id: 6, title: '都市暗影', emoji: '★', category: '都市', year: 2024, rating: 8.9, views: 1750000, desc: '金融精英的双面人生，白天是职场强者，夜晚追寻真相。', bgGradient: 'linear-gradient(135deg, #4facfe, #00f2fe)', episodes: [1,2,3,4,5,6,7,8,9,10,11,12] },
+  { id: 7, title: '花间词', emoji: '✿', category: '古装', year: 2024, rating: 8.7, views: 1320000, desc: '江南才女的诗词人生，一曲花间词道尽悲欢离合。', bgGradient: 'linear-gradient(135deg, #ffecd2, #fcb69f)', episodes: [1,2,3,4,5,6,7,8,9,10,11,12,13,14] },
+  { id: 8, title: '职场反击战', emoji: '▢', category: '都市', year: 2024, rating: 9.3, views: 2680000, desc: '被陷害离职的女主角绝地反击，一路逆袭登上巅峰。', bgGradient: 'linear-gradient(135deg, #89f7fe, #66a6ff)', episodes: [1,2,3,4,5,6,7,8,9,10] },
 ])
 
 const hotDramas = computed(() => {
@@ -244,11 +253,11 @@ const watchHistory = ref<HistoryEntry[]>([])
 let playTimer: ReturnType<typeof setInterval> | null = null
 
 const mockComments: CommentItem[] = [
-  { avatar: '😍', name: '追剧少女', text: '太好看了！停不下来', time: '2分钟前', likes: 128, liked: false },
-  { avatar: '🤓', name: '影评人老王', text: '剧情紧凑，演技在线，推荐！', time: '15分钟前', likes: 86, liked: false },
-  { avatar: '😭', name: '哭包小鱼', text: '看哭了...这段也太虐了吧', time: '32分钟前', likes: 54, liked: false },
-  { avatar: '🤣', name: '快乐水', text: '哈哈哈这段笑死我了', time: '1小时前', likes: 201, liked: false },
-  { avatar: '👀', name: '剧透警察', text: '第8集有大反转，记得追！', time: '2小时前', likes: 45, liked: false },
+  { avatar: '◠', name: '追剧少女', text: '太好看了！停不下来', time: '2分钟前', likes: 128, liked: false },
+  { avatar: '◎', name: '影评人老王', text: '剧情紧凑，演技在线，推荐！', time: '15分钟前', likes: 86, liked: false },
+  { avatar: '◡', name: '哭包小鱼', text: '看哭了...这段也太虐了吧', time: '32分钟前', likes: 54, liked: false },
+  { avatar: '◠', name: '快乐水', text: '哈哈哈这段笑死我了', time: '1小时前', likes: 201, liked: false },
+  { avatar: '◉', name: '剧透警察', text: '第8集有大反转，记得追！', time: '2小时前', likes: 45, liked: false },
 ]
 
 function openDrama(d: Drama, ep?: number) {
@@ -307,7 +316,7 @@ function postComment() {
   const text = commentInput.value.trim()
   if (!text) return
   comments.value.unshift({
-    avatar: '😊',
+    avatar: '◠',
     name: '我',
     text,
     time: '刚刚',
@@ -316,6 +325,42 @@ function postComment() {
   })
   commentInput.value = ''
 }
+
+async function handleGenerate() {
+  await aiStore.generateTheaterContent()
+  if (aiStore.theaterDramas.length > 0) {
+    allDramas.value = aiStore.theaterDramas.map((d, i) => ({
+      id: i + 100,
+      title: d.title,
+      emoji: d.emoji,
+      category: d.category,
+      year: 2024,
+      rating: d.rating,
+      views: d.views,
+      desc: d.desc,
+      bgGradient: d.bgGradient,
+      episodes: d.episodes,
+    }))
+  }
+}
+
+onMounted(() => {
+  aiStore.loadData('theater')
+  if (aiStore.theaterDramas.length > 0) {
+    allDramas.value = aiStore.theaterDramas.map((d, i) => ({
+      id: i + 100,
+      title: d.title,
+      emoji: d.emoji,
+      category: d.category,
+      year: 2024,
+      rating: d.rating,
+      views: d.views,
+      desc: d.desc,
+      bgGradient: d.bgGradient,
+      episodes: d.episodes,
+    }))
+  }
+})
 
 onUnmounted(() => {
   if (playTimer) clearInterval(playTimer)
@@ -816,4 +861,20 @@ onUnmounted(() => {
 .h-emoji { font-size: 20px; }
 .h-name { flex: 1; color: var(--text-primary); }
 .h-time { color: var(--text-quaternary); font-size: 12px; }
+
+.gen-btn {
+  padding: 4px 12px;
+  border-radius: 14px;
+  border: none;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gen-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 </style>

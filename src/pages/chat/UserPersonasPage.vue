@@ -36,7 +36,7 @@
 
       <!-- 空状态 -->
       <div class="empty" v-else-if="store.personas.length === 0 && !showForm">
-        <div class="empty-icon">🎭</div>
+        <div class="empty-icon">◈</div>
         <p>还没有创建人设</p>
         <p class="empty-hint">人设是你在角色扮演中的身份设定</p>
       </div>
@@ -59,8 +59,8 @@
             <div class="persona-desc">{{ persona.description || '暂无描述' }}</div>
           </div>
           <div class="persona-actions">
-            <button class="action-btn edit" @click="startEdit(persona)">✏️</button>
-            <button class="action-btn delete" @click="handleDelete(persona.id)">🗑️</button>
+            <button class="action-btn edit" @click="startEdit(persona)">✎</button>
+            <button class="action-btn delete" @click="handleDelete(persona.id)">✕</button>
           </div>
         </div>
       </div>

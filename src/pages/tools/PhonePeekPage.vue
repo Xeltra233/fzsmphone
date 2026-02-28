@@ -6,7 +6,7 @@
       <!-- 状态显示 -->
       <div class="peek-status-card">
         <div class="peek-icon" :class="{ peeking: isPeeking }">
-          {{ isPeeking ? '👀' : '🔍' }}
+          {{ isPeeking ? '◉' : '◎' }}
         </div>
         <h2>{{ isPeeking ? '正在偷看...' : '偷看TA的手机' }}</h2>
         <p>模拟查看对方手机的各项信息</p>
@@ -42,7 +42,7 @@
           </div>
         </div>
         <div class="result-hint">
-          <span>⚠️</span>
+          <span>△</span>
           <span>以上内容纯属角色扮演虚构</span>
         </div>
       </div>
@@ -65,9 +65,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
+import { useSettingsStore } from '@/stores/settings'
+import { sendAIRequest, getCharacterById } from '@/utils/aiService'
 
+const settingsStore = useSettingsStore()
 const isPeeking = ref(false)
 
 interface PeekOption {
@@ -96,12 +99,12 @@ interface Discovery {
 }
 
 const peekOptions: PeekOption[] = [
-  { icon: '💬', label: '聊天记录', desc: '查看最近聊天', category: 'chat' },
-  { icon: '📸', label: '相册', desc: '查看最近照片', category: 'photos' },
-  { icon: '📱', label: '通话记录', desc: '查看最近通话', category: 'calls' },
-  { icon: '🌐', label: '浏览记录', desc: '查看浏览历史', category: 'browser' },
-  { icon: '📍', label: '位置信息', desc: '查看去过的地方', category: 'location' },
-  { icon: '📦', label: '购物记录', desc: '查看购买历史', category: 'shopping' },
+  { icon: '◌', label: '聊天记录', desc: '查看最近聊天', category: 'chat' },
+  { icon: '▣', label: '相册', desc: '查看最近照片', category: 'photos' },
+  { icon: '▢', label: '通话记录', desc: '查看最近通话', category: 'calls' },
+  { icon: '◎', label: '浏览记录', desc: '查看浏览历史', category: 'browser' },
+  { icon: '◆', label: '位置信息', desc: '查看去过的地方', category: 'location' },
+  { icon: '☐', label: '购物记录', desc: '查看购买历史', category: 'shopping' },
 ]
 
 const peekResult = ref<PeekResultData | null>(null)
@@ -109,7 +112,7 @@ const discoveries = ref<Discovery[]>([])
 
 const mockResults: Record<string, PeekResultData> = {
   chat: {
-    icon: '💬', title: '聊天记录',
+    icon: '◌', title: '聊天记录',
     items: [
       { label: '最近联系人', value: '闺蜜、同事小王、妈妈' },
       { label: '最后聊天', value: '5分钟前跟闺蜜聊天' },
@@ -118,7 +121,7 @@ const mockResults: Record<string, PeekResultData> = {
     ],
   },
   photos: {
-    icon: '📸', title: '相册',
+    icon: '▣', title: '相册',
     items: [
       { label: '最新照片', value: '今天拍的美食照片' },
       { label: '相册数量', value: '2,847张照片' },
@@ -127,7 +130,7 @@ const mockResults: Record<string, PeekResultData> = {
     ],
   },
   calls: {
-    icon: '📱', title: '通话记录',
+    icon: '▢', title: '通话记录',
     items: [
       { label: '最近通话', value: '妈妈 - 12分钟前' },
       { label: '通话时长', value: '8分32秒' },
@@ -136,7 +139,7 @@ const mockResults: Record<string, PeekResultData> = {
     ],
   },
   browser: {
-    icon: '🌐', title: '浏览记录',
+    icon: '◎', title: '浏览记录',
     items: [
       { label: '最近搜索', value: '"周末去哪玩"' },
       { label: '常用网站', value: '淘宝、微博、知乎' },
@@ -145,7 +148,7 @@ const mockResults: Record<string, PeekResultData> = {
     ],
   },
   location: {
-    icon: '📍', title: '位置信息',
+    icon: '◆', title: '位置信息',
     items: [
       { label: '当前位置', value: '家（Wi-Fi连接中）' },
       { label: '今日足迹', value: '公司→超市→家' },
@@ -154,7 +157,7 @@ const mockResults: Record<string, PeekResultData> = {
     ],
   },
   shopping: {
-    icon: '📦', title: '购物记录',
+    icon: '☐', title: '购物记录',
     items: [
       { label: '最近购买', value: '一件连衣裙 ¥299' },
       { label: '待收货', value: '2个包裹在路上' },
@@ -164,19 +167,77 @@ const mockResults: Record<string, PeekResultData> = {
   },
 }
 
-function peekAt(option: PeekOption) {
+const DISCOVERY_KEY = 'phone-peek-discoveries'
+
+async function peekAt(option: PeekOption) {
   isPeeking.value = true
+
+  // Try AI generation
+  const s = settingsStore.settings
+  let aiResult: PeekResultData | null = null
+
+  if (s.apiKey) {
+    try {
+      const currentId = localStorage.getItem('currentPersonaId') || ''
+      const character = currentId ? getCharacterById(currentId) : null
+      const charName = character?.name || 'TA'
+
+      const prompt = `You are simulating a phone peek feature. The user is peeking at ${charName}'s phone, specifically their ${option.label}.
+Generate 4 realistic, fun items for this category. Return ONLY a JSON array like:
+[{"label":"...","value":"..."},...]
+Keep values short (under 20 chars). Use Chinese. Category: ${option.category}`
+
+      const response = await sendAIRequest({
+        apiKey: s.apiKey,
+        apiUrl: settingsStore.getApiUrl(),
+        model: s.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.9,
+        maxTokens: 300,
+        stream: false,
+        timeout: s.timeout,
+      })
+
+      if (response.content) {
+        const jsonMatch = response.content.match(/\[.*\]/s)
+        if (jsonMatch) {
+          const items = JSON.parse(jsonMatch[0]) as PeekResultItem[]
+          if (items.length > 0) {
+            aiResult = { icon: option.icon, title: option.label, items }
+          }
+        }
+      }
+    } catch { /* fallback to mock */ }
+  }
+
   setTimeout(() => {
     isPeeking.value = false
-    peekResult.value = mockResults[option.category] || null
+    peekResult.value = aiResult || mockResults[option.category] || null
+    const now = new Date()
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
     discoveries.value.unshift({
       id: Date.now(),
       icon: option.icon,
       title: `查看了${option.label}`,
-      time: '刚刚',
+      time: timeStr,
     })
-  }, 1500)
+    if (discoveries.value.length > 20) discoveries.value = discoveries.value.slice(0, 20)
+    saveDiscoveries()
+  }, aiResult ? 300 : 1500)
 }
+
+function saveDiscoveries() {
+  try {
+    localStorage.setItem(DISCOVERY_KEY, JSON.stringify(discoveries.value))
+  } catch { /* ignore */ }
+}
+
+onMounted(() => {
+  try {
+    const saved = localStorage.getItem(DISCOVERY_KEY)
+    if (saved) discoveries.value = JSON.parse(saved)
+  } catch { /* ignore */ }
+})
 </script>
 
 <style scoped>

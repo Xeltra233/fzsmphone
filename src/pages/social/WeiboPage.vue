@@ -46,7 +46,7 @@
       <div v-if="activeTab === 'home'" class="tab-content">
         <!-- 全局错误提示（内联显示） -->
         <div v-if="store.lastError" class="error-banner" @click="store.lastError = ''">
-          ⚠️ {{ store.lastError }}
+          △ {{ store.lastError }}
           <span class="error-dismiss">点击关闭</span>
         </div>
 
@@ -58,11 +58,11 @@
 
         <!-- 空状态 -->
         <div v-else-if="store.weiboPosts.length === 0" class="empty-state">
-          <div class="empty-icon">📱</div>
+          <div class="empty-icon">▢</div>
           <div class="empty-title">暂无微博</div>
           <div class="empty-sub">点击右上角刷新按钮生成AI内容</div>
           <button class="generate-btn" @click="handleGenerate" :disabled="store.generating">
-            ✨ 生成微博内容
+            ✦ 生成微博内容
           </button>
         </div>
 
@@ -146,7 +146,7 @@
       <!-- ===== 热搜 ===== -->
       <div v-if="activeTab === 'hot'" class="tab-content">
         <div v-if="store.weiboHotSearches.length === 0" class="empty-state">
-          <div class="empty-icon">🔥</div>
+          <div class="empty-icon">▲</div>
           <div class="empty-title">暂无热搜</div>
           <div class="empty-sub">生成微博内容后会自动包含热搜</div>
         </div>
@@ -165,7 +165,7 @@
               <span class="hot-name">{{ item.title }}</span>
               <span class="hot-heat">{{ item.heat }}</span>
             </div>
-            <div v-if="item.rank <= 3" class="hot-fire">🔥</div>
+            <div v-if="item.rank <= 3" class="hot-fire">▲</div>
           </div>
         </div>
       </div>
@@ -173,7 +173,7 @@
       <!-- ===== 榜单 ===== -->
       <div v-if="activeTab === 'rank'" class="tab-content">
         <div v-if="store.weiboRankings.length === 0" class="empty-state">
-          <div class="empty-icon">📊</div>
+          <div class="empty-icon">▥</div>
           <div class="empty-title">暂无榜单</div>
           <div class="empty-sub">生成微博内容后会自动包含榜单</div>
         </div>
@@ -296,10 +296,10 @@ const store = useSocialAIStore()
 
 const activeTab = ref<'home' | 'hot' | 'rank' | 'me'>('home')
 const tabs = [
-  { key: 'home' as const, icon: '🏠', label: '首页' },
-  { key: 'hot' as const, icon: '🔥', label: '热搜' },
-  { key: 'rank' as const, icon: '📊', label: '榜单' },
-  { key: 'me' as const, icon: '👤', label: '我的' },
+  { key: 'home' as const, icon: '⌂', label: '首页' },
+  { key: 'hot' as const, icon: '▲', label: '热搜' },
+  { key: 'rank' as const, icon: '▥', label: '榜单' },
+  { key: 'me' as const, icon: '○', label: '我的' },
 ]
 
 const showCompose = ref(false)

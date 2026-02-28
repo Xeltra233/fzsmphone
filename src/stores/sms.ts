@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getCharacterById } from '@/utils/aiService'
+import { smsApi } from '@/api/services'
 
 export interface SmsMessage {
   id: string
@@ -38,37 +39,72 @@ export const useSmsStore = defineStore('sms', () => {
     return conversations.value.find(c => c.id === currentConversationId.value) || null
   })
 
-  // 从 localStorage 加载
-  function loadConversations() {
+  // 从 API 或 localStorage 加载
+  async function loadConversations() {
+    try {
+      const res = await smsApi.listThreads()
+      if (res.data && res.data.length > 0) {
+        // Map API threads to local format
+        const threads = res.data
+        const convs: SmsConversation[] = []
+        for (const t of threads) {
+          const msgs = await loadThreadMessages((t as any).id)
+          convs.push({
+            id: String((t as any).id),
+            characterId: (t as any).character_id || '',
+            name: (t as any).recipient || '未命名',
+            number: (t as any).number || '',
+            avatar: '',
+            color: '#007aff',
+            lastMsg: msgs.length > 0 ? msgs[msgs.length - 1].text.slice(0, 50) : '',
+            time: msgs.length > 0 ? msgs[msgs.length - 1].time : '',
+            unread: 0,
+            messages: msgs,
+            timestamp: new Date((t as any).created_at || Date.now()).getTime(),
+          })
+        }
+        conversations.value = convs
+        return
+      }
+    } catch { /* API failed, fallback */ }
+    // Fallback: localStorage
     try {
       const saved = localStorage.getItem(SMS_STORAGE_KEY)
       if (saved) {
         const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed)) {
-          conversations.value = parsed
-        }
+        if (Array.isArray(parsed)) conversations.value = parsed
       }
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
 
-    // 如果没有数据，初始化角色关联的短信对话
     if (conversations.value.length === 0) {
       initFromCharacters()
     }
   }
 
+  async function loadThreadMessages(threadId: number): Promise<SmsMessage[]> {
+    try {
+      const res = await smsApi.listMessages(threadId)
+      if (res.data) {
+        return res.data.map((m: any) => ({
+          id: String(m.id),
+          from: m.sender === 'user' ? 'me' as const : 'other' as const,
+          text: m.content || '',
+          time: new Date(m.created_at || Date.now()).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }),
+          timestamp: new Date(m.created_at || Date.now()).getTime(),
+        }))
+      }
+    } catch { /* ignore */ }
+    return []
+  }
+
   function saveConversations() {
     try {
-      // 每个对话只保留最近100条消息
       const toSave = conversations.value.map(c => ({
         ...c,
         messages: c.messages.slice(-100),
       }))
       localStorage.setItem(SMS_STORAGE_KEY, JSON.stringify(toSave))
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
   }
 
   // 从角色列表初始化短信对话
@@ -132,7 +168,7 @@ export const useSmsStore = defineStore('sms', () => {
   }
 
   // 发送用户消息
-  function sendMessage(conversationId: string, text: string): SmsMessage {
+  async function sendMessage(conversationId: string, text: string): Promise<SmsMessage> {
     const conv = conversations.value.find(c => c.id === conversationId)
     if (!conv) throw new Error('对话不存在')
 
@@ -149,11 +185,17 @@ export const useSmsStore = defineStore('sms', () => {
     conv.time = formatTime(now)
     conv.timestamp = now.getTime()
     saveConversations()
+
+    // Sync to API
+    const threadId = parseInt(conversationId)
+    if (!isNaN(threadId)) {
+      try { await smsApi.createMessage(threadId, { role: 'user', content: text }) } catch { /* ignore */ }
+    }
     return msg
   }
 
   // 添加AI回复消息
-  function addAIReply(conversationId: string, text: string): SmsMessage {
+  async function addAIReply(conversationId: string, text: string): Promise<SmsMessage> {
     const conv = conversations.value.find(c => c.id === conversationId)
     if (!conv) throw new Error('对话不存在')
 
@@ -170,12 +212,17 @@ export const useSmsStore = defineStore('sms', () => {
     conv.time = formatTime(now)
     conv.timestamp = now.getTime()
 
-    // 如果不是当前打开的对话，增加未读
     if (currentConversationId.value !== conversationId) {
       conv.unread = (conv.unread || 0) + 1
     }
 
     saveConversations()
+
+    // Sync to API
+    const threadId = parseInt(conversationId)
+    if (!isNaN(threadId)) {
+      try { await smsApi.createMessage(threadId, { role: 'character', content: text }) } catch { /* ignore */ }
+    }
     return msg
   }
 
@@ -223,12 +270,16 @@ export const useSmsStore = defineStore('sms', () => {
   }
 
   // 删除对话
-  function deleteConversation(id: string) {
+  async function deleteConversation(id: string) {
     conversations.value = conversations.value.filter(c => c.id !== id)
     if (currentConversationId.value === id) {
       currentConversationId.value = null
     }
     saveConversations()
+    const threadId = parseInt(id)
+    if (!isNaN(threadId)) {
+      try { await smsApi.deleteThread(threadId) } catch { /* ignore */ }
+    }
   }
 
   // 刷新角色信息

@@ -69,7 +69,7 @@
               保存中...
             </template>
             <template v-else>
-              💾 保存所有设置
+              ▣ 保存所有设置
             </template>
           </button>
         </div>

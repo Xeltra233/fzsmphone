@@ -6,13 +6,13 @@
       <div class="pre-call">
         <div class="contact-avatar-wrap">
           <img v-if="contactAvatar" :src="contactAvatar" class="contact-avatar-img" />
-          <span v-else class="contact-avatar-emoji">🎧</span>
+          <span v-else class="contact-avatar-emoji">♪</span>
         </div>
         <h2 class="contact-name">{{ contactName }}</h2>
         <p class="contact-number" v-if="contactNumber">{{ formatPhone(contactNumber) }}</p>
         <p class="call-hint">{{ characterId ? '点击拨打发起 AI 语音通话' : '点击拨打发起语音通话' }}</p>
         <button class="call-start-btn" @click="startCall">
-          <span>📞</span>
+          <span>☎</span>
           <span>发起通话</span>
         </button>
       </div>
@@ -26,7 +26,7 @@
           <!-- 顶部信息 -->
           <div class="caller-avatar-large">
             <img v-if="contactAvatar" :src="contactAvatar" class="caller-avatar-img" />
-            <span v-else>🎧</span>
+            <span v-else>♪</span>
           </div>
           <h2 class="caller-name">{{ contactName }}</h2>
           <div class="call-status">{{ callStatus }}</div>
@@ -80,11 +80,11 @@
           <!-- 控制按钮 -->
           <div class="call-controls">
             <button class="ctrl-btn" :class="{ active: muted }" @click="muted = !muted">
-              <span>{{ muted ? '🔇' : '🎤' }}</span>
+              <span>{{ muted ? '◇' : '◉' }}</span>
               <span>{{ muted ? '已静音' : '静音' }}</span>
             </button>
             <button class="ctrl-btn" :class="{ active: speakerOn }" @click="speakerOn = !speakerOn">
-              <span>{{ speakerOn ? '📢' : '🔈' }}</span>
+              <span>{{ speakerOn ? '◉' : '◎' }}</span>
               <span>扬声器</span>
             </button>
             <button class="ctrl-btn" @click="showKeypad = !showKeypad">
@@ -94,7 +94,7 @@
           </div>
 
           <button class="hangup-btn" @click="endCall">
-            <span>📵</span>
+            <span>✕</span>
           </button>
         </div>
       </div>
@@ -235,7 +235,7 @@ async function triggerAIReply() {
     callMessages.value.push({
       id: `sys-${Date.now()}`,
       from: 'other',
-      text: '⚠️ 未配置 API Key，无法进行 AI 通话',
+      text: '△ 未配置 API Key，无法进行 AI 通话',
     })
     scrollChat()
     return
@@ -293,7 +293,7 @@ async function triggerAIReply() {
       callMessages.value.push({
         id: `err-${Date.now()}`,
         from: 'other',
-        text: `❌ ${err.message}`,
+        text: `✕ ${err.message}`,
       })
       scrollChat()
     }

@@ -14,28 +14,28 @@
           <!-- 总览卡片 -->
           <div class="overview-cards">
             <div class="overview-card">
-              <div class="card-icon" style="background: linear-gradient(135deg, #5B6EF5, #8B5CF6)">👥</div>
+              <div class="card-icon" style="background: linear-gradient(135deg, #5B6EF5, #8B5CF6)">○</div>
               <div class="card-info">
                 <span class="card-value">{{ totalUsers }}</span>
                 <span class="card-label">总用户数</span>
               </div>
             </div>
             <div class="overview-card">
-              <div class="card-icon" style="background: linear-gradient(135deg, #00B894, #55EFC4)">📅</div>
+              <div class="card-icon" style="background: linear-gradient(135deg, #00B894, #55EFC4)">▦</div>
               <div class="card-info">
                 <span class="card-value">{{ todayNewUsers }}</span>
                 <span class="card-label">今日新增</span>
               </div>
             </div>
             <div class="overview-card">
-              <div class="card-icon" style="background: linear-gradient(135deg, #FDCB6E, #F39C12)">📈</div>
+              <div class="card-icon" style="background: linear-gradient(135deg, #FDCB6E, #F39C12)">↑</div>
               <div class="card-info">
                 <span class="card-value">{{ weekNewUsers }}</span>
                 <span class="card-label">本周新增</span>
               </div>
             </div>
             <div class="overview-card">
-              <div class="card-icon" style="background: linear-gradient(135deg, #E17055, #FAB1A0)">📊</div>
+              <div class="card-icon" style="background: linear-gradient(135deg, #E17055, #FAB1A0)">▥</div>
               <div class="card-info">
                 <span class="card-value">{{ monthNewUsers }}</span>
                 <span class="card-label">本月新增</span>

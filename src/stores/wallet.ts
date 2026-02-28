@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { walletApi } from '@/api/services'
 
 export interface Transaction {
   id: string
@@ -45,20 +46,51 @@ export const useWalletStore = defineStore('wallet', () => {
   const redPackets = ref<RedPacketData[]>([])
   const transfers = ref<TransferData[]>([])
 
-  // Load from localStorage
-  function load() {
+  // Load from API then localStorage fallback
+  async function load() {
     try {
-      const saved = localStorage.getItem(WALLET_KEY)
-      if (saved) {
-        const data = JSON.parse(saved)
-        balance.value = data.balance ?? 8888.88
+      const res = await walletApi.get()
+      if (res.balance !== undefined) {
+        balance.value = res.balance
       }
-    } catch { /* ignore */ }
+    } catch {
+      try {
+        const saved = localStorage.getItem(WALLET_KEY)
+        if (saved) {
+          const data = JSON.parse(saved)
+          balance.value = data.balance ?? 8888.88
+        }
+      } catch { /* ignore */ }
+    }
 
     try {
-      const saved = localStorage.getItem(TX_KEY)
-      if (saved) transactions.value = JSON.parse(saved)
-    } catch { /* ignore */ }
+      const res = await walletApi.listTransactions()
+      if (res.data && res.data.length > 0) {
+        transactions.value = res.data.map((t: any) => ({
+          id: String(t.id),
+          type: t.type === 'credit' ? 'income' as const : 'expense' as const,
+          category: (t.description || '').includes('红包') ? 'redpacket' as const
+            : (t.description || '').includes('转账') ? 'transfer' as const
+              : (t.description || '').includes('充值') ? 'topup' as const
+                : 'other' as const,
+          description: t.description || '',
+          amount: t.amount,
+          time: new Date(t.created_at || Date.now()).toLocaleString('zh-CN'),
+          relatedCharacterName: t.target || '',
+        }))
+      } else {
+        // Fallback transactions from localStorage
+        try {
+          const saved = localStorage.getItem(TX_KEY)
+          if (saved) transactions.value = JSON.parse(saved)
+        } catch { /* ignore */ }
+      }
+    } catch {
+      try {
+        const saved = localStorage.getItem(TX_KEY)
+        if (saved) transactions.value = JSON.parse(saved)
+      } catch { /* ignore */ }
+    }
 
     try {
       const saved = localStorage.getItem(REDPACKET_KEY)
@@ -75,6 +107,8 @@ export const useWalletStore = defineStore('wallet', () => {
     try {
       localStorage.setItem(WALLET_KEY, JSON.stringify({ balance: balance.value }))
     } catch { /* ignore */ }
+    // Also sync to API
+    walletApi.setBalance(balance.value).catch(() => { })
   }
 
   function saveTransactions() {
@@ -95,7 +129,7 @@ export const useWalletStore = defineStore('wallet', () => {
     } catch { /* ignore */ }
   }
 
-  function addTransaction(tx: Omit<Transaction, 'id' | 'time'>) {
+  async function addTransaction(tx: Omit<Transaction, 'id' | 'time'>) {
     const newTx: Transaction = {
       ...tx,
       id: `tx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -103,6 +137,15 @@ export const useWalletStore = defineStore('wallet', () => {
     }
     transactions.value.unshift(newTx)
     saveTransactions()
+    // Sync to API
+    try {
+      await walletApi.createTransaction({
+        type: tx.type === 'income' ? 'credit' : 'debit',
+        amount: tx.amount,
+        description: tx.description,
+        target: tx.relatedCharacterName || '',
+      })
+    } catch { /* ignore */ }
     return newTx
   }
 

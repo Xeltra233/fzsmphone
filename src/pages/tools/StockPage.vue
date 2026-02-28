@@ -135,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
 
 interface StockItem {
@@ -197,7 +197,60 @@ const availableStocks = computed(() => {
 function addStock(stock: StockItem) {
   stocks.value.push(stock)
   showAddStock.value = false
+  saveWatchlist()
 }
+
+function removeStock(code: string) {
+  stocks.value = stocks.value.filter(s => s.code !== code)
+  saveWatchlist()
+}
+
+const STOCK_KEY = 'stock-watchlist'
+
+function saveWatchlist() {
+  try {
+    localStorage.setItem(STOCK_KEY, JSON.stringify(stocks.value.map(s => s.code)))
+  } catch { /* ignore */ }
+}
+
+function loadWatchlist() {
+  try {
+    const saved = localStorage.getItem(STOCK_KEY)
+    if (saved) {
+      const codes: string[] = JSON.parse(saved)
+      const all = [...stocks.value, ...allStocks]
+      const loaded = codes.map(c => all.find(s => s.code === c)).filter(Boolean) as StockItem[]
+      if (loaded.length > 0) stocks.value = loaded
+    }
+  } catch { /* ignore */ }
+}
+
+// Real-time price simulation
+let priceTimer: ReturnType<typeof setInterval> | null = null
+
+function simulatePrices() {
+  // Fluctuate indices
+  indices.value.forEach(idx => {
+    const delta = (Math.random() - 0.48) * 0.15
+    idx.change = +(idx.change + delta).toFixed(2)
+    idx.value = +(idx.value * (1 + delta / 100)).toFixed(2)
+  })
+  // Fluctuate stocks
+  stocks.value.forEach(s => {
+    const delta = (Math.random() - 0.48) * 0.3
+    s.change = +(s.change + delta).toFixed(2)
+    s.price = +(s.price * (1 + delta / 100)).toFixed(2)
+  })
+}
+
+onMounted(() => {
+  loadWatchlist()
+  priceTimer = setInterval(simulatePrices, 3000)
+})
+
+onUnmounted(() => {
+  if (priceTimer) clearInterval(priceTimer)
+})
 </script>
 
 <style scoped>

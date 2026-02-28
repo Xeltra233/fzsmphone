@@ -2,6 +2,9 @@
   <div class="listen-page">
     <NavBar title="一起听" :show-back="true" back-to="/">
       <template #right>
+        <button class="nav-btn" @click="handleGenerate" :disabled="store.generating">
+          {{ store.musicLoading ? 'AI生成中...' : 'AI生成' }}
+        </button>
         <button class="nav-btn" @click="showSearch = !showSearch">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8" />
@@ -83,7 +86,7 @@
 
       <!-- 在线听众 -->
       <div class="listeners-section">
-        <div class="listeners-label">🎧 {{ listeners.length }} 人正在收听</div>
+        <div class="listeners-label">♪ {{ listeners.length }} 人正在收听</div>
         <div class="listeners-avatars">
           <div v-for="l in listeners.slice(0, 5)" :key="l" class="listener-dot" :title="l">
             {{ l[0] }}
@@ -127,6 +130,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
+import { useSocialAIStore } from '@/stores/socialAI'
+
+const store = useSocialAIStore()
 
 const showSearch = ref(false)
 const searchQuery = ref('')
@@ -255,8 +261,38 @@ function seekTo(e: MouseEvent) {
   currentTime.value = Math.floor(pct * currentTrack.value.duration)
 }
 
+async function handleGenerate() {
+  await store.generateMusicContent()
+  if (store.musicTracks.length > 0) {
+    // Replace track list with AI-generated tracks
+    tracks.value = store.musicTracks.map((t, i) => ({
+      id: i + 100,
+      name: t.name,
+      artist: t.artist,
+      album: t.album,
+      duration: t.duration,
+    }))
+    if (tracks.value.length > 0) {
+      currentTrack.value = tracks.value[0]
+      currentTime.value = 0
+    }
+  }
+}
+
 onMounted(() => {
-  // Could connect to WebSocket for real-time sync
+  store.loadData('music')
+  if (store.musicTracks.length > 0) {
+    tracks.value = store.musicTracks.map((t, i) => ({
+      id: i + 100,
+      name: t.name,
+      artist: t.artist,
+      album: t.album,
+      duration: t.duration,
+    }))
+    if (tracks.value.length > 0) {
+      currentTrack.value = tracks.value[0]
+    }
+  }
 })
 
 onUnmounted(() => {

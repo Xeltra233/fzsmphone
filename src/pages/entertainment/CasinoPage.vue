@@ -6,9 +6,9 @@
     <div class="balance-bar">
       <div class="balance-info">
         <span class="balance-label">金币余额</span>
-        <span class="balance-value">🪙 {{ balance.toLocaleString() }}</span>
+        <span class="balance-value">🪙 {{ walletStore.balance.toLocaleString() }}</span>
       </div>
-      <button class="recharge-btn" @click="balance += 1000">+ 充值</button>
+      <button class="recharge-btn" @click="recharge">+ 充值</button>
     </div>
 
     <!-- 游戏选项卡 -->
@@ -29,7 +29,7 @@
     <div v-if="activeGame === 'slots'" class="game-area">
       <div class="slots-machine">
         <div class="slots-header">
-          <div class="jackpot-label">🏆 JACKPOT</div>
+          <div class="jackpot-label">★ JACKPOT</div>
           <div class="jackpot-value">{{ jackpot.toLocaleString() }}</div>
         </div>
         <div class="slots-reels">
@@ -55,10 +55,10 @@
         </div>
         <button
           class="spin-btn"
-          :disabled="slotSpinning || balance < slotBet"
+          :disabled="slotSpinning || walletStore.balance < slotBet"
           @click="spinSlots"
         >
-          {{ slotSpinning ? '旋转中...' : '🎰 SPIN' }}
+          {{ slotSpinning ? '旋转中...' : '▣ SPIN' }}
         </button>
       </div>
     </div>
@@ -110,10 +110,10 @@
         </div>
         <button
           class="roll-btn"
-          :disabled="diceRolling || !diceChoice || balance < diceBet"
+          :disabled="diceRolling || !diceChoice || walletStore.balance < diceBet"
           @click="rollDice"
         >
-          {{ diceRolling ? '摇骰中...' : '🎲 摇骰子' }}
+          {{ diceRolling ? '摇骰中...' : '⚄ 摇骰子' }}
         </button>
       </div>
     </div>
@@ -141,17 +141,17 @@
           </div>
         </div>
         <div v-if="wheelResult" class="wheel-result">
-          🎉 恭喜获得：{{ wheelResult }}
+          ★ 恭喜获得：{{ wheelResult }}
         </div>
         <div class="wheel-cost">
           每次转动消耗 <strong>50</strong> 金币
         </div>
         <button
           class="wheel-spin-btn"
-          :disabled="wheelSpinning || balance < 50"
+          :disabled="wheelSpinning || walletStore.balance < 50"
           @click="spinWheel"
         >
-          {{ wheelSpinning ? '转动中...' : '🎡 转动转盘' }}
+          {{ wheelSpinning ? '转动中...' : '◎ 转动转盘' }}
         </button>
       </div>
     </div>
@@ -159,7 +159,7 @@
     <!-- 历史记录 -->
     <div class="history-section">
       <div class="history-header">
-        <span>📋 游戏记录</span>
+        <span>▤ 游戏记录</span>
         <span class="clear-btn" @click="history = []">清空</span>
       </div>
       <div v-if="history.length === 0" class="history-empty">暂无记录</div>
@@ -177,8 +177,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
+import { useWalletStore } from '@/stores/wallet'
+import { gameApi } from '@/api/services'
+
+const walletStore = useWalletStore()
 
 interface HistoryItem {
   game: string
@@ -188,30 +192,29 @@ interface HistoryItem {
 }
 
 const gameTabs = [
-  { id: 'slots', name: '老虎机', icon: '🎰' },
-  { id: 'dice', name: '骰子', icon: '🎲' },
-  { id: 'wheel', name: '转盘', icon: '🎡' },
+  { id: 'slots', name: '老虎机', icon: '▣' },
+  { id: 'dice', name: '骰子', icon: '⚄' },
+  { id: 'wheel', name: '转盘', icon: '◎' },
 ]
 
 const activeGame = ref('slots')
-const balance = ref(5000)
 const history = ref<HistoryItem[]>([])
 
 // ===== 老虎机 =====
-const slotSymbols = ['🍒', '🍋', '🍊', '🍇', '💎', '7️⃣', '🔔', '⭐']
-const slotReels = ref(['🍒', '🍒', '🍒'])
+const slotSymbols = ['●', '◆', '◆', '●', '◇', '7', '▲', '★']
+const slotReels = ref(['●', '●', '●'])
 const slotSpinning = ref(false)
 const slotBet = ref(50)
 const slotResult = ref<{ text: string; type: string } | null>(null)
 const jackpot = ref(88888)
 
 function spinSlots() {
-  if (slotSpinning.value || balance.value < slotBet.value) return
-  balance.value -= slotBet.value
+  if (slotSpinning.value || walletStore.balance < slotBet.value) return
+  walletStore.balance -= slotBet.value
+  walletStore.addTransaction({ type: 'expense', category: 'other', description: '老虎机下注', amount: slotBet.value })
   slotSpinning.value = true
   slotResult.value = null
 
-  // 动画：快速切换符号
   let count = 0
   const interval = setInterval(() => {
     slotReels.value = slotReels.value.map(() =>
@@ -220,30 +223,28 @@ function spinSlots() {
     count++
     if (count > 15) {
       clearInterval(interval)
-      // 最终结果
       const final = [0, 1, 2].map(() =>
         slotSymbols[Math.floor(Math.random() * slotSymbols.length)]
       )
       slotReels.value = final
       slotSpinning.value = false
 
-      // 判定
       if (final[0] === final[1] && final[1] === final[2]) {
-        // 三连
-        const multiplier = final[0] === '7️⃣' ? 50 : final[0] === '💎' ? 20 : 10
+        const multiplier = final[0] === '7' ? 50 : final[0] === '◇' ? 20 : 10
         const win = slotBet.value * multiplier
-        balance.value += win
-        slotResult.value = { text: `🎉 三连！赢得 ${win} 金币！`, type: 'win' }
-        history.value.push({ game: '🎰 老虎机', detail: `${final.join('')} 三连`, amount: win, win: true })
+        walletStore.balance += win
+        walletStore.addTransaction({ type: 'income', category: 'other', description: '老虎机三连中奖', amount: win })
+        slotResult.value = { text: `★ 三连！赢得 ${win} 金币！`, type: 'win' }
+        addHistory({ game: '▣ 老虎机', detail: `${final.join('')} 三连`, amount: win, win: true })
       } else if (final[0] === final[1] || final[1] === final[2] || final[0] === final[2]) {
-        // 两连
         const win = slotBet.value * 2
-        balance.value += win
-        slotResult.value = { text: `😊 两连！赢得 ${win} 金币`, type: 'win' }
-        history.value.push({ game: '🎰 老虎机', detail: `${final.join('')} 两连`, amount: win, win: true })
+        walletStore.balance += win
+        walletStore.addTransaction({ type: 'income', category: 'other', description: '老虎机两连中奖', amount: win })
+        slotResult.value = { text: `◠ 两连！赢得 ${win} 金币`, type: 'win' }
+        addHistory({ game: '▣ 老虎机', detail: `${final.join('')} 两连`, amount: win, win: true })
       } else {
-        slotResult.value = { text: '😢 没有中奖', type: 'lose' }
-        history.value.push({ game: '🎰 老虎机', detail: final.join(''), amount: -slotBet.value, win: false })
+        slotResult.value = { text: '◡ 没有中奖', type: 'lose' }
+        addHistory({ game: '▣ 老虎机', detail: final.join(''), amount: -slotBet.value, win: false })
       }
     }
   }, 80)
@@ -260,8 +261,9 @@ const diceResultText = ref('')
 const diceResultType = ref('')
 
 function rollDice() {
-  if (diceRolling.value || !diceChoice.value || balance.value < diceBet.value) return
-  balance.value -= diceBet.value
+  if (diceRolling.value || !diceChoice.value || walletStore.balance < diceBet.value) return
+  walletStore.balance -= diceBet.value
+  walletStore.addTransaction({ type: 'expense', category: 'other', description: '骰子下注', amount: diceBet.value })
   diceRolling.value = true
   diceResultText.value = ''
 
@@ -283,14 +285,15 @@ function rollDice() {
 
       if (playerWin) {
         const win = diceBet.value * 2
-        balance.value += win
-        diceResultText.value = `🎉 猜对了！赢得 ${win} 金币`
+        walletStore.balance += win
+        walletStore.addTransaction({ type: 'income', category: 'other', description: '骰子中奖', amount: win })
+        diceResultText.value = `★ 猜对了！赢得 ${win} 金币`
         diceResultType.value = 'win'
-        history.value.push({ game: '🎲 骰子', detail: `${total}点 ${isBig ? '大' : '小'} 猜${diceChoice.value === 'big' ? '大' : '小'}`, amount: win, win: true })
+        addHistory({ game: '⚄ 骰子', detail: `${total}点 ${isBig ? '大' : '小'} 猜${diceChoice.value === 'big' ? '大' : '小'}`, amount: win, win: true })
       } else {
-        diceResultText.value = `😢 猜错了，${total}点是${isBig ? '大' : '小'}`
+        diceResultText.value = `◡ 猜错了，${total}点是${isBig ? '大' : '小'}`
         diceResultType.value = 'lose'
-        history.value.push({ game: '🎲 骰子', detail: `${total}点 猜错`, amount: -diceBet.value, win: false })
+        addHistory({ game: '⚄ 骰子', detail: `${total}点 猜错`, amount: -diceBet.value, win: false })
       }
     }
   }, 100)
@@ -299,13 +302,13 @@ function rollDice() {
 // ===== 幸运转盘 =====
 const wheelSegments = [
   { label: '10币', emoji: '🪙', color: '#ff6b6b', value: 10 },
-  { label: '50币', emoji: '💰', color: '#ffd93d', value: 50 },
-  { label: '100币', emoji: '💎', color: '#6bcb77', value: 100 },
-  { label: '再来', emoji: '🔄', color: '#4d96ff', value: 0 },
-  { label: '200币', emoji: '🏆', color: '#ff6b6b', value: 200 },
-  { label: '20币', emoji: '⭐', color: '#ffd93d', value: 20 },
-  { label: '500币', emoji: '👑', color: '#6bcb77', value: 500 },
-  { label: '谢谢', emoji: '😅', color: '#4d96ff', value: -1 },
+  { label: '50币', emoji: '¤', color: '#ffd93d', value: 50 },
+  { label: '100币', emoji: '◇', color: '#6bcb77', value: 100 },
+  { label: '再来', emoji: '↻', color: '#4d96ff', value: 0 },
+  { label: '200币', emoji: '★', color: '#ff6b6b', value: 200 },
+  { label: '20币', emoji: '★', color: '#ffd93d', value: 20 },
+  { label: '500币', emoji: '♛', color: '#6bcb77', value: 500 },
+  { label: '谢谢', emoji: '~', color: '#4d96ff', value: -1 },
 ]
 
 const segAngle = 360 / wheelSegments.length
@@ -315,15 +318,15 @@ const wheelResult = ref('')
 const wheelTransition = ref('none')
 
 function spinWheel() {
-  if (wheelSpinning.value || balance.value < 50) return
-  balance.value -= 50
+  if (wheelSpinning.value || walletStore.balance < 50) return
+  walletStore.balance -= 50
+  walletStore.addTransaction({ type: 'expense', category: 'other', description: '转盘下注', amount: 50 })
   wheelSpinning.value = true
   wheelResult.value = ''
 
-  // 决定停的位置
   const targetIdx = Math.floor(Math.random() * wheelSegments.length)
   const targetAngle = 360 - (targetIdx * segAngle + segAngle / 2)
-  const spins = 5 + Math.floor(Math.random() * 3) // 5-7圈
+  const spins = 5 + Math.floor(Math.random() * 3)
   const finalAngle = wheelAngle.value + spins * 360 + targetAngle - (wheelAngle.value % 360)
 
   wheelTransition.value = 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)'
@@ -334,19 +337,45 @@ function spinWheel() {
     wheelTransition.value = 'none'
     const seg = wheelSegments[targetIdx]
     if (seg.value > 0) {
-      balance.value += seg.value
+      walletStore.balance += seg.value
+      walletStore.addTransaction({ type: 'income', category: 'other', description: '转盘中奖', amount: seg.value })
       wheelResult.value = `${seg.emoji} ${seg.label}`
-      history.value.push({ game: '🎡 转盘', detail: seg.label, amount: seg.value, win: true })
+      addHistory({ game: '◎ 转盘', detail: seg.label, amount: seg.value, win: true })
     } else if (seg.value === 0) {
-      wheelResult.value = '🔄 免费再来一次！'
-      balance.value += 50 // 退还
-      history.value.push({ game: '🎡 转盘', detail: '免费一次', amount: 0, win: true })
+      wheelResult.value = '↻ 免费再来一次！'
+      walletStore.balance += 50
+      addHistory({ game: '◎ 转盘', detail: '免费一次', amount: 0, win: true })
     } else {
-      wheelResult.value = '😅 谢谢参与'
-      history.value.push({ game: '🎡 转盘', detail: '未中奖', amount: -50, win: false })
+      wheelResult.value = '~ 谢谢参与'
+      addHistory({ game: '◎ 转盘', detail: '未中奖', amount: -50, win: false })
     }
   }, 4200)
 }
+
+// Helper: add history to local + API
+function addHistory(item: HistoryItem) {
+  history.value.push(item)
+  gameApi.createRecord(item).catch(() => {})
+}
+
+function recharge() {
+  walletStore.topUp(1000)
+}
+
+onMounted(async () => {
+  // Load game records from API
+  try {
+    const res = await gameApi.listRecords()
+    if (res.data && res.data.length > 0) {
+      history.value = res.data.map(r => ({
+        game: r.game,
+        detail: r.detail,
+        amount: r.amount,
+        win: r.win,
+      }))
+    }
+  } catch { /* ignore */ }
+})
 </script>
 
 <style scoped>

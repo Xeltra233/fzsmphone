@@ -7,7 +7,7 @@
       <div class="date-banner">
         <div class="banner-bg"></div>
         <div class="banner-content">
-          <span class="date-emoji">💑</span>
+          <span class="date-emoji">♥</span>
           <h2>计划一场甜蜜约会</h2>
           <p>选择约会类型，生成完美计划</p>
         </div>
@@ -32,14 +32,14 @@
 
       <!-- 生成按钮 -->
       <button class="generate-btn" @click="generatePlan" :disabled="!selectedType || generating">
-        {{ generating ? '生成中...' : '✨ 生成约会计划' }}
+        {{ generating ? '生成中...' : '✦ 生成约会计划' }}
       </button>
 
       <!-- 约会计划 -->
       <div v-if="plan" class="plan-card">
         <div class="plan-header">
           <h3>{{ plan.title }}</h3>
-          <button class="refresh-btn" @click="generatePlan">🔄</button>
+          <button class="refresh-btn" @click="generatePlan">↻</button>
         </div>
 
         <div class="timeline">
@@ -57,7 +57,7 @@
 
         <div class="plan-footer">
           <div class="plan-stat">
-            <span>💰</span>
+            <span>¤</span>
             <span>预算 ¥{{ plan.budget }}</span>
           </div>
           <div class="plan-stat">
@@ -77,7 +77,7 @@
               <span class="past-title">{{ d.title }}</span>
               <span class="past-date">{{ d.date }}</span>
             </div>
-            <span class="past-rating">{{ '⭐'.repeat(d.rating) }}</span>
+            <span class="past-rating">{{ '★'.repeat(d.rating) }}</span>
           </div>
         </div>
       </div>
@@ -86,21 +86,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
+import { useSettingsStore } from '@/stores/settings'
+import { sendAIRequest } from '@/utils/aiService'
+
+const settingsStore = useSettingsStore()
 
 const selectedType = ref('')
 const generating = ref(false)
 
 const dateTypes = [
-  { icon: '🍽️', label: '美食约会' },
-  { icon: '🎬', label: '电影约会' },
-  { icon: '🏞️', label: '户外约会' },
-  { icon: '🛍️', label: '逛街约会' },
-  { icon: '🎮', label: '游戏约会' },
-  { icon: '📚', label: '文艺约会' },
-  { icon: '🎭', label: '演出约会' },
-  { icon: '🏠', label: '宅家约会' },
+  { icon: '◈', label: '美食约会' },
+  { icon: '▷', label: '电影约会' },
+  { icon: '△', label: '户外约会' },
+  { icon: '▢', label: '逛街约会' },
+  { icon: '▶', label: '游戏约会' },
+  { icon: '▥', label: '文艺约会' },
+  { icon: '◈', label: '演出约会' },
+  { icon: '⌂', label: '宅家约会' },
 ]
 
 interface PlanStep {
@@ -119,9 +123,23 @@ interface DatePlan {
 
 const plan = ref<DatePlan | null>(null)
 
+interface PastDate {
+  id: number
+  icon: string
+  title: string
+  date: string
+  rating: number
+}
+
+const pastDates = ref<PastDate[]>([
+  { id: 1, icon: '', title: '日料探店', date: '2024-12-20', rating: 5 },
+  { id: 2, icon: '', title: '看《你的名字》', date: '2024-12-15', rating: 4 },
+  { id: 3, icon: '', title: '西湖骑行', date: '2024-11-28', rating: 5 },
+])
+
 const planTemplates: Record<string, DatePlan> = {
   '美食约会': {
-    title: '🍽️ 美食探店之旅',
+    title: '◈ 美食探店之旅',
     steps: [
       { time: '17:00', title: '出发准备', desc: '换上好看的衣服，化个淡妆', done: false },
       { time: '17:30', title: '甜品下午茶', desc: '先去一家网红甜品店打卡', done: false },
@@ -133,7 +151,7 @@ const planTemplates: Record<string, DatePlan> = {
     duration: '4小时',
   },
   '电影约会': {
-    title: '🎬 浪漫观影日',
+    title: '▷ 浪漫观影日',
     steps: [
       { time: '14:00', title: '见面碰头', desc: '在商场入口见面', done: false },
       { time: '14:30', title: '买电影票', desc: '选一部两人都感兴趣的电影', done: false },
@@ -145,7 +163,7 @@ const planTemplates: Record<string, DatePlan> = {
     duration: '5小时',
   },
   '户外约会': {
-    title: '🏞️ 阳光户外日',
+    title: '△ 阳光户外日',
     steps: [
       { time: '09:00', title: '早起出发', desc: '带上野餐垫和食物', done: false },
       { time: '10:00', title: '到达公园', desc: '选个好位置铺好野餐垫', done: false },
@@ -158,38 +176,89 @@ const planTemplates: Record<string, DatePlan> = {
   },
 }
 
-function generatePlan() {
+async function generatePlan() {
   if (!selectedType.value) return
   generating.value = true
+
+  const s = settingsStore.settings
+  let aiPlan: DatePlan | null = null
+
+  if (s.apiKey) {
+    try {
+      const prompt = `Generate a date plan for type "${selectedType.value}". Return ONLY valid JSON:
+{"title":"...","steps":[{"time":"HH:MM","title":"...","desc":"...","done":false},...],"budget":number,"duration":"Xh"}
+Generate 4-6 steps. Use Chinese. Be creative and romantic.`
+
+      const response = await sendAIRequest({
+        apiKey: s.apiKey,
+        apiUrl: settingsStore.getApiUrl(),
+        model: s.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.9,
+        maxTokens: 500,
+        stream: false,
+        timeout: s.timeout,
+      })
+
+      if (response.content) {
+        const jsonMatch = response.content.match(/\{[\s\S]*\}/)
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]) as DatePlan
+          if (parsed.steps?.length > 0) {
+            aiPlan = parsed
+            aiPlan.steps = aiPlan.steps.map(step => ({ ...step, done: false }))
+          }
+        }
+      }
+    } catch { /* fallback to template */ }
+  }
+
   setTimeout(() => {
-    plan.value = planTemplates[selectedType.value] || {
-      title: `${selectedType.value}计划`,
+    plan.value = aiPlan || planTemplates[selectedType.value] || {
+      title: `${selectedType.value}`,
       steps: [
-        { time: '15:00', title: '准备出发', desc: '整理好出门', done: false },
-        { time: '16:00', title: '开始活动', desc: `享受${selectedType.value}时光`, done: false },
-        { time: '18:00', title: '晚餐', desc: '找个好地方吃晚饭', done: false },
-        { time: '20:00', title: '愉快结束', desc: '开心回家~', done: false },
+        { time: '15:00', title: 'Start', desc: `Enjoy ${selectedType.value}`, done: false },
+        { time: '18:00', title: 'Dinner', desc: 'Find a nice place', done: false },
+        { time: '20:00', title: 'Wrap up', desc: 'Head home happy', done: false },
       ],
       budget: 300,
-      duration: '5小时',
+      duration: '5h',
     }
     generating.value = false
-  }, 1000)
+  }, aiPlan ? 300 : 1000)
 }
 
-interface PastDate {
-  id: number
-  icon: string
-  title: string
-  date: string
-  rating: number
+const DATES_KEY = 'offline-date-history'
+
+function saveDateHistory() {
+  try {
+    localStorage.setItem(DATES_KEY, JSON.stringify(pastDates.value))
+  } catch { /* ignore */ }
 }
 
-const pastDates = ref<PastDate[]>([
-  { id: 1, icon: '🍽️', title: '日料探店', date: '2024-12-20', rating: 5 },
-  { id: 2, icon: '🎬', title: '看《你的名字》', date: '2024-12-15', rating: 4 },
-  { id: 3, icon: '🏞️', title: '西湖骑行', date: '2024-11-28', rating: 5 },
-])
+function completePlan() {
+  if (!plan.value || !selectedType.value) return
+  const typeObj = dateTypes.find(t => t.label === selectedType.value)
+  const now = new Date()
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  pastDates.value.unshift({
+    id: Date.now(),
+    icon: typeObj?.icon || '',
+    title: plan.value.title,
+    date: dateStr,
+    rating: Math.floor(Math.random() * 2) + 4,
+  })
+  if (pastDates.value.length > 20) pastDates.value = pastDates.value.slice(0, 20)
+  saveDateHistory()
+  plan.value = null
+}
+
+onMounted(() => {
+  try {
+    const saved = localStorage.getItem(DATES_KEY)
+    if (saved) pastDates.value = JSON.parse(saved)
+  } catch { /* ignore */ }
+})
 </script>
 
 <style scoped>

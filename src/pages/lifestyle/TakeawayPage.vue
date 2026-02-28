@@ -38,7 +38,7 @@
     <!-- Restaurant List -->
     <div class="restaurant-list">
       <div v-if="filteredRestaurants.length === 0" class="empty-state">
-        <div class="empty-emoji">🍽️</div>
+        <div class="empty-emoji">◈</div>
         <div class="empty-title">暂无餐厅</div>
       </div>
 
@@ -50,12 +50,12 @@
       >
         <div class="rest-img">
           <img v-if="r.image_url" :src="r.image_url" :alt="r.name" />
-          <span v-else class="rest-img-placeholder">🍳</span>
+          <span v-else class="rest-img-placeholder">◈</span>
         </div>
         <div class="rest-info">
           <div class="rest-name">{{ r.name }}</div>
           <div class="rest-meta">
-            <span class="rest-rating">⭐ {{ r.rating }}</span>
+            <span class="rest-rating">★ {{ r.rating }}</span>
             <span class="rest-sep">·</span>
             <span class="rest-time">{{ r.delivery_time }}</span>
           </div>
@@ -85,13 +85,13 @@ interface Restaurant {
 }
 
 const categories = [
-  { id: 'all', emoji: '🔥', label: '全部' },
-  { id: '快餐', emoji: '🍔', label: '快餐' },
-  { id: '中餐', emoji: '🍚', label: '中餐' },
-  { id: '火锅', emoji: '🍲', label: '火锅' },
-  { id: '烧烤', emoji: '🍢', label: '烧烤' },
-  { id: '甜品', emoji: '🍰', label: '甜品' },
-  { id: '饮品', emoji: '🧋', label: '饮品' },
+  { id: 'all', emoji: '▲', label: '全部' },
+  { id: '快餐', emoji: '◆', label: '快餐' },
+  { id: '中餐', emoji: '◈', label: '中餐' },
+  { id: '火锅', emoji: '◎', label: '火锅' },
+  { id: '烧烤', emoji: '◎', label: '烧烤' },
+  { id: '甜品', emoji: '●', label: '甜品' },
+  { id: '饮品', emoji: '◇', label: '饮品' },
 ]
 
 const search = ref('')

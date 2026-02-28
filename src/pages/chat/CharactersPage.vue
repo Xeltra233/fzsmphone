@@ -122,7 +122,7 @@
     <div class="page-content">
       <!-- 空状态 -->
       <div v-if="filteredCharacters.length === 0" class="empty-state">
-        <div class="empty-icon">{{ currentType === 'char' ? '🤖' : '👤' }}</div>
+        <div class="empty-icon">{{ currentType === 'char' ? '◎' : '○' }}</div>
         <p>暂无{{ currentType === 'char' ? '角色' : '用户' }}卡</p>
         <span>点击右上角 + 创建，或导入角色卡</span>
       </div>
@@ -141,7 +141,7 @@
               :src="character.avatar"
               alt=""
             />
-            <span v-else>{{ character.type === 'char' ? '🤖' : '👤' }}</span>
+            <span v-else>{{ character.type === 'char' ? '◎' : '○' }}</span>
           </div>
           <div class="item-content">
             <h4>{{ character.name }}</h4>

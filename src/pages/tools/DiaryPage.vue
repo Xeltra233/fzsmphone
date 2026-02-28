@@ -62,7 +62,7 @@
     <!-- List View -->
     <div v-else class="diary-list">
       <div v-if="diaries.length === 0" class="empty-state">
-        <div class="empty-emoji">📔</div>
+        <div class="empty-emoji">▤</div>
         <div class="empty-title">还没有日记</div>
         <div class="empty-sub">记录你的每一天</div>
       </div>
@@ -106,20 +106,20 @@ interface Diary {
 }
 
 const moods = [
-  { value: 'happy', emoji: '😊' },
-  { value: 'excited', emoji: '🥳' },
-  { value: 'calm', emoji: '😌' },
-  { value: 'sad', emoji: '😢' },
-  { value: 'angry', emoji: '😤' },
-  { value: 'tired', emoji: '😴' },
+  { value: 'happy', emoji: '◠' },
+  { value: 'excited', emoji: '✦' },
+  { value: 'calm', emoji: '○' },
+  { value: 'sad', emoji: '◡' },
+  { value: 'angry', emoji: '✕' },
+  { value: 'tired', emoji: '—' },
 ]
 
 const weathers = [
-  { value: 'sunny', emoji: '☀️' },
-  { value: 'cloudy', emoji: '☁️' },
-  { value: 'rainy', emoji: '🌧️' },
-  { value: 'snowy', emoji: '🌨️' },
-  { value: 'windy', emoji: '💨' },
+  { value: 'sunny', emoji: '☀' },
+  { value: 'cloudy', emoji: '☁' },
+  { value: 'rainy', emoji: '☂' },
+  { value: 'snowy', emoji: '❄' },
+  { value: 'windy', emoji: '≋' },
 ]
 
 const diaries = ref<Diary[]>([])
@@ -138,7 +138,7 @@ const editingDiary = reactive<Partial<Diary>>({
 let editingId: number | null = null
 
 function getMoodEmoji(mood: string): string {
-  return moods.find(m => m.value === mood)?.emoji || '😐'
+  return moods.find(m => m.value === mood)?.emoji || '—'
 }
 
 function getDay(dateStr: string): string {

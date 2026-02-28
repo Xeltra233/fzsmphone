@@ -46,14 +46,14 @@
 
       <div class="action-row">
         <button class="action-btn" @click="activeTab = 'contacts'">
-          <span>👤</span>
+          <span>○</span>
           <span class="action-label">通讯录</span>
         </button>
         <button class="call-btn" @click="makeCall('voice')">
-          <span>📞</span>
+          <span>☎</span>
         </button>
         <button class="action-btn" @click="makeCall('video')">
-          <span>📹</span>
+          <span>▷</span>
           <span class="action-label">视频通话</span>
         </button>
       </div>
@@ -62,7 +62,7 @@
     <!-- 通讯录 -->
     <div v-if="activeTab === 'contacts'" class="contacts-view">
       <div v-if="phoneStore.contacts.length === 0" class="empty-state">
-        <span class="empty-icon">👤</span>
+        <span class="empty-icon">○</span>
         <p>暂无联系人</p>
         <p class="empty-hint">请先在角色管理中创建角色</p>
       </div>
@@ -80,8 +80,8 @@
           <span class="contact-number">{{ formatPhoneDisplay(contact.number) }}</span>
         </div>
         <div class="contact-actions">
-          <button class="contact-call-btn" @click="callContact(contact, 'voice')">📞</button>
-          <button class="contact-call-btn" @click="callContact(contact, 'video')">📹</button>
+          <button class="contact-call-btn" @click="callContact(contact, 'voice')">☎</button>
+          <button class="contact-call-btn" @click="callContact(contact, 'video')">▷</button>
         </div>
       </div>
     </div>
@@ -89,7 +89,7 @@
     <!-- 通话记录 -->
     <div v-if="activeTab === 'history'" class="history-view">
       <div v-if="phoneStore.callHistory.length === 0" class="empty-state">
-        <span class="empty-icon">📱</span>
+        <span class="empty-icon">▢</span>
         <p>暂无通话记录</p>
       </div>
       <div
@@ -99,14 +99,14 @@
         @click="redial(call)"
       >
         <div class="call-icon" :class="call.type">
-          {{ call.type === 'incoming' ? '📥' : call.type === 'outgoing' ? '📤' : '📵' }}
+          {{ call.type === 'incoming' ? '↓' : call.type === 'outgoing' ? '↑' : '✕' }}
         </div>
         <div class="call-info">
           <span class="call-name" :class="{ missed: call.type === 'missed' }">
             {{ call.name || call.number }}
           </span>
           <span class="call-meta">
-            {{ call.callType === 'video' ? '📹 视频' : '📞 语音' }} · {{ call.time }}
+            {{ call.callType === 'video' ? '▷ 视频' : '☎ 语音' }} · {{ call.time }}
           </span>
         </div>
         <span class="call-duration">{{ call.duration || '--' }}</span>

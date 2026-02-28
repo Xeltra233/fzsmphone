@@ -5,7 +5,7 @@
     <!-- 搜索和筛选 -->
     <div class="search-bar">
       <div class="search-input">
-        <span class="search-icon">🔍</span>
+        <span class="search-icon">◎</span>
         <input v-model="searchText" placeholder="搜索预设..." />
       </div>
       <button class="add-btn" @click="openEditor(null)">+ 新建</button>
@@ -26,14 +26,14 @@
 
     <!-- 当前激活预设 -->
     <div v-if="activePreset" class="active-preset-banner">
-      <div class="active-label">🟢 当前激活</div>
+      <div class="active-label">● 当前激活</div>
       <div class="active-name">{{ activePreset.emoji }} {{ activePreset.name }}</div>
       <button class="deactivate-btn" @click="deactivatePreset">取消激活</button>
     </div>
 
     <!-- 内置推荐 -->
     <div v-if="activeCategory === 'all' && !searchText" class="recommend-section">
-      <div class="section-title">⭐ 推荐预设</div>
+      <div class="section-title">★ 推荐预设</div>
       <div class="recommend-scroll">
         <div
           v-for="p in recommendedPresets"
@@ -46,7 +46,7 @@
           <div class="rec-emoji">{{ p.emoji }}</div>
           <div class="rec-name">{{ p.name }}</div>
           <div class="rec-desc">{{ p.shortDesc }}</div>
-          <div class="rec-badge" v-if="p.id === activePresetId">✅ 已激活</div>
+          <div class="rec-badge" v-if="p.id === activePresetId">✓ 已激活</div>
           <div class="rec-badge" v-else>{{ p.category }}</div>
         </div>
       </div>
@@ -60,7 +60,7 @@
       </div>
 
       <div v-if="filteredPresets.length === 0" class="empty-state">
-        <div class="empty-icon">📦</div>
+        <div class="empty-icon">☐</div>
         <div class="empty-text">暂无预设</div>
         <button class="empty-btn" @click="openEditor(null)">创建第一个预设</button>
       </div>
@@ -85,7 +85,7 @@
           </div>
           <div class="preset-actions-quick">
             <button class="action-apply" :class="{ applied: preset.id === activePresetId }" @click.stop="applyPreset(preset)" :title="preset.id === activePresetId ? '已激活' : '激活'">
-              {{ preset.id === activePresetId ? '✅' : '▶' }}
+              {{ preset.id === activePresetId ? '✓' : '▶' }}
             </button>
             <span class="expand-arrow" :class="{ expanded: expandedId === preset.id }">›</span>
           </div>
@@ -105,10 +105,10 @@
             <div class="expand-value code">{{ truncate(preset.prefill, 100) }}</div>
           </div>
           <div class="expand-actions">
-            <button class="btn-edit" @click="openEditor(preset)">✏️ 编辑</button>
-            <button class="btn-duplicate" @click="duplicatePreset(preset)">📋 复制</button>
-            <button class="btn-export" @click="exportPreset(preset)">📤 导出</button>
-            <button class="btn-delete" @click="deletePreset(preset.id)">🗑️ 删除</button>
+            <button class="btn-edit" @click="openEditor(preset)">✎ 编辑</button>
+            <button class="btn-duplicate" @click="duplicatePreset(preset)">▤ 复制</button>
+            <button class="btn-export" @click="exportPreset(preset)">↑ 导出</button>
+            <button class="btn-delete" @click="deletePreset(preset.id)">✕ 删除</button>
           </div>
         </div>
       </div>
@@ -116,7 +116,7 @@
 
     <!-- 底部操作 -->
     <div class="bottom-actions">
-      <button class="import-btn" @click="triggerImport">📥 导入预设</button>
+      <button class="import-btn" @click="triggerImport">↓ 导入预设</button>
       <input ref="importInput" type="file" accept=".json,.txt" style="display:none" @change="handleImport" />
     </div>
 
@@ -170,21 +170,21 @@
             </div>
             <template v-if="form.enablePrefill">
               <textarea v-model="form.prefill" rows="3" placeholder="（可选）AI回复的预填充内容，用于引导AI的回复风格&#10;例如：好的，我来扮演这个角色。"></textarea>
-              <div class="form-hint">⚠️ 预填充会在消息末尾添加 assistant 消息，部分模型不支持（如某些 OpenAI 兼容 API），可能导致 400 错误。仅在确认模型支持时开启。</div>
+              <div class="form-hint">△ 预填充会在消息末尾添加 assistant 消息，部分模型不支持（如某些 OpenAI 兼容 API），可能导致 400 错误。仅在确认模型支持时开启。</div>
             </template>
             <div v-else class="form-hint">预填充已关闭。开启后可引导AI按特定风格开头回复（需模型支持 assistant prefill）</div>
           </div>
         </div>
         <div class="editor-footer">
           <button class="btn-cancel" @click="showEditor = false">取消</button>
-          <button class="btn-save" @click="savePreset">💾 保存</button>
+          <button class="btn-save" @click="savePreset">▣ 保存</button>
         </div>
       </div>
     </div>
 
     <!-- 应用成功提示 -->
     <div v-if="applyToast" class="apply-toast">
-      ✅ 已激活预设「{{ applyToast }}」
+      ✓ 已激活预设「{{ applyToast }}」
     </div>
   </div>
 </template>
@@ -192,6 +192,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
+import { presetApi } from '@/api/services'
 
 interface Preset {
   id: string
@@ -213,12 +214,12 @@ const STORAGE_KEY = 'aiPresets'
 const ACTIVE_KEY = 'activePresetId'
 
 const categories = [
-  { id: 'all', name: '全部', icon: '📋' },
-  { id: 'roleplay', name: '角色扮演', icon: '🎭' },
-  { id: 'assistant', name: '助手', icon: '🤖' },
-  { id: 'creative', name: '创意写作', icon: '✍️' },
-  { id: 'learning', name: '学习教育', icon: '📚' },
-  { id: 'fun', name: '趣味', icon: '🎮' },
+  { id: 'all', name: '全部', icon: '▤' },
+  { id: 'roleplay', name: '角色扮演', icon: '◈' },
+  { id: 'assistant', name: '助手', icon: '◎' },
+  { id: 'creative', name: '创意写作', icon: '✎' },
+  { id: 'learning', name: '学习教育', icon: '▥' },
+  { id: 'fun', name: '趣味', icon: '▶' },
 ]
 
 const activeCategory = ref('all')
@@ -230,11 +231,11 @@ const applyToast = ref('')
 const activePresetId = ref<string | null>(null)
 const importInput = ref<HTMLInputElement | null>(null)
 
-const emojiOptions = ['🎭', '🤖', '✍️', '📚', '🎮', '💕', '🌸', '⚔️', '🔮', '🎵', '🌍', '💼', '🧠', '🎨', '🐱', '👻']
+const emojiOptions = ['◈', '◎', '✎', '▥', '▶', '♥', '✿', '✕', '◇', '♪', '◎', '▢', '◎', '✧', '◈', '◈']
 
 const form = ref({
   name: '',
-  emoji: '🎭',
+  emoji: '◈',
   category: '角色扮演',
   description: '',
   content: '',
@@ -247,7 +248,7 @@ const builtinPresets: Preset[] = [
   {
     id: 'builtin-1',
     name: '通用角色扮演',
-    emoji: '🎭',
+    emoji: '◈',
     category: '角色扮演',
     description: '适用于各类角色扮演场景的通用预设',
     shortDesc: '通用RP预设',
@@ -276,7 +277,7 @@ Character will never break immersion.
   {
     id: 'builtin-2',
     name: '温柔甜蜜',
-    emoji: '💕',
+    emoji: '♥',
     category: '角色扮演',
     description: '温柔甜蜜的恋爱向角色扮演',
     shortDesc: '甜蜜恋爱风格',
@@ -300,7 +301,7 @@ Character will never break immersion.
   {
     id: 'builtin-3',
     name: '小说创作',
-    emoji: '✍️',
+    emoji: '✎',
     category: '创意写作',
     description: '协助进行小说创作和故事续写',
     shortDesc: '小说故事创作',
@@ -324,7 +325,7 @@ Character will never break immersion.
   {
     id: 'builtin-4',
     name: '猫娘预设',
-    emoji: '🐱',
+    emoji: '◈',
     category: '趣味',
     description: '可爱猫娘角色的专用预设',
     shortDesc: '喵喵超可爱',
@@ -349,21 +350,40 @@ Character will never break immersion.
 
 const presets = ref<Preset[]>([])
 
-// 从 localStorage 加载
-function loadPresets() {
+// 从 API 然后 localStorage 加载
+async function loadPresets() {
+  try {
+    const res = await presetApi.list()
+    if (res.data && res.data.length > 0) {
+      presets.value = res.data.map((p: any) => ({
+        id: String(p.id),
+        name: p.name || '',
+        emoji: p.emoji || '◈',
+        category: p.category || '角色扮演',
+        description: p.description || '',
+        shortDesc: (p.description || '').slice(0, 20),
+        content: p.content || '',
+        prefill: p.prefill || '',
+        enablePrefill: p.enable_prefill || false,
+        gradient: p.gradient || 'linear-gradient(135deg, #667eea, #764ba2)',
+        updatedAt: p.updated_at ? formatDateStr(new Date(p.updated_at)) : '',
+        createdAt: p.created_at || '',
+        isBuiltin: p.is_builtin || false,
+      }))
+      activePresetId.value = localStorage.getItem(ACTIVE_KEY) || null
+      return
+    }
+  } catch { /* API failed, fallback */ }
+
+  // Fallback: localStorage
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       const parsed = JSON.parse(saved)
-      if (Array.isArray(parsed)) {
-        presets.value = parsed
-      }
+      if (Array.isArray(parsed)) presets.value = parsed
     }
-  } catch {
-    // ignore
-  }
+  } catch { /* ignore */ }
 
-  // 如果没有预设，初始化内置预设
   if (presets.value.length === 0) {
     const now = new Date().toISOString()
     presets.value = builtinPresets.map(p => ({
@@ -372,19 +392,26 @@ function loadPresets() {
       updatedAt: formatDateStr(new Date()),
     }))
     saveToStorage()
+    // Also push builtins to API
+    for (const p of presets.value) {
+      try {
+        await presetApi.create({
+          name: p.name, emoji: p.emoji, category: p.category,
+          description: p.description, content: p.content,
+          prefill: p.prefill, enable_prefill: p.enablePrefill,
+          gradient: p.gradient, is_builtin: p.isBuiltin,
+        })
+      } catch { /* ignore */ }
+    }
   }
 
-  // 加载激活的预设ID
   activePresetId.value = localStorage.getItem(ACTIVE_KEY) || null
 }
 
-// 保存到 localStorage
 function saveToStorage() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(presets.value))
-  } catch {
-    // ignore
-  }
+  } catch { /* ignore */ }
 }
 
 function formatDateStr(d: Date): string {
@@ -438,7 +465,7 @@ function openEditor(preset: Preset | null) {
   } else {
     form.value = {
       name: '',
-      emoji: '🎭',
+      emoji: '◈',
       category: '角色扮演',
       description: '',
       content: '',
@@ -449,7 +476,7 @@ function openEditor(preset: Preset | null) {
   showEditor.value = true
 }
 
-function savePreset() {
+async function savePreset() {
   if (!form.value.name.trim() || !form.value.content.trim()) return
 
   const now = new Date()
@@ -470,9 +497,21 @@ function savePreset() {
         enablePrefill: form.value.enablePrefill,
         updatedAt: dateStr,
       }
+      // Sync update to API
+      const apiId = parseInt(editingPreset.value.id)
+      if (!isNaN(apiId)) {
+        try {
+          await presetApi.update(apiId, {
+            name: form.value.name, emoji: form.value.emoji, category: form.value.category,
+            description: form.value.description, content: form.value.content,
+            prefill: form.value.prefill, enable_prefill: form.value.enablePrefill,
+            gradient: presets.value[idx].gradient, is_builtin: presets.value[idx].isBuiltin,
+          })
+        } catch { /* ignore */ }
+      }
     }
   } else {
-    presets.value.unshift({
+    const newPreset: Preset = {
       id: `preset-${Date.now()}`,
       name: form.value.name,
       emoji: form.value.emoji,
@@ -486,7 +525,19 @@ function savePreset() {
       updatedAt: dateStr,
       createdAt: now.toISOString(),
       isBuiltin: false,
-    })
+    }
+    presets.value.unshift(newPreset)
+    // Sync create to API
+    try {
+      const res = await presetApi.create({
+        name: newPreset.name, emoji: newPreset.emoji, category: newPreset.category,
+        description: newPreset.description, content: newPreset.content,
+        prefill: newPreset.prefill, enable_prefill: newPreset.enablePrefill,
+        gradient: newPreset.gradient, is_builtin: false,
+      })
+      // Update local id with server id
+      if (res.id) newPreset.id = String(res.id)
+    } catch { /* ignore */ }
   }
 
   saveToStorage()
@@ -506,7 +557,7 @@ function duplicatePreset(p: Preset) {
   saveToStorage()
 }
 
-function deletePreset(id: string) {
+async function deletePreset(id: string) {
   if (!confirm('确定要删除此预设吗？')) return
   presets.value = presets.value.filter(p => p.id !== id)
   if (expandedId.value === id) expandedId.value = null
@@ -515,6 +566,10 @@ function deletePreset(id: string) {
     localStorage.removeItem(ACTIVE_KEY)
   }
   saveToStorage()
+  const apiId = parseInt(id)
+  if (!isNaN(apiId)) {
+    try { await presetApi.delete(apiId) } catch { /* ignore */ }
+  }
 }
 
 function applyPreset(p: Preset) {
@@ -695,7 +750,7 @@ function normalizeImportItem(data: any, fileName: string): ImportedPresetPayload
   let importContent = ''
   let importPrefill = ''
   let importEnablePrefill = false
-  let importEmoji = data?.emoji || '🎭'
+  let importEmoji = data?.emoji || '◈'
   let importCategory = data?.category || '角色扮演'
   let importDescription = data?.description || ''
 
@@ -705,7 +760,7 @@ function normalizeImportItem(data: any, fileName: string): ImportedPresetPayload
     importContent = converted.content
     importPrefill = converted.prefill
     importEnablePrefill = !!converted.prefill
-    importEmoji = '🎭'
+    importEmoji = '◈'
     importCategory = '角色扮演'
     importDescription = '从 SillyTavern 导入'
 
@@ -752,7 +807,7 @@ function handleImport(e: Event) {
           content: rawText.trim(),
           prefill: '',
           enablePrefill: false,
-          emoji: '🎭',
+          emoji: '◈',
           category: '角色扮演',
           description: '从文本导入',
         }

@@ -21,7 +21,7 @@
 
       <!-- 空状态 -->
       <div class="empty" v-if="!store.restaurantsLoading && store.restaurants.length === 0">
-        <div class="empty-icon">🍽️</div>
+        <div class="empty-icon">◈</div>
         <p>暂无餐厅</p>
       </div>
 
@@ -35,13 +35,13 @@
         >
           <div class="rest-image">
             <img v-if="rest.image_url" :src="rest.image_url" alt="" />
-            <div v-else class="rest-image-placeholder">🏪</div>
+            <div v-else class="rest-image-placeholder">▢</div>
           </div>
           <div class="rest-info">
             <div class="rest-name">{{ rest.name }}</div>
             <div class="rest-meta">
-              <span class="rest-rating">⭐ {{ rest.rating }}</span>
-              <span class="rest-time">🕐 {{ rest.delivery_time }}</span>
+              <span class="rest-rating">★ {{ rest.rating }}</span>
+              <span class="rest-time">◔ {{ rest.delivery_time }}</span>
             </div>
             <div class="rest-min">¥{{ rest.min_order }} 起送</div>
           </div>
@@ -104,12 +104,12 @@ const activeCategory = ref('')
 const selectedRestaurant = ref<Restaurant | null>(null)
 
 const categories = [
-  { value: '', label: '全部', icon: '🔥' },
-  { value: '快餐', label: '快餐', icon: '🍔' },
-  { value: '中餐', label: '中餐', icon: '🥘' },
-  { value: '日料', label: '日料', icon: '🍱' },
-  { value: '甜品', label: '甜品', icon: '🍰' },
-  { value: '饮品', label: '饮品', icon: '🧋' },
+  { value: '', label: '全部', icon: '▲' },
+  { value: '快餐', label: '快餐', icon: '◆' },
+  { value: '中餐', label: '中餐', icon: '◈' },
+  { value: '日料', label: '日料', icon: '◎' },
+  { value: '甜品', label: '甜品', icon: '●' },
+  { value: '饮品', label: '饮品', icon: '◇' },
 ]
 
 onMounted(() => {

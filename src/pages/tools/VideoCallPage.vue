@@ -6,13 +6,13 @@
       <div class="pre-call">
         <div class="contact-avatar-wrap">
           <img v-if="contactAvatar" :src="contactAvatar" class="contact-avatar-img" />
-          <span v-else class="contact-avatar-emoji">📹</span>
+          <span v-else class="contact-avatar-emoji">▷</span>
         </div>
         <h2 class="contact-name">{{ contactName }}</h2>
         <p class="contact-number" v-if="contactNumber">{{ formatPhone(contactNumber) }}</p>
         <p class="call-hint">{{ characterId ? '点击发起 AI 视频通话' : '点击发起视频通话' }}</p>
         <button class="call-start-btn" @click="startCall">
-          <span>📹</span>
+          <span>▷</span>
           <span>发起视频通话</span>
         </button>
       </div>
@@ -35,7 +35,7 @@
         <!-- 自己画面（小窗） -->
         <div class="local-video" :class="{ minimized: localMinimized }" @click="localMinimized = !localMinimized">
           <div class="local-placeholder">
-            <span>👤</span>
+            <span>○</span>
           </div>
         </div>
 
@@ -89,19 +89,19 @@
         <!-- 底部控制栏 -->
         <div class="bottom-controls">
           <button class="ctl-btn" :class="{ active: muted }" @click="muted = !muted">
-            <span>{{ muted ? '🔇' : '🎤' }}</span>
+            <span>{{ muted ? '◇' : '◉' }}</span>
           </button>
           <button class="ctl-btn" :class="{ active: !cameraOn }" @click="cameraOn = !cameraOn">
-            <span>{{ cameraOn ? '📷' : '🚫' }}</span>
+            <span>{{ cameraOn ? '▣' : '✕' }}</span>
           </button>
           <button class="hangup-btn" @click="endCall">
-            <span>📵</span>
+            <span>✕</span>
           </button>
           <button class="ctl-btn" @click="flipCamera = !flipCamera">
-            <span>🔄</span>
+            <span>↻</span>
           </button>
           <button class="ctl-btn" :class="{ active: beautyOn }" @click="beautyOn = !beautyOn">
-            <span>✨</span>
+            <span>✦</span>
           </button>
         </div>
       </div>
@@ -243,7 +243,7 @@ async function triggerAIReply() {
     callMessages.value.push({
       id: `sys-${Date.now()}`,
       from: 'other',
-      text: '⚠️ 未配置 API Key，无法进行 AI 通话',
+      text: '△ 未配置 API Key，无法进行 AI 通话',
     })
     scrollChat()
     return
@@ -300,7 +300,7 @@ async function triggerAIReply() {
       callMessages.value.push({
         id: `err-${Date.now()}`,
         from: 'other',
-        text: `❌ ${err.message}`,
+        text: `✕ ${err.message}`,
       })
       scrollChat()
     }

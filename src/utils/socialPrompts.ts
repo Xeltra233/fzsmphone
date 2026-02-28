@@ -12,6 +12,9 @@ const PROMPT_KEYS = {
   zhihu: 'social-prompt-zhihu',
   xiaohongshu: 'social-prompt-xiaohongshu',
   douyin: 'social-prompt-douyin',
+  music: 'social-prompt-music',
+  live: 'social-prompt-live',
+  theater: 'social-prompt-theater',
 } as const
 
 // ==================== 默认提示词 ====================
@@ -174,9 +177,82 @@ export const DEFAULT_MOMENTS_PROMPT = `你现在需要模拟朋友圈/QQ空间�
 6. 内容要符合角色性格：生活日常、心情分享、美食、风景、感悟等
 7. 不要输出格式之外的任何内容`
 
-// ==================== 提示词管理函数 ====================
+export const DEFAULT_MUSIC_PROMPT = `You need to simulate a music platform. Based on the character settings and world view, generate a music playlist.
 
-export type SocialType = 'forum' | 'weibo' | 'moments' | 'zhihu' | 'xiaohongshu' | 'douyin'
+**Character list:**
+{{characters}}
+
+**User identity:** {{user}}
+
+{{action}}
+
+Please output music content in this format:
+
+<!-- MUSIC_CONTENT_START -->
+[song|song_name|artist|album|duration_seconds]
+[playlist|playlist_name|description|song_name1,song_name2,song_name3]
+<!-- MUSIC_CONTENT_END -->
+
+Requirements:
+1. Generate 10-15 songs with diverse genres
+2. Generate 2-3 playlist recommendations
+3. Duration in seconds (e.g. 240 = 4 minutes)
+4. Content should match the character world
+5. DO NOT output anything outside the format`
+
+export const DEFAULT_LIVE_PROMPT = `You need to simulate a live streaming platform. Based on the character settings, generate live rooms and chat messages.
+
+**Character list:**
+{{characters}}
+
+**User identity:** {{user}}
+
+{{action}}
+
+Please output live content in this format:
+
+<!-- LIVE_CONTENT_START -->
+[streamer|streamer_id|name|title|category|tag1,tag2|viewer_count]
+[chat|streamer_id|username|message]
+[system|streamer_id|system_message]
+<!-- LIVE_CONTENT_END -->
+
+Requirements:
+1. Generate 4-6 live rooms with diverse categories (gaming, music, chat, food, outdoor)
+2. Each room has 3-5 chat messages
+3. streamer_id uses short alphanumeric (like s01, s02)
+4. viewer_count is a number
+5. Chat style should be like real live streams
+6. DO NOT output anything outside the format`
+
+export const DEFAULT_THEATER_PROMPT = `You need to simulate a short drama platform. Based on character settings, generate drama listings and comments.
+
+**Character list:**
+{{characters}}
+
+**User identity:** {{user}}
+
+{{action}}
+
+Please output theater content in this format:
+
+<!-- THEATER_CONTENT_START -->
+[drama|drama_id|title|category|total_episodes|rating|description]
+[comment|drama_id|commenter_name|comment_content]
+<!-- THEATER_CONTENT_END -->
+
+Requirements:
+1. Generate 4-6 short dramas of diverse categories
+2. drama_id uses short alphanumeric (like d01, d02)
+3. Each drama has 8-20 episodes
+4. Rating is a number (like 6.5-9.8)
+5. Each drama has 1-3 comments
+6. Description should be engaging and match characters world
+7. DO NOT output anything outside the format`
+
+// ==================== Prompt management functions ====================
+
+export type SocialType = 'forum' | 'weibo' | 'moments' | 'zhihu' | 'xiaohongshu' | 'douyin' | 'music' | 'live' | 'theater'
 
 /** 获取提示词模板 */
 export function getPromptTemplate(type: SocialType): string {
@@ -192,6 +268,9 @@ export function getPromptTemplate(type: SocialType): string {
     case 'zhihu': return DEFAULT_ZHIHU_PROMPT
     case 'xiaohongshu': return DEFAULT_XIAOHONGSHU_PROMPT
     case 'douyin': return DEFAULT_DOUYIN_PROMPT
+    case 'music': return DEFAULT_MUSIC_PROMPT
+    case 'live': return DEFAULT_LIVE_PROMPT
+    case 'theater': return DEFAULT_THEATER_PROMPT
   }
 }
 

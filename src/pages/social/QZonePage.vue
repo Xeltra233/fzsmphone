@@ -37,7 +37,7 @@
     <div class="moments-list">
       <!-- 全局错误提示（内联显示） -->
       <div v-if="store.lastError" class="error-banner" @click="store.lastError = ''">
-        ⚠️ {{ store.lastError }}
+        △ {{ store.lastError }}
         <span class="error-dismiss">点击关闭</span>
       </div>
 
@@ -49,11 +49,11 @@
 
       <!-- 空状态 -->
       <div v-else-if="store.moments.length === 0" class="empty-state">
-        <div class="empty-icon">📷</div>
+        <div class="empty-icon">▣</div>
         <div class="empty-title">朋友圈空空如也</div>
         <div class="empty-sub">点击右上角刷新让AI生成朋友圈动态</div>
         <button class="generate-btn" @click="handleGenerate" :disabled="store.generating">
-          ✨ 生成朋友圈
+          ✦ 生成朋友圈
         </button>
       </div>
 

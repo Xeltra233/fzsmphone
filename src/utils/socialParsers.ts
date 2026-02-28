@@ -1010,18 +1010,315 @@ export function truncateText(text: string, max: number): string {
   return text.length > max ? text.slice(0, max) + '...' : text
 }
 
-/** 格式化时间为相对时间 */
+/** Format time as relative time */
 export function formatRelativeTime(dateStr: string): string {
   if (!dateStr) return ''
   const d = new Date(dateStr)
   const now = new Date()
   const diffMs = now.getTime() - d.getTime()
   const diffMin = Math.floor(diffMs / 60000)
-  if (diffMin < 1) return '刚刚'
-  if (diffMin < 60) return `${diffMin}分钟前`
+  if (diffMin < 1) return 'Just now'
+  if (diffMin < 60) return `${diffMin} min ago`
   const diffHour = Math.floor(diffMin / 60)
-  if (diffHour < 24) return `${diffHour}小时前`
+  if (diffHour < 24) return `${diffHour}h ago`
   const diffDay = Math.floor(diffHour / 24)
-  if (diffDay < 7) return `${diffDay}天前`
+  if (diffDay < 7) return `${diffDay}d ago`
   return `${d.getMonth() + 1}-${d.getDate()}`
+}
+
+// ==================== Music types ====================
+
+export interface MusicTrack {
+  id: string
+  name: string
+  artist: string
+  album: string
+  duration: number // seconds
+}
+
+export interface MusicPlaylist {
+  id: string
+  name: string
+  description: string
+  trackNames: string[]
+}
+
+export interface MusicData {
+  tracks: MusicTrack[]
+  playlists: MusicPlaylist[]
+}
+
+// ==================== Live types ====================
+
+export interface LiveStreamer {
+  id: string
+  name: string
+  title: string
+  category: string
+  tags: string[]
+  viewers: number
+  isLive: boolean
+  bgGradient: string
+  avatar: string
+  followed: boolean
+  chatMessages: LiveChatMsg[]
+}
+
+export interface LiveChatMsg {
+  id: string
+  streamerId: string
+  user: string
+  text: string
+  type: 'user' | 'system' | 'gift'
+  color: string
+}
+
+export interface LiveData {
+  streamers: LiveStreamer[]
+}
+
+// ==================== Theater types ====================
+
+export interface TheaterDrama {
+  id: string
+  title: string
+  category: string
+  episodes: number[]
+  rating: number
+  desc: string
+  emoji: string
+  bgGradient: string
+  views: number
+  comments: TheaterComment[]
+}
+
+export interface TheaterComment {
+  id: string
+  dramaId: string
+  author: string
+  content: string
+  timestamp: string
+  likes: number
+  liked: boolean
+}
+
+export interface TheaterData {
+  dramas: TheaterDrama[]
+}
+
+// ==================== Music parser ====================
+
+export function parseMusicContent(raw: string): MusicData {
+  const tracks: MusicTrack[] = []
+  const playlists: MusicPlaylist[] = []
+
+  const startMarker = '<!-- MUSIC_CONTENT_START -->'
+  const endMarker = '<!-- MUSIC_CONTENT_END -->'
+  const startIdx = raw.indexOf(startMarker)
+  const endIdx = raw.indexOf(endMarker)
+  const content = startIdx >= 0 && endIdx >= 0
+    ? raw.slice(startIdx + startMarker.length, endIdx)
+    : raw
+
+  let m: RegExpExecArray | null
+
+  // Parse songs: [song|name|artist|album|duration]
+  const songRe = /\[song\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/gi
+  while ((m = songRe.exec(content)) !== null) {
+    tracks.push({
+      id: generateId('trk'),
+      name: m[1].trim(),
+      artist: m[2].trim(),
+      album: m[3].trim(),
+      duration: parseInt(m[4].trim()) || 240,
+    })
+  }
+
+  // Also try Chinese format
+  const songReCn = /\[歌曲\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = songReCn.exec(content)) !== null) {
+    tracks.push({
+      id: generateId('trk'),
+      name: m[1].trim(),
+      artist: m[2].trim(),
+      album: m[3].trim(),
+      duration: parseInt(m[4].trim()) || 240,
+    })
+  }
+
+  // Parse playlists: [playlist|name|desc|songs]
+  const plRe = /\[playlist\|([^|]+)\|([^|]+)\|([^\]]+)\]/gi
+  while ((m = plRe.exec(content)) !== null) {
+    playlists.push({
+      id: generateId('pl'),
+      name: m[1].trim(),
+      description: m[2].trim(),
+      trackNames: m[3].split(',').map(s => s.trim()),
+    })
+  }
+
+  const plReCn = /\[歌单\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = plReCn.exec(content)) !== null) {
+    playlists.push({
+      id: generateId('pl'),
+      name: m[1].trim(),
+      description: m[2].trim(),
+      trackNames: m[3].split(',').map(s => s.trim()),
+    })
+  }
+
+  console.log(`[SocialParser] Music: ${tracks.length} tracks, ${playlists.length} playlists`)
+  return { tracks, playlists }
+}
+
+// ==================== Live parser ====================
+
+const gradients = [
+  'linear-gradient(135deg, #667eea, #764ba2)',
+  'linear-gradient(135deg, #f093fb, #f5576c)',
+  'linear-gradient(135deg, #4facfe, #00f2fe)',
+  'linear-gradient(135deg, #43e97b, #38f9d7)',
+  'linear-gradient(135deg, #fa709a, #fee140)',
+  'linear-gradient(135deg, #a18cd1, #fbc2eb)',
+  'linear-gradient(135deg, #ffecd2, #fcb69f)',
+  'linear-gradient(135deg, #89f7fe, #66a6ff)',
+]
+
+const avatars = ['◎', '♪', '◈', '△', '▶', '◌', '♪', '➤', '◎', '◈']
+
+export function parseLiveContent(raw: string): LiveData {
+  const streamers: LiveStreamer[] = []
+
+  const startMarker = '<!-- LIVE_CONTENT_START -->'
+  const endMarker = '<!-- LIVE_CONTENT_END -->'
+  const startIdx = raw.indexOf(startMarker)
+  const endIdx = raw.indexOf(endMarker)
+  const content = startIdx >= 0 && endIdx >= 0
+    ? raw.slice(startIdx + startMarker.length, endIdx)
+    : raw
+
+  let m: RegExpExecArray | null
+
+  // Parse streamers: [streamer|id|name|title|category|tags|viewers]
+  const streamerRe = /\[(?:streamer|主播)\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/gi
+  while ((m = streamerRe.exec(content)) !== null) {
+    const sid = m[1].trim()
+    streamers.push({
+      id: sid,
+      name: m[2].trim(),
+      title: m[3].trim(),
+      category: m[4].trim(),
+      tags: m[5].split(',').map(s => s.trim()),
+      viewers: parseInt(m[6].trim()) || Math.floor(Math.random() * 50000),
+      isLive: true,
+      bgGradient: gradients[streamers.length % gradients.length],
+      avatar: avatars[streamers.length % avatars.length],
+      followed: false,
+      chatMessages: [],
+    })
+  }
+
+  // Parse chat messages: [chat|streamer_id|username|message]
+  const chatRe = /\[(?:chat|弹幕)\|([^|]+)\|([^|]+)\|([^\]]+)\]/gi
+  const colors = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#a55eea', '#fd79a8']
+  while ((m = chatRe.exec(content)) !== null) {
+    const sid = m[1].trim()
+    const streamer = streamers.find(s => s.id === sid)
+    if (streamer) {
+      streamer.chatMessages.push({
+        id: generateId('chat'),
+        streamerId: sid,
+        user: m[2].trim(),
+        text: m[3].trim(),
+        type: 'user',
+        color: colors[Math.floor(Math.random() * colors.length)],
+      })
+    }
+  }
+
+  // Parse system messages: [system|streamer_id|message]
+  const sysRe = /\[(?:system|系统)\|([^|]+)\|([^\]]+)\]/gi
+  while ((m = sysRe.exec(content)) !== null) {
+    const sid = m[1].trim()
+    const streamer = streamers.find(s => s.id === sid)
+    if (streamer) {
+      streamer.chatMessages.push({
+        id: generateId('sys'),
+        streamerId: sid,
+        user: 'system',
+        text: m[2].trim(),
+        type: 'system',
+        color: '#ffd700',
+      })
+    }
+  }
+
+  console.log(`[SocialParser] Live: ${streamers.length} streamers`)
+  return { streamers }
+}
+
+// ==================== Theater parser ====================
+
+const dramaEmojis = ['▷', '♥', '✕', '◎', '◠', '★', '◈', '✿']
+const dramaGradients = [
+  'linear-gradient(135deg, #ff9a9e, #fad0c4)',
+  'linear-gradient(135deg, #a1c4fd, #c2e9fb)',
+  'linear-gradient(135deg, #ffecd2, #fcb69f)',
+  'linear-gradient(135deg, #667eea, #764ba2)',
+  'linear-gradient(135deg, #f093fb, #f5576c)',
+  'linear-gradient(135deg, #4facfe, #00f2fe)',
+]
+
+export function parseTheaterContent(raw: string): TheaterData {
+  const dramas: TheaterDrama[] = []
+
+  const startMarker = '<!-- THEATER_CONTENT_START -->'
+  const endMarker = '<!-- THEATER_CONTENT_END -->'
+  const startIdx = raw.indexOf(startMarker)
+  const endIdx = raw.indexOf(endMarker)
+  const content = startIdx >= 0 && endIdx >= 0
+    ? raw.slice(startIdx + startMarker.length, endIdx)
+    : raw
+
+  let m: RegExpExecArray | null
+
+  // Parse dramas: [drama|id|title|category|episodes|rating|desc]
+  const dramaRe = /\[(?:drama|剧目)\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/gi
+  while ((m = dramaRe.exec(content)) !== null) {
+    const episodeCount = parseInt(m[4].trim()) || 12
+    const episodes = Array.from({ length: episodeCount }, (_, i) => i + 1)
+    dramas.push({
+      id: m[1].trim(),
+      title: m[2].trim(),
+      category: m[3].trim(),
+      episodes,
+      rating: parseFloat(m[5].trim()) || 8.0,
+      desc: m[6].trim(),
+      emoji: dramaEmojis[dramas.length % dramaEmojis.length],
+      bgGradient: dramaGradients[dramas.length % dramaGradients.length],
+      views: Math.floor(Math.random() * 1000000) + 100000,
+      comments: [],
+    })
+  }
+
+  // Parse comments: [comment|drama_id|author|content]
+  const commentRe = /\[(?:comment|评论)\|([^|]+)\|([^|]+)\|([^\]]+)\]/gi
+  while ((m = commentRe.exec(content)) !== null) {
+    const did = m[1].trim()
+    const drama = dramas.find(d => d.id === did)
+    if (drama) {
+      drama.comments.push({
+        id: generateId('tc'),
+        dramaId: did,
+        author: m[2].trim(),
+        content: m[3].trim(),
+        timestamp: generateTimestamp(),
+        likes: Math.floor(Math.random() * 200),
+        liked: false,
+      })
+    }
+  }
+
+  console.log(`[SocialParser] Theater: ${dramas.length} dramas`)
+  return { dramas }
 }

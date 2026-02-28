@@ -19,7 +19,7 @@
         :class="{ active: currentBookId === book.id }"
         @click="currentBookId = book.id"
       >
-        <span class="book-tab-icon">📖</span>
+        <span class="book-tab-icon">▤</span>
         <span class="book-tab-name">{{ book.name }}</span>
         <span class="book-tab-count">{{ book.entries.length }}</span>
       </div>
@@ -39,16 +39,16 @@
           </div>
         </div>
         <div class="book-info-actions">
-          <button class="small-btn" @click="editBookName">✏️</button>
-          <button class="small-btn" @click="exportBook">📤</button>
-          <button class="small-btn danger" @click="deleteBook" v-if="worldBooks.length > 1">🗑️</button>
+          <button class="small-btn" @click="editBookName">✎</button>
+          <button class="small-btn" @click="exportBook">↑</button>
+          <button class="small-btn danger" @click="deleteBook" v-if="worldBooks.length > 1">✕</button>
         </div>
       </div>
 
       <!-- 搜索和添加 -->
       <div class="toolbar">
         <div class="search-wrap">
-          <span class="search-icon">🔍</span>
+          <span class="search-icon">◎</span>
           <input v-model="searchText" placeholder="搜索条目..." />
         </div>
         <button class="ai-batch-btn" @click="showAIBatchModal = true" title="AI批量创建条目">
@@ -65,7 +65,7 @@
 
       <!-- 条目列表 -->
       <div v-if="filteredEntries.length === 0 && !showEntryForm" class="empty">
-        <div class="empty-icon">📚</div>
+        <div class="empty-icon">▥</div>
         <p>还没有世界书条目</p>
         <p class="empty-hint">世界书条目会在聊天中根据关键词自动注入到AI的上下文中</p>
         <button class="empty-btn" @click="openEntryEditor(null)">创建第一个条目</button>
@@ -80,10 +80,10 @@
         >
           <div class="entry-header" @click="toggleEntryExpand(entry.id)">
             <div class="entry-title-row">
-              <span class="entry-icon">📖</span>
+              <span class="entry-icon">▤</span>
               <span class="entry-title">{{ entry.title }}</span>
               <span class="entry-status" :class="{ on: entry.enabled }">
-                {{ entry.enabled ? '✅' : '❌' }}
+                {{ entry.enabled ? '✓' : '✕' }}
               </span>
             </div>
             <div class="entry-keywords-preview" v-if="entry.keywords.length > 0">
@@ -109,7 +109,7 @@
     <!-- 无世界书时的空状态 -->
     <div v-if="worldBooks.length === 0" class="page-content">
       <div class="empty">
-        <div class="empty-icon">📚</div>
+        <div class="empty-icon">▥</div>
         <p>还没有世界书</p>
         <p class="empty-hint">世界书用于在聊天中自动注入背景设定信息</p>
         <button class="empty-btn" @click="createNewBook">创建第一本世界书</button>
@@ -118,7 +118,7 @@
 
     <!-- 底部操作 -->
     <div class="bottom-bar">
-      <button class="import-btn" @click="triggerImport">📥 导入世界书</button>
+      <button class="import-btn" @click="triggerImport">↓ 导入世界书</button>
       <input ref="importInput" type="file" accept=".json" style="display:none" @change="handleImport" />
     </div>
 
@@ -249,7 +249,7 @@
         </div>
         <div class="editor-footer">
           <button class="btn-cancel" @click="showEntryForm = false">取消</button>
-          <button class="btn-save" @click="saveEntry">💾 保存</button>
+          <button class="btn-save" @click="saveEntry">▣ 保存</button>
         </div>
       </div>
     </div>
@@ -299,11 +299,11 @@
         </div>
         <div class="menu-body">
           <div class="menu-item" @click="createNewBook">
-            <span class="menu-icon">📝</span>
+            <span class="menu-icon">▤</span>
             <span>新建世界书</span>
           </div>
           <div class="menu-item" @click="triggerImport; showBookMenu = false">
-            <span class="menu-icon">📥</span>
+            <span class="menu-icon">↓</span>
             <span>导入世界书</span>
           </div>
           <div class="menu-divider" v-if="worldBooks.length > 0"></div>
@@ -315,7 +315,7 @@
             :class="{ active: currentBookId === book.id }"
             @click="currentBookId = book.id; showBookMenu = false"
           >
-            <span class="menu-icon">📖</span>
+            <span class="menu-icon">▤</span>
             <div class="menu-item-info">
               <span>{{ book.name }}</span>
               <span class="menu-item-meta">{{ book.entries.length }} 个条目</span>

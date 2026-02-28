@@ -9,7 +9,7 @@
           <div class="banner-bg"></div>
           <div class="banner-info">
             <span class="banner-tag">每日推荐</span>
-            <h3>🎮 小游戏合集</h3>
+            <h3>▶ 小游戏合集</h3>
             <p>和朋友一起玩，赢取虚拟金币</p>
           </div>
         </div>
@@ -69,12 +69,12 @@
       <!-- 排行榜 -->
       <div class="section">
         <div class="section-header">
-          <span class="section-title">🏆 排行榜</span>
+          <span class="section-title">★ 排行榜</span>
         </div>
         <div class="leaderboard">
           <div v-for="(entry, idx) in leaderboard" :key="entry.name" class="rank-item">
             <span class="rank-num" :class="{ gold: idx === 0, silver: idx === 1, bronze: idx === 2 }">
-              {{ idx < 3 ? ['🥇', '🥈', '🥉'][idx] : idx + 1 }}
+              {{ idx < 3 ? ['★', '★', '★'][idx] : idx + 1 }}
             </span>
             <div class="rank-avatar">{{ entry.name[0] }}</div>
             <span class="rank-name">{{ entry.name }}</span>
@@ -122,7 +122,7 @@
                   点数合计：{{ diceFaces[0] + diceFaces[1] }}
                 </div>
                 <button class="roll-btn" @click="rollDice" :class="{ rolling: diceRolling }">
-                  {{ diceRolling ? '🎲 投掷中...' : '🎲 投骰子' }}
+                  {{ diceRolling ? '⚄ 投掷中...' : '⚄ 投骰子' }}
                 </button>
               </div>
             </template>
@@ -156,19 +156,19 @@ interface Game {
 }
 
 const quickGames: Game[] = [
-  { id: 'guess', name: '猜数字', icon: '🔢', color: 'linear-gradient(135deg, #6C5CE7, #A29BFE)', description: '猜一个1-100的数字', tags: ['单人', '益智'], online: 128 },
-  { id: 'dice', name: '骰子', icon: '🎲', color: 'linear-gradient(135deg, #E17055, #FAB1A0)', description: '投骰子比大小', tags: ['多人', '运气'], online: 256 },
+  { id: 'guess', name: '猜数字', icon: '▥', color: 'linear-gradient(135deg, #6C5CE7, #A29BFE)', description: '猜一个1-100的数字', tags: ['单人', '益智'], online: 128 },
+  { id: 'dice', name: '骰子', icon: '⚄', color: 'linear-gradient(135deg, #E17055, #FAB1A0)', description: '投骰子比大小', tags: ['多人', '运气'], online: 256 },
   { id: 'rps', name: '猜拳', icon: '✊', color: 'linear-gradient(135deg, #00B894, #55EFC4)', description: '石头剪刀布', tags: ['双人', '经典'], online: 89 },
   { id: 'coin', name: '抛硬币', icon: '🪙', color: 'linear-gradient(135deg, #FDCB6E, #F39C12)', description: '正反面', tags: ['单人', '运气'], online: 45 },
 ]
 
 const allGames: Game[] = [
   ...quickGames,
-  { id: 'blackjack', name: '21点', icon: '🃏', color: 'linear-gradient(135deg, #2D3436, #636E72)', description: '经典纸牌游戏，比拼运气与策略', tags: ['赌场', '纸牌'] },
-  { id: 'slots', name: '老虎机', icon: '🎰', color: 'linear-gradient(135deg, #E6162D, #FF4757)', description: '转动转盘，试试你的运气', tags: ['赌场', '运气'] },
+  { id: 'blackjack', name: '21点', icon: '♠', color: 'linear-gradient(135deg, #2D3436, #636E72)', description: '经典纸牌游戏，比拼运气与策略', tags: ['赌场', '纸牌'] },
+  { id: 'slots', name: '老虎机', icon: '▣', color: 'linear-gradient(135deg, #E6162D, #FF4757)', description: '转动转盘，试试你的运气', tags: ['赌场', '运气'] },
   { id: 'trivia', name: '知识问答', icon: '❓', color: 'linear-gradient(135deg, #3498DB, #2980B9)', description: '测试你的知识面', tags: ['多人', '益智'] },
-  { id: 'memory', name: '记忆翻牌', icon: '🧠', color: 'linear-gradient(135deg, #A855F7, #EC4899)', description: '考验你的记忆力', tags: ['单人', '益智'] },
-  { id: 'wordle', name: '猜词', icon: '📝', color: 'linear-gradient(135deg, #00CEC9, #81ECEC)', description: '猜出今天的词语', tags: ['单人', '文字'] },
+  { id: 'memory', name: '记忆翻牌', icon: '◎', color: 'linear-gradient(135deg, #A855F7, #EC4899)', description: '考验你的记忆力', tags: ['单人', '益智'] },
+  { id: 'wordle', name: '猜词', icon: '▤', color: 'linear-gradient(135deg, #00CEC9, #81ECEC)', description: '猜出今天的词语', tags: ['单人', '文字'] },
 ]
 
 const leaderboard = ref([
@@ -212,11 +212,11 @@ function makeGuess() {
   if (!guessInput.value) return
   guessCount.value++
   if (guessInput.value === guessTarget.value) {
-    guessResult.value = `🎉 恭喜！猜对了！用了 ${guessCount.value} 次`
+    guessResult.value = `★ 恭喜！猜对了！用了 ${guessCount.value} 次`
   } else if (guessInput.value < guessTarget.value) {
-    guessResult.value = '📈 大了点... 再大一些'
+    guessResult.value = '↑ 大了点... 再大一些'
   } else {
-    guessResult.value = '📉 小了点... 再小一些'
+    guessResult.value = '↓ 小了点... 再小一些'
   }
   // Fix: correct direction hints
   if (guessInput.value < guessTarget.value) {

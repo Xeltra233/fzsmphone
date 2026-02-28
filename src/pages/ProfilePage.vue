@@ -73,7 +73,7 @@
         <div class="menu-group">
           <div class="setting-item">
             <div class="setting-left">
-              <span class="setting-icon">🌙</span>
+              <span class="setting-icon">☽</span>
               <span>深色模式</span>
             </div>
             <label class="toggle">
@@ -83,7 +83,7 @@
           </div>
           <div class="setting-item">
             <div class="setting-left">
-              <span class="setting-icon">🔔</span>
+              <span class="setting-icon">▲</span>
               <span>通知提醒</span>
             </div>
             <label class="toggle">
@@ -93,7 +93,7 @@
           </div>
           <div class="setting-item">
             <div class="setting-left">
-              <span class="setting-icon">🔊</span>
+              <span class="setting-icon">◉</span>
               <span>消息音效</span>
             </div>
             <label class="toggle">
@@ -159,20 +159,20 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { icon: '👤', label: '编辑资料', color: 'linear-gradient(135deg, #5B6EF5, #8B5CF6)', action: 'editProfile' },
-  { icon: '🎭', label: '我的人设', color: 'linear-gradient(135deg, #E17055, #FAB1A0)', route: '/personas' },
-  { icon: '👥', label: '角色管理', color: 'linear-gradient(135deg, #00CEC9, #81ECEC)', route: '/characters' },
-  { icon: '📚', label: '世界书', color: 'linear-gradient(135deg, #6C5CE7, #DDA0DD)', route: '/worldbook' },
+  { icon: '○', label: '编辑资料', color: 'linear-gradient(135deg, #5B6EF5, #8B5CF6)', action: 'editProfile' },
+  { icon: '◈', label: '我的人设', color: 'linear-gradient(135deg, #E17055, #FAB1A0)', route: '/personas' },
+  { icon: '○', label: '角色管理', color: 'linear-gradient(135deg, #00CEC9, #81ECEC)', route: '/characters' },
+  { icon: '▥', label: '世界书', color: 'linear-gradient(135deg, #6C5CE7, #DDA0DD)', route: '/worldbook' },
   { icon: '⚡', label: '预设管理', color: 'linear-gradient(135deg, #FDCB6E, #F39C12)', route: '/preset' },
-  { icon: '🎨', label: '主题定制', color: 'linear-gradient(135deg, #636E72, #B2BEC3)', route: '/customize' },
-  { icon: '💰', label: '我的钱包', color: 'linear-gradient(135deg, #00B894, #55EFC4)', route: '/wallet' },
+  { icon: '✧', label: '主题定制', color: 'linear-gradient(135deg, #636E72, #B2BEC3)', route: '/customize' },
+  { icon: '¤', label: '我的钱包', color: 'linear-gradient(135deg, #00B894, #55EFC4)', route: '/wallet' },
 ]
 
 const adminItems: MenuItem[] = [
-  { icon: '🛡️', label: '功能管理', color: 'linear-gradient(135deg, #FF6B6B, #EE5A24)', route: '/admin/features' },
-  { icon: '👥', label: '用户管理', color: 'linear-gradient(135deg, #E6162D, #FF4757)', route: '/admin/users' },
-  { icon: '📊', label: '数据统计', color: 'linear-gradient(135deg, #3498DB, #2980B9)', route: '/admin/stats' },
-  { icon: '🔧', label: '系统设置', color: 'linear-gradient(135deg, #636E72, #95A5A6)', route: '/admin/settings' },
+  { icon: '■', label: '功能管理', color: 'linear-gradient(135deg, #FF6B6B, #EE5A24)', route: '/admin/features' },
+  { icon: '○', label: '用户管理', color: 'linear-gradient(135deg, #E6162D, #FF4757)', route: '/admin/users' },
+  { icon: '▥', label: '数据统计', color: 'linear-gradient(135deg, #3498DB, #2980B9)', route: '/admin/stats' },
+  { icon: '⚙', label: '系统设置', color: 'linear-gradient(135deg, #636E72, #95A5A6)', route: '/admin/settings' },
 ]
 
 function handleMenuItem(item: MenuItem) {

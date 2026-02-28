@@ -3,7 +3,7 @@
     <NavBar title="群聊">
       <template #right>
         <button class="members-btn" @click="showMembers = !showMembers">
-          👥 {{ members.length }}
+          ○ {{ members.length }}
         </button>
       </template>
     </NavBar>
@@ -11,7 +11,7 @@
     <!-- 消息列表 -->
     <div class="messages-area" ref="messagesRef">
       <div v-if="messages.length === 0" class="empty-chat">
-        <span>💬</span>
+        <span>◌</span>
         <p>群聊已创建，开始聊天吧~</p>
       </div>
 
@@ -75,7 +75,7 @@
 
         <div class="panel-actions">
           <button class="action-btn add-btn" @click="showAddMember = true">
-            ➕ 添加成员
+            + 添加成员
           </button>
         </div>
       </div>

@@ -18,7 +18,7 @@
       <!-- ===== API 设置 ===== -->
       <div v-show="activeTab === 'api'" class="tab-content">
         <div class="section">
-          <div class="section-header">🔑 API 配置</div>
+          <div class="section-header">■ API 配置</div>
 
           <div class="setting-item">
             <div class="setting-label">
@@ -34,7 +34,7 @@
               placeholder="输入你的 API Key"
             />
             <button class="icon-action" @click="showApiKey = !showApiKey">
-              {{ showApiKey ? '🙈' : '👁️' }}
+              {{ showApiKey ? '◇' : '◉' }}
             </button>
           </div>
 
@@ -96,7 +96,7 @@
       <!-- ===== 对话设置 ===== -->
       <div v-show="activeTab === 'chat'" class="tab-content">
         <div class="section">
-          <div class="section-header">💬 对话参数</div>
+          <div class="section-header">◌ 对话参数</div>
 
           <div class="setting-item">
             <div class="setting-label">
@@ -181,7 +181,7 @@
       <!-- ===== 外观设置 ===== -->
       <div v-show="activeTab === 'appearance'" class="tab-content">
         <div class="section">
-          <div class="section-header">🎨 外观设置</div>
+          <div class="section-header">✧ 外观设置</div>
 
           <div class="setting-item">
             <div class="setting-label">
@@ -235,7 +235,7 @@
         </div>
 
         <div class="section">
-          <div class="section-header">🔤 字体设置</div>
+          <div class="section-header">A 字体设置</div>
           <div class="setting-item">
             <div class="setting-label">
               <span class="label-text">字体大小</span>
@@ -256,7 +256,7 @@
       <!-- ===== 通知设置 ===== -->
       <div v-show="activeTab === 'notify'" class="tab-content">
         <div class="section">
-          <div class="section-header">🔔 通知设置</div>
+          <div class="section-header">▲ 通知设置</div>
 
           <div class="setting-item">
             <div class="setting-label">
@@ -291,7 +291,7 @@
       <!-- ===== 数据管理 ===== -->
       <div v-show="activeTab === 'data'" class="tab-content">
         <div class="section">
-          <div class="section-header">💾 存储与数据</div>
+          <div class="section-header">▣ 存储与数据</div>
 
           <div class="setting-item" @click="exportData">
             <div class="setting-label">
@@ -327,7 +327,7 @@
     <Teleport to="#phone-overlay">
       <div v-if="showClearConfirm" class="modal-overlay" @click.self="showClearConfirm = false">
         <div class="confirm-dialog">
-          <div class="confirm-icon">⚠️</div>
+          <div class="confirm-icon">△</div>
           <h3>确定要清除所有数据吗？</h3>
           <p>此操作不可恢复，将清除所有本地数据</p>
           <div class="confirm-actions">
@@ -360,11 +360,11 @@ const fetchingModels = ref(false)
 const fetchError = ref('')
 
 const tabs = [
-  { key: 'api', icon: '🔑', label: 'API' },
-  { key: 'chat', icon: '💬', label: '对话' },
-  { key: 'appearance', icon: '🎨', label: '外观' },
-  { key: 'notify', icon: '🔔', label: '通知' },
-  { key: 'data', icon: '💾', label: '数据' },
+  { key: 'api', icon: '■', label: 'API' },
+  { key: 'chat', icon: '◌', label: '对话' },
+  { key: 'appearance', icon: '✧', label: '外观' },
+  { key: 'notify', icon: '▲', label: '通知' },
+  { key: 'data', icon: '▣', label: '数据' },
 ]
 
 const themeColors = [
@@ -379,12 +379,12 @@ const themeColors = [
 ]
 
 const wallpapers = [
-  { id: 'default', name: '默认', emoji: '🌊', gradient: 'linear-gradient(135deg, #667eea, #764ba2)' },
-  { id: 'sunset', name: '日落', emoji: '🌅', gradient: 'linear-gradient(135deg, #fa709a, #fee140)' },
-  { id: 'forest', name: '森林', emoji: '🌲', gradient: 'linear-gradient(135deg, #43e97b, #38f9d7)' },
-  { id: 'ocean', name: '海洋', emoji: '🐳', gradient: 'linear-gradient(135deg, #4facfe, #00f2fe)' },
-  { id: 'night', name: '夜空', emoji: '🌌', gradient: 'linear-gradient(135deg, #0c0c1d, #1a1a3e)' },
-  { id: 'cherry', name: '樱花', emoji: '🌸', gradient: 'linear-gradient(135deg, #ffecd2, #fcb69f)' },
+  { id: 'default', name: '默认', emoji: '≈', gradient: 'linear-gradient(135deg, #667eea, #764ba2)' },
+  { id: 'sunset', name: '日落', emoji: '☀', gradient: 'linear-gradient(135deg, #fa709a, #fee140)' },
+  { id: 'forest', name: '森林', emoji: '△', gradient: 'linear-gradient(135deg, #43e97b, #38f9d7)' },
+  { id: 'ocean', name: '海洋', emoji: '≈', gradient: 'linear-gradient(135deg, #4facfe, #00f2fe)' },
+  { id: 'night', name: '夜空', emoji: '★', gradient: 'linear-gradient(135deg, #0c0c1d, #1a1a3e)' },
+  { id: 'cherry', name: '樱花', emoji: '✿', gradient: 'linear-gradient(135deg, #ffecd2, #fcb69f)' },
 ]
 
 const fontSizes = [

@@ -45,6 +45,11 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 	featuresH := &handlers.FeaturesHandler{DB: db}
 	restH := &handlers.RestaurantHandler{DB: db}
 	orderH := &handlers.OrderHandler{DB: db}
+	presetH := &handlers.PresetHandler{DB: db}
+	callH := &handlers.CallHandler{DB: db}
+	smsH := &handlers.SmsHandler{DB: db}
+	walletH := &handlers.WalletHandler{DB: db}
+	gameH := &handlers.GameHandler{DB: db}
 
 	// Public routes
 	r.Route("/api", func(r chi.Router) {
@@ -146,6 +151,49 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 				r.Get("/{id}", wbookH.Get)
 				r.Put("/{id}", wbookH.Update)
 				r.Delete("/{id}", wbookH.Delete)
+			})
+
+			// === Presets ===
+			r.Route("/presets", func(r chi.Router) {
+				r.Get("/", presetH.List)
+				r.Post("/", presetH.Create)
+				r.Get("/{id}", presetH.Get)
+				r.Put("/{id}", presetH.Update)
+				r.Delete("/{id}", presetH.Delete)
+			})
+
+			// === Phone / Call Records ===
+			r.Route("/calls", func(r chi.Router) {
+				r.Get("/", callH.List)
+				r.Post("/", callH.Create)
+				r.Delete("/", callH.Clear)
+				r.Delete("/{id}", callH.Delete)
+			})
+
+			// === SMS ===
+			r.Route("/sms", func(r chi.Router) {
+				r.Route("/threads", func(r chi.Router) {
+					r.Get("/", smsH.ListThreads)
+					r.Post("/", smsH.CreateThread)
+					r.Delete("/{id}", smsH.DeleteThread)
+					r.Get("/{id}/messages", smsH.ListMessages)
+					r.Post("/{id}/messages", smsH.CreateMessage)
+				})
+			})
+
+			// === Wallet ===
+			r.Route("/wallet", func(r chi.Router) {
+				r.Get("/", walletH.Get)
+				r.Put("/balance", walletH.SetBalance)
+				r.Get("/transactions", walletH.ListTransactions)
+				r.Post("/transaction", walletH.CreateTransaction)
+			})
+
+			// === Games ===
+			r.Route("/games", func(r chi.Router) {
+				r.Get("/records", gameH.ListRecords)
+				r.Post("/records", gameH.CreateRecord)
+				r.Delete("/records", gameH.ClearRecords)
 			})
 
 			// === Settings ===

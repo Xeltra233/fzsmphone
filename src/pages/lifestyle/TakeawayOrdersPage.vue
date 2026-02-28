@@ -8,7 +8,7 @@
 
       <!-- 空状态 -->
       <div class="empty" v-else-if="store.orders.length === 0">
-        <div class="empty-icon">📦</div>
+        <div class="empty-icon">☐</div>
         <p>暂无订单</p>
         <p class="empty-hint">去点些好吃的吧~</p>
         <button class="go-order-btn" @click="$router.push('/restaurant')">去点餐</button>
@@ -24,7 +24,7 @@
           <div class="order-header">
             <div class="order-restaurant">
               <img v-if="order.restaurant_image" :src="order.restaurant_image" class="rest-thumb" />
-              <span class="rest-thumb-placeholder" v-else>🏪</span>
+              <span class="rest-thumb-placeholder" v-else>▢</span>
               <span class="rest-name">{{ order.restaurant_name || '未知餐厅' }}</span>
             </div>
             <span class="order-status" :class="order.status">{{ statusText(order.status) }}</span>

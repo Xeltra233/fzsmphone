@@ -23,7 +23,7 @@
       <!-- 交换按钮 -->
       <div class="swap-row">
         <div class="rate-text">1 {{ fromCurrency.code }} = {{ exchangeRate.toFixed(4) }} {{ toCurrency.code }}</div>
-        <button class="swap-btn" @click="swapCurrencies">🔄</button>
+        <button class="swap-btn" @click="swapCurrencies">↻</button>
       </div>
 
       <!-- 目标货币 -->

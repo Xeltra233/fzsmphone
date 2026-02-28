@@ -25,7 +25,7 @@
 
     <!-- 帖子不存在 -->
     <div v-else-if="!thread" class="empty-state">
-      <div class="empty-icon">😕</div>
+      <div class="empty-icon">~</div>
       <div class="empty-text">帖子不存在或已被删除</div>
       <button class="back-button" @click="$router.back()">返回论坛</button>
     </div>
@@ -64,7 +64,7 @@
 
       <!-- 无回复 -->
       <div v-if="thread.replies.length === 0" class="no-replies">
-        <div class="no-replies-icon">💬</div>
+        <div class="no-replies-icon">◌</div>
         <div class="no-replies-text">暂无回复，来抢沙发吧~</div>
       </div>
 

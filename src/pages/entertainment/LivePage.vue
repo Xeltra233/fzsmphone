@@ -1,7 +1,13 @@
 <template>
   <div class="live-page">
     <template v-if="!currentRoom">
-      <NavBar title="直播" back />
+      <NavBar title="直播" back>
+        <template #right>
+          <button class="gen-btn" @click="handleGenerate" :disabled="store.generating">
+            {{ store.liveLoading ? 'AI生成中...' : 'AI生成' }}
+          </button>
+        </template>
+      </NavBar>
 
       <!-- 分类标签 -->
       <div class="category-bar">
@@ -21,12 +27,12 @@
         <div class="featured-card" @click="enterRoom(featuredStreamer)">
           <div class="featured-bg" :style="{ background: featuredStreamer.bgGradient }">
             <div class="featured-avatar">{{ featuredStreamer.avatar }}</div>
-            <div class="live-badge">🔴 LIVE</div>
+            <div class="live-badge">● LIVE</div>
           </div>
           <div class="featured-info">
             <div class="featured-name">{{ featuredStreamer.name }}</div>
             <div class="featured-title">{{ featuredStreamer.title }}</div>
-            <div class="featured-viewers">👁️ {{ formatNumber(featuredStreamer.viewers) }}</div>
+            <div class="featured-viewers">◉ {{ formatNumber(featuredStreamer.viewers) }}</div>
           </div>
         </div>
       </div>
@@ -41,7 +47,7 @@
         >
           <div class="streamer-preview" :style="{ background: s.bgGradient }">
             <div class="streamer-avatar-big">{{ s.avatar }}</div>
-            <div class="viewer-count">👁️ {{ formatNumber(s.viewers) }}</div>
+            <div class="viewer-count">◉ {{ formatNumber(s.viewers) }}</div>
             <div v-if="s.isLive" class="live-dot"></div>
           </div>
           <div class="streamer-meta">
@@ -64,7 +70,7 @@
             <div class="room-avatar">{{ currentRoom.avatar }}</div>
             <div class="room-info">
               <div class="room-name">{{ currentRoom.name }}</div>
-              <div class="room-viewers">👁️ {{ formatNumber(roomViewers) }}</div>
+              <div class="room-viewers">◉ {{ formatNumber(roomViewers) }}</div>
             </div>
             <button
               class="follow-btn"
@@ -132,7 +138,7 @@
               :disabled="!selectedGift"
               @click="sendGift"
             >
-              🎁 送出
+              ★ 送出
             </button>
           </div>
         </div>
@@ -144,6 +150,9 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
+import { useSocialAIStore } from '@/stores/socialAI'
+
+const store = useSocialAIStore()
 
 interface Streamer {
   id: number
@@ -168,25 +177,25 @@ interface ChatMessage {
 }
 
 const categories = [
-  { id: 'all', name: '全部', icon: '🔥' },
-  { id: 'gaming', name: '游戏', icon: '🎮' },
-  { id: 'music', name: '音乐', icon: '🎵' },
-  { id: 'talk', name: '聊天', icon: '💬' },
-  { id: 'food', name: '美食', icon: '🍳' },
-  { id: 'outdoor', name: '户外', icon: '🏕️' },
+  { id: 'all', name: '全部', icon: '▲' },
+  { id: 'gaming', name: '游戏', icon: '▶' },
+  { id: 'music', name: '音乐', icon: '♪' },
+  { id: 'talk', name: '聊天', icon: '◌' },
+  { id: 'food', name: '美食', icon: '◈' },
+  { id: 'outdoor', name: '户外', icon: '△' },
 ]
 
 const activeCategory = ref('all')
 
 const streamers = ref<Streamer[]>([
-  { id: 1, name: '小鱼儿', avatar: '🐟', title: '今天一起打排位！', category: 'gaming', viewers: 52340, isLive: true, bgGradient: 'linear-gradient(135deg, #667eea, #764ba2)', tags: ['王者荣耀', '排位'], followed: false },
-  { id: 2, name: '音乐少女', avatar: '🎸', title: '深夜弹唱 治愈你的心', category: 'music', viewers: 18900, isLive: true, bgGradient: 'linear-gradient(135deg, #f093fb, #f5576c)', tags: ['弹唱', '吉他'], followed: false },
-  { id: 3, name: '美食大作战', avatar: '👨‍🍳', title: '挑战10人份炸鸡！', category: 'food', viewers: 31200, isLive: true, bgGradient: 'linear-gradient(135deg, #4facfe, #00f2fe)', tags: ['美食', '挑战'], followed: false },
-  { id: 4, name: '户外探险家', avatar: '🧗', title: '徒步穿越无人区 Day3', category: 'outdoor', viewers: 8760, isLive: true, bgGradient: 'linear-gradient(135deg, #43e97b, #38f9d7)', tags: ['户外', '探险'], followed: false },
-  { id: 5, name: '甜甜酱', avatar: '🍭', title: '和大家聊聊天~', category: 'talk', viewers: 42100, isLive: true, bgGradient: 'linear-gradient(135deg, #fa709a, #fee140)', tags: ['日常', '互动'], followed: true },
-  { id: 6, name: '电竞小王子', avatar: '🎯', title: 'LOL大师局 冲冲冲', category: 'gaming', viewers: 27800, isLive: true, bgGradient: 'linear-gradient(135deg, #a18cd1, #fbc2eb)', tags: ['英雄联盟', '大师'], followed: false },
-  { id: 7, name: '钢琴诗人', avatar: '🎹', title: '古典音乐之夜', category: 'music', viewers: 9500, isLive: true, bgGradient: 'linear-gradient(135deg, #ffecd2, #fcb69f)', tags: ['钢琴', '古典'], followed: false },
-  { id: 8, name: '旅行日记', avatar: '✈️', title: '东京街头漫步', category: 'outdoor', viewers: 15300, isLive: true, bgGradient: 'linear-gradient(135deg, #89f7fe, #66a6ff)', tags: ['旅行', '日本'], followed: false },
+  { id: 1, name: '小鱼儿', avatar: '◎', title: '今天一起打排位！', category: 'gaming', viewers: 52340, isLive: true, bgGradient: 'linear-gradient(135deg, #667eea, #764ba2)', tags: ['王者荣耀', '排位'], followed: false },
+  { id: 2, name: '音乐少女', avatar: '♪', title: '深夜弹唱 治愈你的心', category: 'music', viewers: 18900, isLive: true, bgGradient: 'linear-gradient(135deg, #f093fb, #f5576c)', tags: ['弹唱', '吉他'], followed: false },
+  { id: 3, name: '美食大作战', avatar: '◈', title: '挑战10人份炸鸡！', category: 'food', viewers: 31200, isLive: true, bgGradient: 'linear-gradient(135deg, #4facfe, #00f2fe)', tags: ['美食', '挑战'], followed: false },
+  { id: 4, name: '户外探险家', avatar: '△', title: '徒步穿越无人区 Day3', category: 'outdoor', viewers: 8760, isLive: true, bgGradient: 'linear-gradient(135deg, #43e97b, #38f9d7)', tags: ['户外', '探险'], followed: false },
+  { id: 5, name: '甜甜酱', avatar: '◇', title: '和大家聊聊天~', category: 'talk', viewers: 42100, isLive: true, bgGradient: 'linear-gradient(135deg, #fa709a, #fee140)', tags: ['日常', '互动'], followed: true },
+  { id: 6, name: '电竞小王子', avatar: '◎', title: 'LOL大师局 冲冲冲', category: 'gaming', viewers: 27800, isLive: true, bgGradient: 'linear-gradient(135deg, #a18cd1, #fbc2eb)', tags: ['英雄联盟', '大师'], followed: false },
+  { id: 7, name: '钢琴诗人', avatar: '♪', title: '古典音乐之夜', category: 'music', viewers: 9500, isLive: true, bgGradient: 'linear-gradient(135deg, #ffecd2, #fcb69f)', tags: ['钢琴', '古典'], followed: false },
+  { id: 8, name: '旅行日记', avatar: '➤', title: '东京街头漫步', category: 'outdoor', viewers: 15300, isLive: true, bgGradient: 'linear-gradient(135deg, #89f7fe, #66a6ff)', tags: ['旅行', '日本'], followed: false },
 ])
 
 const featuredStreamer = computed(() => {
@@ -217,19 +226,19 @@ let autoMsgTimer: ReturnType<typeof setInterval> | null = null
 let viewerTimer: ReturnType<typeof setInterval> | null = null
 
 const gifts = [
-  { emoji: '🌹', name: '玫瑰', price: 1 },
-  { emoji: '🍰', name: '蛋糕', price: 5 },
-  { emoji: '💎', name: '钻石', price: 10 },
-  { emoji: '🚀', name: '火箭', price: 50 },
-  { emoji: '👑', name: '皇冠', price: 100 },
-  { emoji: '🏰', name: '城堡', price: 500 },
+  { emoji: '✿', name: '玫瑰', price: 1 },
+  { emoji: '●', name: '蛋糕', price: 5 },
+  { emoji: '◇', name: '钻石', price: 10 },
+  { emoji: '➤', name: '火箭', price: 50 },
+  { emoji: '♛', name: '皇冠', price: 100 },
+  { emoji: '★', name: '城堡', price: 500 },
 ]
 
 const botNames = ['路人甲', '小明同学', '开心果', '追梦人', '夜猫子', '可爱多', '小太阳', '棉花糖', '大橙子', '樱花落']
 const botColors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dfe6e9', '#fd79a8', '#6c5ce7', '#00b894', '#e17055']
 const botChats = [
   '666666', '好厉害！', '哈哈哈', '冲冲冲！', '太棒了',
-  '来了来了', '签到打卡', '主播好可爱', '加油！', '❤️❤️❤️',
+  '来了来了', '签到打卡', '主播好可爱', '加油！', '♥♥♥',
   '第一次来', '老粉报到', '好好听', '牛啊', '笑死我了',
   '主播晚上好', '什么时候下播', '求翻牌', '太强了吧', '啊啊啊啊',
 ]
@@ -316,6 +325,42 @@ function scrollChat() {
     }
   })
 }
+
+async function handleGenerate() {
+  await store.generateLiveContent()
+  if (store.liveStreamers.length > 0) {
+    streamers.value = store.liveStreamers.map((s, i) => ({
+      id: i + 100,
+      name: s.name,
+      avatar: s.avatar,
+      title: s.title,
+      category: s.category,
+      viewers: s.viewers,
+      isLive: s.isLive,
+      bgGradient: s.bgGradient,
+      tags: s.tags,
+      followed: false,
+    }))
+  }
+}
+
+onMounted(() => {
+  store.loadData('live')
+  if (store.liveStreamers.length > 0) {
+    streamers.value = store.liveStreamers.map((s, i) => ({
+      id: i + 100,
+      name: s.name,
+      avatar: s.avatar,
+      title: s.title,
+      category: s.category,
+      viewers: s.viewers,
+      isLive: s.isLive,
+      bgGradient: s.bgGradient,
+      tags: s.tags,
+      followed: false,
+    }))
+  }
+})
 
 onUnmounted(() => {
   if (autoMsgTimer) clearInterval(autoMsgTimer)
@@ -704,6 +749,22 @@ onUnmounted(() => {
 
 .send-gift-btn:disabled {
   opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.gen-btn {
+  padding: 4px 12px;
+  border-radius: 14px;
+  border: none;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gen-btn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 </style>

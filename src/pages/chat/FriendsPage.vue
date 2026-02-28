@@ -29,7 +29,7 @@
     <!-- Conversation List -->
     <div class="conversation-list" v-if="!showCharacterPicker">
       <div v-if="filteredConversations.length === 0" class="empty-state">
-        <div class="empty-emoji">💬</div>
+        <div class="empty-emoji">◌</div>
         <div class="empty-title">还没有聊天</div>
         <div class="empty-subtitle">点击右上角 + 开始新对话</div>
       </div>
@@ -48,7 +48,7 @@
               :alt="conv.title"
             />
             <span v-else class="avatar-placeholder">
-              {{ conv.title?.charAt(0) || '🤖' }}
+              {{ conv.title?.charAt(0) || '◎' }}
             </span>
             <div v-if="conv.is_group" class="group-badge">
               <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10">
@@ -85,7 +85,7 @@
       <NavBar title="选择角色" @back="showCharacterPicker = false" />
       <div class="picker-list">
         <div v-if="charList.length === 0" class="empty-state">
-          <div class="empty-emoji">🎭</div>
+          <div class="empty-emoji">◈</div>
           <div class="empty-title">还没有角色</div>
           <div class="empty-subtitle">先去角色管理创建角色吧</div>
           <button class="create-char-btn" @click="$router.push('/characters')">
@@ -100,7 +100,7 @@
         >
           <div class="char-avatar">
             <img v-if="char.avatar" :src="char.avatar" :alt="char.name" />
-            <span v-else>🤖</span>
+            <span v-else>◎</span>
           </div>
           <div class="char-info">
             <div class="char-name">{{ char.name }}</div>
@@ -119,7 +119,7 @@
         <div v-if="showMenu" class="menu-overlay" @click="showMenu = false">
           <div class="menu-popup" @click.stop>
             <div class="menu-item" @click="handleAddFriend">
-              <span class="menu-icon">💬</span>
+              <span class="menu-icon">◌</span>
               <div class="menu-content">
                 <div class="menu-title">添加好友</div>
                 <div class="menu-desc">与一个AI角色对话</div>
@@ -127,7 +127,7 @@
             </div>
             <div class="menu-divider"></div>
             <div class="menu-item" @click="handleCreateGroup">
-              <span class="menu-icon">👥</span>
+              <span class="menu-icon">○</span>
               <div class="menu-content">
                 <div class="menu-title">创建群聊</div>
                 <div class="menu-desc">与多个AI角色对话</div>
@@ -135,7 +135,7 @@
             </div>
             <div class="menu-divider"></div>
             <div class="menu-item" @click="$router.push('/characters'); showMenu = false">
-              <span class="menu-icon">🎭</span>
+              <span class="menu-icon">◈</span>
               <div class="menu-content">
                 <div class="menu-title">角色管理</div>
                 <div class="menu-desc">创建和编辑AI角色</div>

@@ -15,7 +15,7 @@
     <!-- 对话列表 -->
     <div v-if="!activeConv" class="conversations-list">
       <div v-if="filteredConversations.length === 0" class="empty-state">
-        <span class="empty-icon">💬</span>
+        <span class="empty-icon">◌</span>
         <p>暂无短信对话</p>
         <p class="empty-hint">请先在角色管理中创建角色</p>
       </div>
@@ -42,7 +42,7 @@
       </div>
 
       <!-- 新建短信按钮 -->
-      <button class="fab-btn" @click="showNewSms = true">✏️</button>
+      <button class="fab-btn" @click="showNewSms = true">✎</button>
     </div>
 
     <!-- 聊天详情 -->
@@ -57,12 +57,12 @@
 
       <!-- API 未配置提示 -->
       <div v-if="activeConv.characterId && !settingsStore.settings.apiKey" class="api-warning" @click="goToSettings">
-        ⚠️ 未配置 API Key，AI 无法回复，点击前往设置
+        △ 未配置 API Key，AI 无法回复，点击前往设置
       </div>
 
       <div class="messages-area" ref="messagesRef">
         <div v-if="activeConv.messages.length === 0" class="empty-chat">
-          <span>💬</span>
+          <span>◌</span>
           <p>开始和 {{ activeConv.name }} 发短信吧~</p>
         </div>
         <div
@@ -311,7 +311,7 @@ async function triggerAIReply(conversationId: string, characterId: string) {
       return
     }
 
-    smsStore.addAIReply(conversationId, `❌ 回复失败：${err.message}`)
+    smsStore.addAIReply(conversationId, `✕ 回复失败：${err.message}`)
     scrollToBottom()
   } finally {
     abortController = null

@@ -29,6 +29,17 @@ import type {
   RestaurantInput,
   Order,
   OrderInput,
+  Preset,
+  PresetInput,
+  CallRecord,
+  CallRecordInput,
+  SmsThread,
+  SmsThreadInput,
+  SmsMessage,
+  SmsMessageInput,
+  WalletInfo,
+  WalletTransaction,
+  WalletTransactionInput,
 } from './types'
 
 // ========== 角色 API ==========
@@ -239,5 +250,184 @@ export const orderApi = {
   },
   updateStatus(id: number, status: string) {
     return api.patch<MessageResponse>(`/api/orders/${id}/status`, { status })
+  },
+}
+
+// ========== 预设 API ==========
+export const presetApi = {
+  list() {
+    return api.get<ListResponse<Preset>>('/api/presets')
+  },
+  get(id: number) {
+    return api.get<Preset>(`/api/presets/${id}`)
+  },
+  create(data: PresetInput) {
+    return api.post<CreateResponse>('/api/presets', data)
+  },
+  update(id: number, data: PresetInput) {
+    return api.put<MessageResponse>(`/api/presets/${id}`, data)
+  },
+  delete(id: number) {
+    return api.delete<MessageResponse>(`/api/presets/${id}`)
+  },
+}
+
+// ========== 通话记录 API ==========
+export const callApi = {
+  list() {
+    return api.get<ListResponse<CallRecord>>('/api/calls')
+  },
+  create(data: CallRecordInput) {
+    return api.post<CreateResponse>('/api/calls', data)
+  },
+  delete(id: number) {
+    return api.delete<MessageResponse>(`/api/calls/${id}`)
+  },
+  clear() {
+    return api.delete<MessageResponse>('/api/calls')
+  },
+}
+
+// ========== 短信 API ==========
+export const smsApi = {
+  listThreads() {
+    return api.get<ListResponse<SmsThread>>('/api/sms/threads')
+  },
+  createThread(data: SmsThreadInput) {
+    return api.post<CreateResponse>('/api/sms/threads', data)
+  },
+  deleteThread(id: number) {
+    return api.delete<MessageResponse>(`/api/sms/threads/${id}`)
+  },
+  listMessages(threadId: number) {
+    return api.get<ListResponse<SmsMessage>>(`/api/sms/threads/${threadId}/messages`)
+  },
+  createMessage(threadId: number, data: SmsMessageInput) {
+    return api.post<CreateResponse>(`/api/sms/threads/${threadId}/messages`, data)
+  },
+}
+
+// ========== 钱包 API ==========
+export const walletApi = {
+  get() {
+    return api.get<WalletInfo>('/api/wallet')
+  },
+  setBalance(balance: number) {
+    return api.put<WalletInfo>('/api/wallet/balance', { balance })
+  },
+  listTransactions() {
+    return api.get<ListResponse<WalletTransaction>>('/api/wallet/transactions')
+  },
+  createTransaction(data: WalletTransactionInput) {
+    return api.post<{ id: number; balance: number; message: string }>('/api/wallet/transaction', data)
+  },
+}
+
+// ========== Game Records ==========
+export interface GameRecordItem {
+  id: number
+  game: string
+  detail: string
+  amount: number
+  win: boolean
+  created_at: string
+}
+
+export interface GameRecordInput {
+  game: string
+  detail: string
+  amount: number
+  win: boolean
+}
+
+export const gameApi = {
+  listRecords() {
+    return api.get<ListResponse<GameRecordItem>>('/api/games/records')
+  },
+  createRecord(data: GameRecordInput) {
+    return api.post<{ id: number; message: string }>('/api/games/records', data)
+  },
+  clearRecords() {
+    return api.delete<{ message: string }>('/api/games/records')
+  },
+}
+
+// ========== 购物 API ==========
+export const shoppingApi = {
+  listProducts(category?: string) {
+    return api.get<ListResponse<any>>('/api/shopping/products' + (category ? `?category=${category}` : ''))
+  },
+  getProduct(id: number) {
+    return api.get<any>(`/api/shopping/products/${id}`)
+  },
+  listCart() {
+    return api.get<ListResponse<any>>('/api/shopping/cart')
+  },
+  addToCart(data: { product_id: number; quantity: number }) {
+    return api.post<CreateResponse>('/api/shopping/cart', data)
+  },
+  updateCartItem(id: number, quantity: number) {
+    return api.put<MessageResponse>(`/api/shopping/cart/${id}`, { quantity })
+  },
+  removeFromCart(id: number) {
+    return api.delete<MessageResponse>(`/api/shopping/cart/${id}`)
+  },
+  clearCart() {
+    return api.delete<MessageResponse>('/api/shopping/cart')
+  },
+  listOrders() {
+    return api.get<ListResponse<any>>('/api/shopping/orders')
+  },
+  createOrder(data: { items: any[]; total: number; order_no: string }) {
+    return api.post<CreateResponse>('/api/shopping/orders', data)
+  },
+  listFavorites() {
+    return api.get<ListResponse<number>>('/api/shopping/favorites')
+  },
+  addFavorite(productId: number) {
+    return api.post<MessageResponse>('/api/shopping/favorites', { product_id: productId })
+  },
+  removeFavorite(productId: number) {
+    return api.delete<MessageResponse>(`/api/shopping/favorites/${productId}`)
+  },
+}
+
+// ========== 情侣空间 API ==========
+export const coupleApi = {
+  getSpace() {
+    return api.get<any>('/api/couple/space')
+  },
+  updateSpace(data: { partner_a?: string; partner_b?: string; start_date?: string }) {
+    return api.put<MessageResponse>('/api/couple/space', data)
+  },
+  listAnniversaries() {
+    return api.get<ListResponse<any>>('/api/couple/anniversaries')
+  },
+  createAnniversary(data: { title: string; date: string; icon: string }) {
+    return api.post<CreateResponse>('/api/couple/anniversaries', data)
+  },
+  deleteAnniversary(id: number) {
+    return api.delete<MessageResponse>(`/api/couple/anniversaries/${id}`)
+  },
+  listPhotos() {
+    return api.get<ListResponse<any>>('/api/couple/photos')
+  },
+  createPhoto(data: { date: string; url?: string }) {
+    return api.post<CreateResponse>('/api/couple/photos', data)
+  },
+  deletePhoto(id: number) {
+    return api.delete<MessageResponse>(`/api/couple/photos/${id}`)
+  },
+  listTasks() {
+    return api.get<ListResponse<any>>('/api/couple/tasks')
+  },
+  createTask(data: { text: string }) {
+    return api.post<CreateResponse>('/api/couple/tasks', data)
+  },
+  toggleTask(id: number) {
+    return api.put<MessageResponse>(`/api/couple/tasks/${id}/toggle`, {})
+  },
+  deleteTask(id: number) {
+    return api.delete<MessageResponse>(`/api/couple/tasks/${id}`)
   },
 }
