@@ -297,12 +297,54 @@ function leaveRoom() {
   if (viewerTimer) { clearInterval(viewerTimer); viewerTimer = null }
 }
 
+const chatReactions = [
+  '说得好！', '哈哈哈', '同意', '+1', '真的吗', '666', '确实', '笑死',
+  '有道理', '我也觉得', '不错不错', '厉害了', '赞同', '可以可以', '懂了懂了',
+]
+const giftThanks = [
+  '谢谢大佬！', '感谢老板！', '大佬大气！', '爱你哟~', '太感动了！',
+  '谢谢支持！', '大佬牛！', '老板大气！', '么么哒~', '感谢打赏！',
+]
+const streamerReactions = [
+  '谢谢 {user} 的 {gift}！', '哇 {user} 太豪了！', '{user} 是真爱粉！',
+  '感谢 {user}！爱你~', '{user} 太给力了！',
+]
+
+function triggerBotReactions(context: 'chat' | 'gift', extra?: { user?: string; gift?: string }) {
+  const count = 1 + Math.floor(Math.random() * 3)
+  for (let i = 0; i < count; i++) {
+    const delay = 500 + Math.random() * 2000
+    setTimeout(() => {
+      const name = botNames[Math.floor(Math.random() * botNames.length)]
+      const color = botColors[Math.floor(Math.random() * botColors.length)]
+      let text: string
+      if (context === 'gift') {
+        text = giftThanks[Math.floor(Math.random() * giftThanks.length)]
+      } else {
+        text = chatReactions[Math.floor(Math.random() * chatReactions.length)]
+      }
+      chatMessages.value.push({ type: 'chat', user: name, text, color })
+      scrollChat()
+    }, delay)
+  }
+  // Streamer reacts to gifts
+  if (context === 'gift' && currentRoom.value && extra) {
+    setTimeout(() => {
+      const tpl = streamerReactions[Math.floor(Math.random() * streamerReactions.length)]
+      const text = tpl.replace('{user}', extra.user || '').replace('{gift}', extra.gift || '')
+      chatMessages.value.push({ type: 'chat', user: currentRoom.value!.name, text, color: '#ffd700' })
+      scrollChat()
+    }, 800 + Math.random() * 1500)
+  }
+}
+
 function sendChat() {
   const text = chatInput.value.trim()
   if (!text) return
   chatMessages.value.push({ type: 'chat', user: '我', text, color: '#007aff' })
   chatInput.value = ''
   scrollChat()
+  triggerBotReactions('chat')
 }
 
 function sendGift() {
@@ -316,6 +358,7 @@ function sendGift() {
   showGiftAnimation.value = true
   setTimeout(() => { showGiftAnimation.value = false }, 2000)
   scrollChat()
+  triggerBotReactions('gift', { user: '我', gift: gift.name })
 }
 
 function scrollChat() {
@@ -541,7 +584,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  padding: 54px 12px 8px;
   background: rgba(0, 0, 0, 0.6);
 }
 

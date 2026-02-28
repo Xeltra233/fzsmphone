@@ -50,7 +50,7 @@ const route = useRoute()
 
 const statusBarForeground = computed(() => {
   if (route.name === 'Weibo') return '#111111'
-  if (route.name === 'Home' || route.name === 'QZone' || route.name === 'Moments') return '#ffffff'
+  if (route.name === 'Home' || route.name === 'QZone' || route.name === 'Moments' || route.name === 'Live') return '#ffffff'
   return 'var(--text-primary)'
 })
 </script>

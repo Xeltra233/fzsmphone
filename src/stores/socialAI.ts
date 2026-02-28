@@ -20,6 +20,7 @@ import {
   parseTheaterContent,
   parseTakeawayContent,
   parseShoppingContent,
+  parseCoupleContent,
   generateId,
 } from '@/utils/socialParsers'
 import type {
@@ -37,6 +38,9 @@ import type {
   TheaterDrama,
   TakeawayRestaurant,
   ShoppingProduct,
+  LoveLetter,
+  WishItem,
+  FootprintItem,
 } from '@/utils/socialParsers'
 
 // ==================== 存储键 ====================
@@ -52,6 +56,7 @@ const STORAGE_KEYS = {
   theater: 'social-data-theater',
   takeaway: 'social-data-takeaway',
   shopping: 'social-data-shopping',
+  couple: 'social-data-couple',
 }
 
 // ==================== AI配置读取 ====================
@@ -121,6 +126,12 @@ export const useSocialAIStore = defineStore('socialAI', () => {
   const shoppingProducts = ref<ShoppingProduct[]>([])
   const shoppingLoading = ref(false)
 
+  // ==================== 情侣空间状态 ====================
+  const coupleLetters = ref<LoveLetter[]>([])
+  const coupleWishes = ref<WishItem[]>([])
+  const coupleFootprints = ref<FootprintItem[]>([])
+  const coupleLoading = ref(false)
+
   // ==================== 通用 ====================
   const generating = ref(false)
   const lastError = ref('')
@@ -166,6 +177,13 @@ export const useSocialAIStore = defineStore('socialAI', () => {
           break
         case 'shopping':
           localStorage.setItem(STORAGE_KEYS.shopping, JSON.stringify(shoppingProducts.value))
+          break
+        case 'couple':
+          localStorage.setItem(STORAGE_KEYS.couple, JSON.stringify({
+            letters: coupleLetters.value,
+            wishes: coupleWishes.value,
+            footprints: coupleFootprints.value,
+          }))
           break
       }
     } catch { /* ignore */ }
@@ -253,6 +271,16 @@ export const useSocialAIStore = defineStore('socialAI', () => {
           const saved = localStorage.getItem(STORAGE_KEYS.shopping)
           if (saved) {
             shoppingProducts.value = JSON.parse(saved)
+          }
+          break
+        }
+        case 'couple': {
+          const saved = localStorage.getItem(STORAGE_KEYS.couple)
+          if (saved) {
+            const data = JSON.parse(saved)
+            coupleLetters.value = data.letters || []
+            coupleWishes.value = data.wishes || []
+            coupleFootprints.value = data.footprints || []
           }
           break
         }
@@ -854,6 +882,54 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     }
   }
 
+  // ==================== 情侣空间操作 ====================
+  async function generateCoupleContent(action?: string) {
+    if (generating.value) return
+    generating.value = true
+    coupleLoading.value = true
+    lastError.value = ''
+    try {
+      const raw = await callAI('couple', action)
+      const data = parseCoupleContent(raw)
+      let hasData = false
+      if (data.letters.length > 0) {
+        const existingIds = new Set(coupleLetters.value.map(l => l.id))
+        for (const letter of data.letters) {
+          if (existingIds.has(letter.id)) letter.id = generateId('lt')
+          coupleLetters.value.unshift(letter)
+        }
+        hasData = true
+      }
+      if (data.wishes.length > 0) {
+        const existingIds = new Set(coupleWishes.value.map(w => w.id))
+        for (const wish of data.wishes) {
+          if (existingIds.has(wish.id)) wish.id = generateId('ws')
+          coupleWishes.value.push(wish)
+        }
+        hasData = true
+      }
+      if (data.footprints.length > 0) {
+        const existingIds = new Set(coupleFootprints.value.map(f => f.id))
+        for (const fp of data.footprints) {
+          if (existingIds.has(fp.id)) fp.id = generateId('fp')
+          coupleFootprints.value.push(fp)
+        }
+        hasData = true
+      }
+      if (hasData) {
+        saveData('couple')
+      } else {
+        lastError.value = 'AI未生成有效的情侣空间内容'
+      }
+    } catch (e: any) {
+      lastError.value = e.message || '生成失败'
+      console.error('[SocialAI] 情侣空间生成失败:', e)
+    } finally {
+      generating.value = false
+      coupleLoading.value = false
+    }
+  }
+
   // ==================== 清除数据 ====================
   function clearData(type: SocialType) {
     switch (type) {
@@ -892,6 +968,11 @@ export const useSocialAIStore = defineStore('socialAI', () => {
         break
       case 'shopping':
         shoppingProducts.value = []
+        break
+      case 'couple':
+        coupleLetters.value = []
+        coupleWishes.value = []
+        coupleFootprints.value = []
         break
     }
     saveData(type)
@@ -994,6 +1075,13 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     shoppingProducts,
     shoppingLoading,
     generateShoppingContent,
+
+    // 情侣空间
+    coupleLetters,
+    coupleWishes,
+    coupleFootprints,
+    coupleLoading,
+    generateCoupleContent,
 
     // 通用
     generating,

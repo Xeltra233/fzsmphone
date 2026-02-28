@@ -1428,3 +1428,99 @@ export function parseShoppingContent(raw: string): ShoppingData {
   console.log(`[SocialParser] Shopping: ${products.length} products`)
   return { products }
 }
+
+// ==================== 情侣空间数据类型 ====================
+
+export interface LoveLetter {
+  id: string
+  from: string
+  to: string
+  title: string
+  content: string
+  timestamp: string
+}
+
+export interface WishItem {
+  id: string
+  author: string
+  content: string
+  category: string
+  done: boolean
+  timestamp: string
+}
+
+export interface FootprintItem {
+  id: string
+  place: string
+  date: string
+  note: string
+  reason: string
+  visited: boolean
+}
+
+export interface CoupleData {
+  letters: LoveLetter[]
+  wishes: WishItem[]
+  footprints: FootprintItem[]
+}
+
+// ==================== 情侣空间解析器 ====================
+
+export function parseCoupleContent(raw: string): CoupleData {
+  const letters: LoveLetter[] = []
+  const wishes: WishItem[] = []
+  const footprints: FootprintItem[] = []
+
+  const startMarker = '<!-- COUPLE_CONTENT_START -->'
+  const endMarker = '<!-- COUPLE_CONTENT_END -->'
+  const startIdx = raw.indexOf(startMarker)
+  const endIdx = raw.indexOf(endMarker)
+  const content = startIdx >= 0 && endIdx >= 0
+    ? raw.slice(startIdx + startMarker.length, endIdx)
+    : raw
+
+  let m: RegExpExecArray | null
+
+  // [情书|发送人|接收人|情书标题|情书内容]
+  const letterRe = /\[情书\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = letterRe.exec(content)) !== null) {
+    letters.push({
+      id: generateId('lt'),
+      from: m[1].trim(),
+      to: m[2].trim(),
+      title: m[3].trim(),
+      content: m[4].trim(),
+      timestamp: generateTimestamp(),
+    })
+  }
+
+  // [心愿|提出人|心愿内容|分类]
+  const wishRe = /\[心愿\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = wishRe.exec(content)) !== null) {
+    wishes.push({
+      id: generateId('ws'),
+      author: m[1].trim(),
+      content: m[2].trim(),
+      category: m[3].trim(),
+      done: false,
+      timestamp: generateTimestamp(),
+    })
+  }
+
+  // [足迹|地点名称|日期|备注|推荐理由]
+  const footRe = /\[足迹\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = footRe.exec(content)) !== null) {
+    footprints.push({
+      id: generateId('fp'),
+      place: m[1].trim(),
+      date: m[2].trim(),
+      note: m[3].trim(),
+      reason: m[4].trim(),
+      visited: false,
+    })
+  }
+
+  console.log(`[SocialParser] Couple: ${letters.length} letters, ${wishes.length} wishes, ${footprints.length} footprints`)
+  return { letters, wishes, footprints }
+}
+
