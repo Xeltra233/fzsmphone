@@ -113,6 +113,59 @@
       </div>
     </div>
 
+    <!-- Group Character Picker (multi-select) -->
+    <div v-if="showGroupPicker" class="character-picker">
+      <NavBar title="创建群聊" @back="showGroupPicker = false" />
+      <div class="group-name-bar">
+        <input
+          v-model="groupName"
+          type="text"
+          class="group-name-input"
+          placeholder="群聊名称（可选）"
+          maxlength="20"
+        />
+      </div>
+      <div class="picker-list">
+        <div v-if="charList.length === 0" class="empty-state">
+          <div class="empty-emoji">◈</div>
+          <div class="empty-title">还没有角色</div>
+          <div class="empty-subtitle">先去角色管理创建角色吧</div>
+          <button class="create-char-btn" @click="$router.push('/characters')">
+            创建角色
+          </button>
+        </div>
+        <div
+          v-for="char in charList"
+          :key="char.id"
+          class="char-item"
+          :class="{ 'char-selected': selectedGroupMembers.has(char.id) }"
+          @click="toggleGroupMember(char)"
+        >
+          <div class="char-checkbox">
+            <span v-if="selectedGroupMembers.has(char.id)" class="checkbox-checked">✓</span>
+            <span v-else class="checkbox-empty"></span>
+          </div>
+          <div class="char-avatar">
+            <img v-if="char.avatar" :src="char.avatar" :alt="char.name" />
+            <span v-else>◎</span>
+          </div>
+          <div class="char-info">
+            <div class="char-name">{{ char.name }}</div>
+            <div class="char-desc">{{ char.description || '暂无描述' }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="group-confirm-bar">
+        <button
+          class="group-confirm-btn"
+          :disabled="selectedGroupMembers.size < 2"
+          @click="confirmCreateGroup"
+        >
+          创建群聊 ({{ selectedGroupMembers.size }}人)
+        </button>
+      </div>
+    </div>
+
     <!-- Create Menu Overlay -->
     <Teleport to="#phone-overlay">
       <Transition name="fade">
@@ -172,6 +225,9 @@ const chatStore = useChatStore()
 const searchQuery = ref('')
 const showMenu = ref(false)
 const showCharacterPicker = ref(false)
+const showGroupPicker = ref(false)
+const groupName = ref('')
+const selectedGroupMembers = ref<Set<string>>(new Set())
 const charList = ref<LocalCharacter[]>([])
 
 const filteredConversations = computed(() => {
@@ -236,7 +292,36 @@ function handleAddFriend() {
 
 function handleCreateGroup() {
   showMenu.value = false
-  router.push('/characters')
+  loadCharacters()
+  selectedGroupMembers.value = new Set()
+  groupName.value = ''
+  showGroupPicker.value = true
+}
+
+function toggleGroupMember(char: LocalCharacter) {
+  const s = new Set(selectedGroupMembers.value)
+  if (s.has(char.id)) {
+    s.delete(char.id)
+  } else {
+    s.add(char.id)
+  }
+  selectedGroupMembers.value = s
+}
+
+function confirmCreateGroup() {
+  if (selectedGroupMembers.value.size < 2) return
+  const memberIds = Array.from(selectedGroupMembers.value)
+  // Build a name from selected character names if not provided
+  let name = groupName.value.trim()
+  if (!name) {
+    const names = memberIds
+      .map(id => charList.value.find(c => c.id === id)?.name || '?')
+      .slice(0, 3)
+    name = names.join('、') + (memberIds.length > 3 ? '…' : '')
+  }
+  const conv = chatStore.createGroupConversation(name, memberIds)
+  showGroupPicker.value = false
+  router.push(`/group/${conv.id}`)
 }
 
 function startChat(char: LocalCharacter) {
@@ -719,5 +804,81 @@ onMounted(() => {
 .list-leave-to {
   opacity: 0;
   transform: translateX(20px);
+}
+
+/* Group Picker */
+.group-name-bar {
+  padding: 12px 16px 8px;
+}
+
+.group-name-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 15px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.group-name-input:focus {
+  border-color: var(--brand-primary);
+}
+
+.char-checkbox {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid var(--separator);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.char-selected .char-checkbox {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+
+.checkbox-checked {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.char-selected {
+  background: rgba(var(--brand-primary-rgb, 88, 86, 214), 0.08) !important;
+}
+
+.group-confirm-bar {
+  padding: 12px 16px;
+  border-top: 0.5px solid var(--separator);
+  background: var(--bg-secondary);
+}
+
+.group-confirm-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--brand-primary);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.group-confirm-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.group-confirm-btn:not(:disabled):active {
+  opacity: 0.8;
 }
 </style>

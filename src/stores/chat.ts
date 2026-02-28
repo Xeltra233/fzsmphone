@@ -32,6 +32,7 @@ export interface Conversation {
   character?: Character | null
   unread?: number
   createdAt: string
+  groupMemberIds?: string[]
 }
 
 export interface ChatMessage {
@@ -188,7 +189,7 @@ export const useChatStore = defineStore('chat', () => {
 
   function createConversation(characterId: string | number): Conversation {
     const charIdStr = String(characterId)
-    
+
     // 检查是否已有该角色的会话
     const existing = conversations.value.find(c => c.characterId === charIdStr)
     if (existing) {
@@ -221,6 +222,25 @@ export const useChatStore = defineStore('chat', () => {
       addMessage(conv.id, 'assistant', char.firstMessage)
     }
 
+    return conv
+  }
+
+  function createGroupConversation(name: string, memberIds: string[]): Conversation {
+    const now = new Date().toISOString()
+    const conv: Conversation = {
+      id: `group-${Date.now()}`,
+      characterId: '',
+      title: name || '群聊',
+      is_group: true,
+      last_message: '群聊已创建',
+      last_at: now,
+      character: null,
+      unread: 0,
+      createdAt: now,
+      groupMemberIds: memberIds,
+    }
+    conversations.value.unshift(conv)
+    saveConversations()
     return conv
   }
 
@@ -278,6 +298,7 @@ export const useChatStore = defineStore('chat', () => {
     sendMessage,
     addMessage,
     createConversation,
+    createGroupConversation,
     deleteConversation,
     clearCurrentChat,
     refreshConversationCharacters,
