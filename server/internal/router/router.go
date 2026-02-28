@@ -50,6 +50,7 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 	smsH := &handlers.SmsHandler{DB: db}
 	walletH := &handlers.WalletHandler{DB: db}
 	gameH := &handlers.GameHandler{DB: db}
+	aiProxyH := &handlers.AIProxyHandler{DB: db}
 
 	// Public routes
 	r.Route("/api", func(r chi.Router) {
@@ -215,6 +216,9 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 				r.Get("/{id}", userH.Get)
 				r.Patch("/{id}/role", userH.UpdateRole)
 			})
+
+			// === AI Proxy ===
+			r.Post("/ai/chat", aiProxyH.Chat)
 		})
 	})
 

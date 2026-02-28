@@ -11,7 +11,7 @@
       <div
         class="screen"
         :style="{
-          filter: `brightness(${phone.brightness / 100})`,
+          filter: phone.brightness < 100 ? `brightness(${phone.brightness / 100})` : undefined,
           '--status-bar-foreground': statusBarForeground,
         }"
       >

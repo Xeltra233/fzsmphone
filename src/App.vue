@@ -1,7 +1,7 @@
 <template>
   <PhoneLayout>
     <router-view v-slot="{ Component }">
-      <transition name="fade" mode="out-in">
+      <transition name="fade">
         <component :is="Component" />
       </transition>
     </router-view>
@@ -65,6 +65,7 @@ onMounted(() => {
   phone.theme = savedDark ? 'dark' : 'light'
   phone.initTheme()
   phone.startBatteryDrain()
+  phone.startClock()
 
   if (auth.token) {
     auth.fetchUser()
@@ -73,5 +74,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   phone.stopBatteryTimer()
+  phone.stopClock()
 })
 </script>

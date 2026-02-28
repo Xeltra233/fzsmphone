@@ -25,5 +25,17 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'social-ai': [
+            './src/stores/socialAI.ts',
+            './src/utils/socialParsers.ts',
+            './src/utils/socialPrompts.ts',
+          ],
+          'ai-service': ['./src/utils/aiService.ts'],
+        },
+      },
+    },
   },
 })

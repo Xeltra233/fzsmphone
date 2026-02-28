@@ -95,6 +95,16 @@ function normalizeApiUrl(url: string): string {
   return `${url.replace(/\/$/, '')}/v1/chat/completions`
 }
 
+/**
+ * 后端 AI 代理 URL
+ */
+const API_BASE = import.meta.env.VITE_API_URL || ''
+const AI_PROXY_URL = `${API_BASE}/api/ai/chat`
+
+function getAuthToken(): string {
+  return localStorage.getItem('token') || ''
+}
+
 function extractTextFromUnknownContent(value: any): string {
   if (value == null) return ''
   if (typeof value === 'string') return value
@@ -148,11 +158,11 @@ async function requestNonStream(options: AIRequestOptions): Promise<AIResponse> 
       modelName = modelName.replace('models/', '')
     }
 
-    const response = await fetch(url, {
+    const response = await fetch(AI_PROXY_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${options.apiKey}`,
+        Authorization: `Bearer ${getAuthToken()}`,
       },
       body: JSON.stringify({
         model: modelName,
@@ -220,11 +230,11 @@ async function requestStream(options: AIRequestOptions): Promise<AIResponse> {
       modelName = modelName.replace('models/', '')
     }
 
-    const response = await fetch(url, {
+    const response = await fetch(AI_PROXY_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${options.apiKey}`,
+        Authorization: `Bearer ${getAuthToken()}`,
       },
       body: JSON.stringify({
         model: modelName,

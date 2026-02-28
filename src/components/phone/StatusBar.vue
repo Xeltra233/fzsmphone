@@ -1,7 +1,7 @@
 <template>
   <div class="status-bar">
     <div class="status-left">
-      <span class="time">{{ currentTime }}</span>
+      <span class="time">{{ phone.currentTime }}</span>
     </div>
     <div class="status-right">
       <svg v-if="phone.wifiEnabled" class="status-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -30,30 +30,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
 import { usePhoneStore } from '@/stores/phone'
 
 const phone = usePhoneStore()
-const currentTime = ref('')
-let timer: ReturnType<typeof setInterval> | null = null
-
-function updateTime() {
-  const now = new Date()
-  currentTime.value = now.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-}
-
-onMounted(() => {
-  updateTime()
-  timer = setInterval(updateTime, 1000)
-})
-
-onUnmounted(() => {
-  if (timer) clearInterval(timer)
-})
 </script>
 
 <style scoped>

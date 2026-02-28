@@ -282,13 +282,28 @@ const router = createRouter({
 
 const API_URL = import.meta.env.VITE_API_URL || ''
 
+// Token validation cache to avoid blocking navigation with network requests
+let tokenValidCache: { token: string; validUntil: number } | null = null
+const TOKEN_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
 async function validateToken(token: string): Promise<boolean> {
+  // Return cached result if still valid
+  if (tokenValidCache && tokenValidCache.token === token && Date.now() < tokenValidCache.validUntil) {
+    return true
+  }
   try {
     const res = await fetch(`${API_URL}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-    return res.ok
+    const ok = res.ok
+    if (ok) {
+      tokenValidCache = { token, validUntil: Date.now() + TOKEN_CACHE_TTL }
+    } else {
+      tokenValidCache = null
+    }
+    return ok
   } catch {
+    tokenValidCache = null
     return false
   }
 }

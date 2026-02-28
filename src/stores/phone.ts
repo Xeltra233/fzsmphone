@@ -57,6 +57,38 @@ export const usePhoneStore = defineStore('phone', () => {
     }
   }
 
+  // === 统一时钟 ===
+  const currentTime = ref('')
+  const currentDate = ref('')
+  let clockTimer: ReturnType<typeof setInterval> | null = null
+
+  function updateClock() {
+    const now = new Date()
+    currentTime.value = now.toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    })
+    currentDate.value = now.toLocaleDateString('zh-CN', {
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long',
+    })
+  }
+
+  function startClock() {
+    stopClock()
+    updateClock()
+    clockTimer = setInterval(updateClock, 1000)
+  }
+
+  function stopClock() {
+    if (clockTimer) {
+      clearInterval(clockTimer)
+      clockTimer = null
+    }
+  }
+
   // === 控制中心 ===
   const brightness = ref(100)
   const volume = ref(50)
@@ -197,6 +229,11 @@ export const usePhoneStore = defineStore('phone', () => {
     startBatteryDrain,
     toggleCharging,
     stopBatteryTimer,
+    // 统一时钟
+    currentTime,
+    currentDate,
+    startClock,
+    stopClock,
     // 控制中心
     brightness,
     volume,
