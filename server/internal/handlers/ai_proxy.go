@@ -252,7 +252,7 @@ func normalizeAPIUrl(url string) string {
 	if idx := strings.Index(url, "/v1"); idx >= 0 {
 		return url[:idx+3] + "/chat/completions"
 	}
-	return strings.TrimRight(url, "/") + "/chat/completions"
+	return strings.TrimRight(url, "/") + "/v1/chat/completions"
 }
 
 // deriveModelsUrl converts an API URL to the corresponding /models endpoint
@@ -266,5 +266,5 @@ func deriveModelsUrl(url string) string {
 	if idx := strings.Index(url, "/v1"); idx >= 0 {
 		return url[:idx+3] + "/models"
 	}
-	return strings.TrimRight(url, "/") + "/models"
+	return strings.TrimRight(url, "/") + "/v1/models"
 }
