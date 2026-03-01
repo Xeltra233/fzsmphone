@@ -319,6 +319,17 @@ async function validateToken(token: string): Promise<boolean> {
     const res = await fetch(`${API_URL}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
+    if (res.status === 403) {
+      const data = await res.json().catch(() => ({}))
+      if (data.banned) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        tokenValidCache = null
+        const reason = encodeURIComponent(data.reason || '')
+        window.location.href = `/login?banned=1&reason=${reason}`
+        return false
+      }
+    }
     const ok = res.ok
     if (ok) {
       tokenValidCache = { token, validUntil: Date.now() + TOKEN_CACHE_TTL }

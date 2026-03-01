@@ -151,6 +151,8 @@ func (h *AuthHandler) DiscordCallback(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	var userID int64
 	var role string
+	var isBanned bool
+	var banReason string
 
 	err = h.DB.Pool.QueryRow(ctx, `
 		INSERT INTO users (discord_id, username, display_name, avatar_url)
@@ -160,10 +162,24 @@ func (h *AuthHandler) DiscordCallback(w http.ResponseWriter, r *http.Request) {
 			display_name = EXCLUDED.display_name,
 			avatar_url = EXCLUDED.avatar_url,
 			updated_at = NOW()
-		RETURNING id, role
-	`, dUser.ID, dUser.Username, displayName, avatarURL).Scan(&userID, &role)
+		RETURNING id, role, is_banned, ban_reason
+	`, dUser.ID, dUser.Username, displayName, avatarURL).Scan(&userID, &role, &isBanned, &banReason)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to save user")
+		return
+	}
+
+	// Check if user is banned
+	if isBanned {
+		msg := "您的账号已被封禁"
+		if banReason != "" {
+			msg += "：" + banReason
+		}
+		mw.JSON(w, http.StatusForbidden, map[string]interface{}{
+			"error":  msg,
+			"banned": true,
+			"reason": banReason,
+		})
 		return
 	}
 
@@ -328,14 +344,30 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		DisplayName string `json:"display_name"`
 		AvatarURL   string `json:"avatar_url"`
 		Role        string `json:"role"`
+		IsBanned    bool   `json:"is_banned"`
+		BanReason   string `json:"ban_reason"`
 	}
 
 	err := h.DB.Pool.QueryRow(r.Context(), `
-		SELECT id, discord_id, username, display_name, avatar_url, role
+		SELECT id, discord_id, username, display_name, avatar_url, role, is_banned, ban_reason
 		FROM users WHERE id = $1
-	`, userID).Scan(&user.ID, &user.DiscordID, &user.Username, &user.DisplayName, &user.AvatarURL, &user.Role)
+	`, userID).Scan(&user.ID, &user.DiscordID, &user.Username, &user.DisplayName, &user.AvatarURL, &user.Role, &user.IsBanned, &user.BanReason)
 	if err != nil {
 		mw.Error(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	// If user is banned, return forbidden
+	if user.IsBanned {
+		msg := "您的账号已被封禁"
+		if user.BanReason != "" {
+			msg += "：" + user.BanReason
+		}
+		mw.JSON(w, http.StatusForbidden, map[string]interface{}{
+			"error":  msg,
+			"banned": true,
+			"reason": user.BanReason,
+		})
 		return
 	}
 

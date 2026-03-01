@@ -390,4 +390,13 @@ var migrations = []migration{
 			CREATE INDEX IF NOT EXISTS idx_game_records_user ON game_records(user_id, created_at DESC);
 		`,
 	},
+	{
+		Version: 20,
+		Name:    "add_user_ban_fields",
+		SQL: `
+			ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN NOT NULL DEFAULT false;
+			ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT NOT NULL DEFAULT '';
+			ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_at TIMESTAMPTZ;
+		`,
+	},
 }

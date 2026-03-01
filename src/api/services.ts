@@ -175,6 +175,12 @@ export const userApi = {
   updateRole(id: number, role: string) {
     return api.patch<MessageResponse>(`/api/users/${id}/role`, { role })
   },
+  ban(id: number, reason?: string) {
+    return api.post<MessageResponse>(`/api/users/${id}/ban`, { reason: reason || '' })
+  },
+  unban(id: number) {
+    return api.post<MessageResponse>(`/api/users/${id}/unban`)
+  },
 }
 
 // ========== 用户人设 API ==========

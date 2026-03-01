@@ -51,6 +51,17 @@ class ApiClient {
       throw new Error('Unauthorized')
     }
 
+    if (response.status === 403) {
+      const data = await response.json().catch(() => ({}))
+      if (data.banned) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        const reason = encodeURIComponent(data.reason || '')
+        window.location.href = `/login?banned=1&reason=${reason}`
+        throw new Error(data.error || 'Account banned')
+      }
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Request failed' }))
       const err = new Error(errorData.error || `HTTP ${response.status}`) as any

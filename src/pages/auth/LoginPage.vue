@@ -2,6 +2,16 @@
   <div class="login-page">
     <div class="login-bg"></div>
     <div class="login-content">
+      <!-- 封禁提示 -->
+      <div v-if="isBanned" class="ban-alert">
+        <div class="ban-icon">
+          <svg viewBox="0 0 36 36" fill="none" width="36" height="36"><circle cx="18" cy="18" r="14" stroke="#ff6b6b" stroke-width="2.5"/><line x1="9" y1="9" x2="27" y2="27" stroke="#ff6b6b" stroke-width="2.5"/></svg>
+        </div>
+        <div class="ban-title">账号已被封禁</div>
+        <div v-if="banReason" class="ban-reason">封禁原因：{{ banReason }}</div>
+        <div class="ban-hint">如有疑问请联系管理员</div>
+      </div>
+
       <div class="login-logo">
         <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="14" y="4" width="36" height="56" rx="8" stroke="#fff" stroke-width="2.5"/>
@@ -11,7 +21,7 @@
         </svg>
       </div>
       <h1 class="login-title">贩子死妈小手机</h1>
-      <p class="login-subtitle">请登录以继续</p>
+      <p class="login-subtitle">{{ isBanned ? '您的账号已被限制访问' : '请登录以继续' }}</p>
       <button class="discord-btn pressable" @click="loginWithDiscord">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
           <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
@@ -24,8 +34,21 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
+
 const DISCORD_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || ''
 const REDIRECT_URI = import.meta.env.VITE_DISCORD_REDIRECT_URI || `${window.location.origin}/auth/callback`
+
+const isBanned = ref(false)
+const banReason = ref('')
+
+onMounted(() => {
+  const urlParams = new URLSearchParams(window.location.search)
+  if (urlParams.get('banned') === '1') {
+    isBanned.value = true
+    banReason.value = urlParams.get('reason') || ''
+  }
+})
 
 function loginWithDiscord() {
   const params = new URLSearchParams({
@@ -111,5 +134,48 @@ function loginWithDiscord() {
 .discord-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(88, 101, 242, 0.5);
+}
+
+/* Ban alert */
+.ban-alert {
+  background: rgba(255, 59, 48, 0.12);
+  border: 1px solid rgba(255, 59, 48, 0.35);
+  border-radius: 16px;
+  padding: 20px 28px;
+  text-align: center;
+  margin-bottom: 16px;
+  animation: banShake 0.5s ease;
+}
+
+@keyframes banShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+.ban-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.ban-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ff6b6b;
+  margin-bottom: 6px;
+}
+
+.ban-reason {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 4px;
+}
+
+.ban-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
 }
 </style>

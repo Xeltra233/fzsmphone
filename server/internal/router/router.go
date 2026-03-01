@@ -215,6 +215,8 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 				r.Get("/", userH.List)
 				r.Get("/{id}", userH.Get)
 				r.Patch("/{id}/role", userH.UpdateRole)
+				r.Post("/{id}/ban", userH.Ban)
+				r.Post("/{id}/unban", userH.Unban)
 			})
 
 			// === AI Proxy ===

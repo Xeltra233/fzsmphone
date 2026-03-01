@@ -21,6 +21,9 @@ export interface User {
   display_name: string
   avatar_url: string
   role: string
+  is_banned: boolean
+  ban_reason: string
+  banned_at: string | null
   created_at: string
   updated_at: string
 }
