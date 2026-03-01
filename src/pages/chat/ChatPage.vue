@@ -106,7 +106,11 @@
             </div>
 
             <!-- Normal Bubble -->
-            <div v-else class="msg-bubble" :class="msg.role">
+            <div v-else class="msg-bubble" :class="msg.role" @click="startReply(msg)">
+              <div v-if="(msg.extra as any)?.replyTo" class="reply-quote-inline">
+                <span class="rqi-name">{{ (msg.extra as any).replyTo.role === 'user' ? '我' : chatTitle }}</span>
+                <span class="rqi-text">{{ truncateText((msg.extra as any).replyTo.content, 40) }}</span>
+              </div>
               <p class="msg-text">{{ msg.content }}</p>
               <span class="msg-time">{{ formatMsgTime(msg.created_at) }}</span>
             </div>
@@ -136,6 +140,15 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Reply Bar -->
+    <div v-if="replyingTo" class="reply-bar">
+      <div class="reply-bar-content">
+        <span class="reply-bar-label">回复 {{ replyingTo.role === 'user' ? '我' : chatTitle }}</span>
+        <span class="reply-bar-text">{{ truncateText(replyingTo.content, 50) }}</span>
+      </div>
+      <button class="reply-bar-close" @click="replyingTo = null">✕</button>
     </div>
 
     <!-- Input Area -->
@@ -409,7 +422,17 @@ const showInfo = ref(false)
 const showEmojiPanel = ref(false)
 const showActionMenu = ref(false)
 const matchedWorldBookCount = ref(0)
+const replyingTo = ref<{ role: string; content: string } | null>(null)
 let abortController: AbortController | null = null
+
+function startReply(msg: any) {
+  replyingTo.value = { role: msg.role, content: msg.content }
+  inputRef.value?.focus()
+}
+
+function truncateText(text: string, max: number): string {
+  return text.length > max ? text.slice(0, max) + '...' : text
+}
 
 // Transfer/Red Packet modals
 const showTransferModal = ref(false)
@@ -729,7 +752,12 @@ async function handleSend() {
     inputRef.value.style.height = 'auto'
   }
 
-  chatStore.addMessage(conversationId.value, 'user', text)
+  const extra: Record<string, any> = {}
+  if (replyingTo.value) {
+    extra.replyTo = { role: replyingTo.value.role, content: replyingTo.value.content }
+    replyingTo.value = null
+  }
+  chatStore.addMessage(conversationId.value, 'user', text, undefined, Object.keys(extra).length > 0 ? extra : undefined)
   scrollToBottom()
 
   const s = settingsStore.settings
@@ -1799,4 +1827,16 @@ onUnmounted(() => {
 /* Message transition */
 .msg-enter-active { transition: all 0.3s var(--ease-ios); }
 .msg-enter-from { opacity: 0; transform: translateY(10px); }
+
+/* Reply bar above input */
+.reply-bar { display: flex; align-items: center; padding: 8px 16px; background: var(--fill-tertiary); border-top: 0.5px solid var(--separator); gap: 8px; }
+.reply-bar-content { flex: 1; min-width: 0; border-left: 3px solid var(--brand-primary); padding-left: 8px; }
+.reply-bar-label { font-size: 12px; font-weight: 600; color: var(--brand-primary); display: block; }
+.reply-bar-text { font-size: 13px; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.reply-bar-close { background: none; border: none; font-size: 16px; color: var(--text-tertiary); cursor: pointer; padding: 4px; }
+
+/* Inline reply quote inside message bubble */
+.reply-quote-inline { padding: 6px 8px; margin-bottom: 4px; background: rgba(0,0,0,0.06); border-radius: 6px; border-left: 2px solid var(--brand-primary); }
+.rqi-name { font-size: 11px; font-weight: 600; color: var(--brand-primary); display: block; }
+.rqi-text { font-size: 12px; color: var(--text-tertiary); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>

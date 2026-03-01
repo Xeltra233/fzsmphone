@@ -7,6 +7,11 @@ export interface ChatSettings {
   apiUrl: string
   customApiUrl: string
   model: string
+  // 社交内容 API（可选独立配置）
+  socialApiKey: string
+  socialApiUrl: string
+  socialModel: string
+  enableYamlParsing: boolean
   // 对话参数
   temperature: number
   maxLength: number
@@ -25,6 +30,7 @@ export interface ChatSettings {
   themeColor: string
   wallpaper: string
   fontSize: number
+  customFontFamily: string
   // 聊天
   autoSave: boolean
   bubbleStyle: number
@@ -39,6 +45,10 @@ const DEFAULT_SETTINGS: ChatSettings = {
   apiUrl: 'https://api.openai.com/v1/chat/completions',
   customApiUrl: '',
   model: 'gpt-4o-mini',
+  socialApiKey: '',
+  socialApiUrl: '',
+  socialModel: '',
+  enableYamlParsing: false,
   temperature: 0.9,
   maxLength: 1000,
   streamEnabled: true,
@@ -53,6 +63,7 @@ const DEFAULT_SETTINGS: ChatSettings = {
   themeColor: '#007aff',
   wallpaper: 'default',
   fontSize: 2,
+  customFontFamily: '',
   autoSave: true,
   bubbleStyle: 0,
   sendKeyBehavior: 'send',

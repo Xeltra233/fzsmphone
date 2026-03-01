@@ -158,14 +158,14 @@ export const useChatStore = defineStore('chat', () => {
     loadMessages(String(conversationId))
   }
 
-  function addMessage(conversationId: string, role: 'user' | 'assistant', content: string): ChatMessage {
+  function addMessage(conversationId: string, role: 'user' | 'assistant', content: string, msgType?: string, extra?: Record<string, unknown>): ChatMessage {
     const msg: ChatMessage = {
       id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       conversation_id: conversationId,
       role,
       content,
-      msg_type: 'text',
-      extra: {},
+      msg_type: msgType || 'text',
+      extra: extra || {},
       created_at: new Date().toISOString(),
       timestamp: Date.now(),
     }

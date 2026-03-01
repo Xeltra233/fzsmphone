@@ -1591,3 +1591,285 @@ export function parseStockContent(raw: string): StockData {
   return { indices, stocks }
 }
 
+// ==================== 邮箱数据类型 ====================
+
+export interface EmailItem {
+  id: string
+  senderName: string
+  senderEmail: string
+  subject: string
+  preview: string
+  content: string
+  timestamp: string
+  isRead: boolean
+  isStarred: boolean
+  folder: 'inbox' | 'sent' | 'draft'
+}
+
+export interface EmailData {
+  emails: EmailItem[]
+}
+
+// ==================== 邮箱解析器 ====================
+
+export function parseEmailContent(raw: string): EmailData {
+  const emails: EmailItem[] = []
+
+  const startMarker = '<!-- EMAIL_CONTENT_START -->'
+  const endMarker = '<!-- EMAIL_CONTENT_END -->'
+  const startIdx = raw.indexOf(startMarker)
+  const endIdx = raw.indexOf(endMarker)
+  const content = startIdx >= 0 && endIdx >= 0
+    ? raw.slice(startIdx + startMarker.length, endIdx)
+    : raw
+
+  let m: RegExpExecArray | null
+
+  // [邮件|发件人姓名|发件人邮箱|主题|预览|正文内容]
+  const emailRe6 = /\[邮件\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = emailRe6.exec(content)) !== null) {
+    emails.push({
+      id: generateId('em'),
+      senderName: m[1].trim(),
+      senderEmail: m[2].trim(),
+      subject: m[3].trim(),
+      preview: m[4].trim(),
+      content: m[5].trim(),
+      timestamp: generateTimestamp(),
+      isRead: false,
+      isStarred: false,
+      folder: 'inbox',
+    })
+  }
+
+  // 5字段（无预览，预览=正文前30字）
+  if (emails.length === 0) {
+    const emailRe5 = /\[邮件\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+    while ((m = emailRe5.exec(content)) !== null) {
+      const body = m[4].trim()
+      emails.push({
+        id: generateId('em'),
+        senderName: m[1].trim(),
+        senderEmail: m[2].trim(),
+        subject: m[3].trim(),
+        preview: body.slice(0, 60) + (body.length > 60 ? '...' : ''),
+        content: body,
+        timestamp: generateTimestamp(),
+        isRead: false,
+        isStarred: false,
+        folder: 'inbox',
+      })
+    }
+  }
+
+  // 不完整匹配
+  if (emails.length === 0) {
+    const incompleteRe = /\[邮件\|([^|\]]+)\|([^|\]]+)\|([^|\]]+)\|?([^|\]]*)/g
+    while ((m = incompleteRe.exec(content)) !== null) {
+      const body = m[4]?.trim() || '(内容被截断)'
+      emails.push({
+        id: generateId('em'),
+        senderName: m[1].trim(),
+        senderEmail: m[2].trim(),
+        subject: m[3].trim(),
+        preview: body.slice(0, 60),
+        content: body,
+        timestamp: generateTimestamp(),
+        isRead: false,
+        isStarred: false,
+        folder: 'inbox',
+      })
+    }
+  }
+
+  console.log(`[SocialParser] Email: ${emails.length} emails`)
+  return { emails }
+}
+
+// ==================== 浏览器数据类型 ====================
+
+export interface BrowserResult {
+  id: string
+  title: string
+  url: string
+  summary: string
+  content: string
+}
+
+export interface BrowserData {
+  results: BrowserResult[]
+  query: string
+}
+
+// ==================== 浏览器解析器 ====================
+
+export function parseBrowserContent(raw: string): BrowserData {
+  const results: BrowserResult[] = []
+
+  const startMarker = '<!-- BROWSER_CONTENT_START -->'
+  const endMarker = '<!-- BROWSER_CONTENT_END -->'
+  const startIdx = raw.indexOf(startMarker)
+  const endIdx = raw.indexOf(endMarker)
+  const content = startIdx >= 0 && endIdx >= 0
+    ? raw.slice(startIdx + startMarker.length, endIdx)
+    : raw
+
+  let m: RegExpExecArray | null
+
+  // [搜索结果|标题|网址|摘要|详细内容]
+  const resultRe5 = /\[搜索结果\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = resultRe5.exec(content)) !== null) {
+    results.push({
+      id: generateId('br'),
+      title: m[1].trim(),
+      url: m[2].trim(),
+      summary: m[3].trim(),
+      content: m[4].trim(),
+    })
+  }
+
+  // 4字段（无详细内容）
+  if (results.length === 0) {
+    const resultRe4 = /\[搜索结果\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+    while ((m = resultRe4.exec(content)) !== null) {
+      results.push({
+        id: generateId('br'),
+        title: m[1].trim(),
+        url: m[2].trim(),
+        summary: m[3].trim(),
+        content: m[3].trim(),
+      })
+    }
+  }
+
+  console.log(`[SocialParser] Browser: ${results.length} results`)
+  return { results, query: '' }
+}
+
+// ==================== 地图数据类型 ====================
+
+export interface MapLocation {
+  id: string
+  name: string
+  type: string
+  description: string
+  characters: string[]
+  events: string[]
+}
+
+export interface MapData {
+  locations: MapLocation[]
+}
+
+// ==================== 地图解析器 ====================
+
+export function parseMapContent(raw: string): MapData {
+  const locations: MapLocation[] = []
+
+  const startMarker = '<!-- MAP_CONTENT_START -->'
+  const endMarker = '<!-- MAP_CONTENT_END -->'
+  const startIdx = raw.indexOf(startMarker)
+  const endIdx = raw.indexOf(endMarker)
+  const content = startIdx >= 0 && endIdx >= 0
+    ? raw.slice(startIdx + startMarker.length, endIdx)
+    : raw
+
+  let m: RegExpExecArray | null
+
+  // [地点|地点名称|类型|描述|在场角色|正在发生的事件]
+  const locRe = /\[地点\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = locRe.exec(content)) !== null) {
+    locations.push({
+      id: generateId('loc'),
+      name: m[1].trim(),
+      type: m[2].trim(),
+      description: m[3].trim(),
+      characters: m[4].trim().split(/[,，、]/).map(s => s.trim()).filter(Boolean),
+      events: m[5].trim().split(/[,，、]/).map(s => s.trim()).filter(Boolean),
+    })
+  }
+
+  // 4字段（无事件）
+  if (locations.length === 0) {
+    const locRe4 = /\[地点\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+    while ((m = locRe4.exec(content)) !== null) {
+      locations.push({
+        id: generateId('loc'),
+        name: m[1].trim(),
+        type: m[2].trim(),
+        description: m[3].trim(),
+        characters: m[4].trim().split(/[,，、]/).map(s => s.trim()).filter(Boolean),
+        events: [],
+      })
+    }
+  }
+
+  console.log(`[SocialParser] Map: ${locations.length} locations`)
+  return { locations }
+}
+
+// ==================== 日历数据类型 ====================
+
+export interface CalendarEvent {
+  id: string
+  title: string
+  date: string
+  time: string
+  type: string
+  description: string
+  participants: string[]
+}
+
+export interface CalendarData {
+  events: CalendarEvent[]
+}
+
+// ==================== 日历解析器 ====================
+
+export function parseCalendarContent(raw: string): CalendarData {
+  const events: CalendarEvent[] = []
+
+  const startMarker = '<!-- CALENDAR_CONTENT_START -->'
+  const endMarker = '<!-- CALENDAR_CONTENT_END -->'
+  const startIdx = raw.indexOf(startMarker)
+  const endIdx = raw.indexOf(endMarker)
+  const content = startIdx >= 0 && endIdx >= 0
+    ? raw.slice(startIdx + startMarker.length, endIdx)
+    : raw
+
+  let m: RegExpExecArray | null
+
+  // [事件|标题|日期|时间|类型|描述|参与人]
+  const evtRe7 = /\[事件\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+  while ((m = evtRe7.exec(content)) !== null) {
+    events.push({
+      id: generateId('evt'),
+      title: m[1].trim(),
+      date: m[2].trim(),
+      time: m[3].trim(),
+      type: m[4].trim(),
+      description: m[5].trim(),
+      participants: m[6].trim().split(/[,，、]/).map(s => s.trim()).filter(Boolean),
+    })
+  }
+
+  // 6字段（无参与人）
+  if (events.length === 0) {
+    const evtRe6 = /\[事件\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|([^\]]+)\]/g
+    while ((m = evtRe6.exec(content)) !== null) {
+      events.push({
+        id: generateId('evt'),
+        title: m[1].trim(),
+        date: m[2].trim(),
+        time: m[3].trim(),
+        type: m[4].trim(),
+        description: m[5].trim(),
+        participants: [],
+      })
+    }
+  }
+
+  console.log(`[SocialParser] Calendar: ${events.length} events`)
+  return { events }
+}
+

@@ -91,6 +91,227 @@
             <span class="slider-max">300</span>
           </div>
         </div>
+
+        <div class="section">
+          <div class="section-header">■ 社交内容 API（可选）</div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="label-text">独立 API Key</span>
+              <span class="label-desc">为微博、邮箱等社交内容使用独立 API，留空则使用主 API</span>
+            </div>
+          </div>
+          <div class="input-row">
+            <input v-model="s.socialApiKey" :type="showSocialApiKey ? 'text' : 'password'" class="setting-input" placeholder="留空则使用主 API Key" />
+            <button class="icon-action" @click="showSocialApiKey = !showSocialApiKey">{{ showSocialApiKey ? '◇' : '◉' }}</button>
+          </div>
+
+          <div class="setting-item"><div class="setting-label"><span class="label-text">社交内容 API 地址</span></div></div>
+          <input v-model="s.socialApiUrl" class="setting-input" placeholder="留空则使用主 API 地址" />
+
+          <div class="setting-item"><div class="setting-label"><span class="label-text">社交内容模型</span></div></div>
+          <input v-model="s.socialModel" class="setting-input" placeholder="留空则使用主模型" />
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="label-text">YAML 解析增强</span>
+              <span class="label-desc">同时支持 YAML 格式的 AI 回复</span>
+            </div>
+            <div class="toggle" :class="{ on: s.enableYamlParsing }" @click="s.enableYamlParsing = !s.enableYamlParsing">
+              <div class="toggle-thumb"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-header">■ AI 生图</div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="label-text">生图通道</span>
+              <span class="label-desc">选择 AI 生图服务类型</span>
+            </div>
+          </div>
+          <select v-model="imgCfg.apiFormat" class="setting-select" @change="saveImgCfg">
+            <option value="novelai">NovelAI</option>
+            <option value="openai">OpenAI (Chat)</option>
+            <option value="gemini">Gemini</option>
+          </select>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="label-text">Prompt 合成模式</span>
+              <span class="label-desc">Tags 用逗号分隔, Natural 用自然语言描述</span>
+            </div>
+          </div>
+          <select v-model="imgCfg.promptComposeMode" class="setting-select" @change="saveImgCfg">
+            <option value="none">直接传入</option>
+            <option value="tags">Tags（逗号分隔）</option>
+            <option value="natural">Natural（自然语言）</option>
+          </select>
+
+          <!-- NovelAI 设置 -->
+          <template v-if="imgCfg.apiFormat === 'novelai'">
+            <div class="setting-item"><div class="setting-label"><span class="label-text">NovelAI URL</span></div></div>
+            <input v-model="imgCfg.novelai.url" class="setting-input" placeholder="https://image.novelai.net" @change="saveImgCfg" />
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">NovelAI Key</span></div></div>
+            <div class="input-row">
+              <input v-model="imgCfg.novelai.key" :type="showImageGenKey ? 'text' : 'password'" class="setting-input" placeholder="pst-..." @change="saveImgCfg" />
+              <button class="icon-action" @click="showImageGenKey = !showImageGenKey">{{ showImageGenKey ? '◇' : '◉' }}</button>
+            </div>
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">模型</span></div></div>
+            <select v-model="imgCfg.novelai.model" class="setting-select" @change="saveImgCfg">
+              <option value="nai-diffusion-4-5-full">NAI Diffusion 4.5 Full</option>
+              <option value="nai-diffusion-4-5-curated">NAI Diffusion 4.5 Curated</option>
+              <option value="nai-diffusion-4-curated-preview">NAI Diffusion 4 Curated</option>
+              <option value="nai-diffusion-3">NAI Diffusion 3 (Anime V3)</option>
+            </select>
+
+            <div class="setting-item">
+              <div class="setting-label"><span class="label-text">宽度</span><span class="label-desc">{{ imgCfg.novelai.width }}px</span></div>
+            </div>
+            <div class="slider-row"><span class="slider-min">64</span><input type="range" min="64" max="2048" step="64" v-model.number="imgCfg.novelai.width" class="slider" @change="saveImgCfg" /><span class="slider-max">2048</span></div>
+
+            <div class="setting-item">
+              <div class="setting-label"><span class="label-text">高度</span><span class="label-desc">{{ imgCfg.novelai.height }}px</span></div>
+            </div>
+            <div class="slider-row"><span class="slider-min">64</span><input type="range" min="64" max="2048" step="64" v-model.number="imgCfg.novelai.height" class="slider" @change="saveImgCfg" /><span class="slider-max">2048</span></div>
+
+            <div class="setting-item">
+              <div class="setting-label"><span class="label-text">步数 (Steps)</span><span class="label-desc">{{ imgCfg.novelai.steps }}</span></div>
+            </div>
+            <div class="slider-row"><span class="slider-min">1</span><input type="range" min="1" max="60" v-model.number="imgCfg.novelai.steps" class="slider" @change="saveImgCfg" /><span class="slider-max">60</span></div>
+
+            <div class="setting-item">
+              <div class="setting-label"><span class="label-text">CFG Scale</span><span class="label-desc">{{ imgCfg.novelai.cfg }}</span></div>
+            </div>
+            <div class="slider-row"><span class="slider-min">0</span><input type="range" min="0" max="30" step="0.5" v-model.number="imgCfg.novelai.cfg" class="slider" @change="saveImgCfg" /><span class="slider-max">30</span></div>
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">采样器 (Sampler)</span></div></div>
+            <select v-model="imgCfg.novelai.sampler" class="setting-select" @change="saveImgCfg">
+              <option value="k_euler">Euler</option>
+              <option value="k_euler_ancestral">Euler Ancestral</option>
+              <option value="k_dpmpp_2s_ancestral">DPM++ 2S Ancestral</option>
+              <option value="k_dpmpp_2m">DPM++ 2M</option>
+              <option value="k_dpmpp_2m_sde">DPM++ 2M SDE</option>
+              <option value="k_dpmpp_sde">DPM++ SDE</option>
+              <option value="ddim">DDIM</option>
+            </select>
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">调度器 (Scheduler)</span></div></div>
+            <select v-model="imgCfg.novelai.scheduler" class="setting-select" @change="saveImgCfg">
+              <option value="karras">Karras</option>
+              <option value="exponential">Exponential</option>
+              <option value="polyexponential">Polyexponential</option>
+              <option value="native">Native</option>
+            </select>
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">负面提示词</span></div></div>
+            <input v-model="imgCfg.novelai.negativePrompt" class="setting-input" placeholder="lowres, bad anatomy..." @change="saveImgCfg" />
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">Prompt 前缀</span></div></div>
+            <input v-model="imgCfg.novelai.promptPrefix" class="setting-input" placeholder="可选，自动加在 prompt 前面" @change="saveImgCfg" />
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">Prompt 后缀</span></div></div>
+            <input v-model="imgCfg.novelai.promptSuffix" class="setting-input" placeholder="可选，自动加在 prompt 后面" @change="saveImgCfg" />
+
+            <div class="setting-item">
+              <div class="setting-label"><span class="label-text">Quality Toggle</span><span class="label-desc">自动添加质量提升标签</span></div>
+              <div class="toggle" :class="{ on: imgCfg.novelai.qualityToggle }" @click="imgCfg.novelai.qualityToggle = !imgCfg.novelai.qualityToggle; saveImgCfg()"><div class="toggle-thumb"></div></div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-label"><span class="label-text">Variety Boost</span><span class="label-desc">增加生成结果多样性</span></div>
+              <div class="toggle" :class="{ on: imgCfg.novelai.varietyBoost }" @click="imgCfg.novelai.varietyBoost = !imgCfg.novelai.varietyBoost; saveImgCfg()"><div class="toggle-thumb"></div></div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-label"><span class="label-text">Decrisper</span><span class="label-desc">Dynamic Thresholding：防止过饱和</span></div>
+              <div class="toggle" :class="{ on: imgCfg.novelai.decrisper }" @click="imgCfg.novelai.decrisper = !imgCfg.novelai.decrisper; saveImgCfg()"><div class="toggle-thumb"></div></div>
+            </div>
+
+            <div class="setting-item">
+              <div class="setting-label"><span class="label-text">角色参考图</span><span class="label-desc">使用参考图进行角色一致性生成（v4.5+）</span></div>
+              <div class="toggle" :class="{ on: imgCfg.novelai.characterReferenceEnabled }" @click="imgCfg.novelai.characterReferenceEnabled = !imgCfg.novelai.characterReferenceEnabled; saveImgCfg()"><div class="toggle-thumb"></div></div>
+            </div>
+
+            <template v-if="imgCfg.novelai.characterReferenceEnabled">
+              <div class="setting-item">
+                <div class="setting-label"><span class="label-text">风格感知</span><span class="label-desc">参考图同时影响画风</span></div>
+                <div class="toggle" :class="{ on: imgCfg.novelai.characterReferenceStyleAware }" @click="imgCfg.novelai.characterReferenceStyleAware = !imgCfg.novelai.characterReferenceStyleAware; saveImgCfg()"><div class="toggle-thumb"></div></div>
+              </div>
+              <div class="setting-item">
+                <div class="setting-label"><span class="label-text">参考保真度</span><span class="label-desc">{{ (imgCfg.novelai.characterReferenceFidelity * 100).toFixed(0) }}%</span></div>
+              </div>
+              <div class="slider-row"><span class="slider-min">0</span><input type="range" min="0" max="100" :value="imgCfg.novelai.characterReferenceFidelity * 100" @input="imgCfg.novelai.characterReferenceFidelity = Number(($event.target as HTMLInputElement).value) / 100" @change="saveImgCfg" class="slider" /><span class="slider-max">100</span></div>
+            </template>
+
+            <div class="setting-item">
+              <div class="setting-label"><span class="label-text">CFG Rescale</span><span class="label-desc">{{ imgCfg.novelai.cfgRescale }}</span></div>
+            </div>
+            <div class="slider-row"><span class="slider-min">0</span><input type="range" min="0" max="100" :value="imgCfg.novelai.cfgRescale * 100" @input="imgCfg.novelai.cfgRescale = Number(($event.target as HTMLInputElement).value) / 100" @change="saveImgCfg" class="slider" /><span class="slider-max">1</span></div>
+          </template>
+
+          <!-- OpenAI 设置 -->
+          <template v-if="imgCfg.apiFormat === 'openai'">
+            <div class="setting-item"><div class="setting-label"><span class="label-text">OpenAI Base URL</span></div></div>
+            <input v-model="imgCfg.openai.url" class="setting-input" placeholder="https://api.openai.com" @change="saveImgCfg" />
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">API Key</span></div></div>
+            <div class="input-row">
+              <input v-model="imgCfg.openai.key" :type="showImageGenKey ? 'text' : 'password'" class="setting-input" placeholder="sk-..." @change="saveImgCfg" />
+              <button class="icon-action" @click="showImageGenKey = !showImageGenKey">{{ showImageGenKey ? '◇' : '◉' }}</button>
+            </div>
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">模型</span></div></div>
+            <input v-model="imgCfg.openai.model" class="setting-input" placeholder="gpt-4o / dall-e-3" @change="saveImgCfg" />
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">宽高比</span></div></div>
+            <select v-model="imgCfg.openai.aspectRatio" class="setting-select" @change="saveImgCfg">
+              <option v-for="ar in aspectRatios" :key="ar" :value="ar">{{ ar }}</option>
+            </select>
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">Prompt 前缀</span></div></div>
+            <input v-model="imgCfg.openai.promptPrefix" class="setting-input" placeholder="可选" @change="saveImgCfg" />
+            <div class="setting-item"><div class="setting-label"><span class="label-text">Prompt 后缀</span></div></div>
+            <input v-model="imgCfg.openai.promptSuffix" class="setting-input" placeholder="可选" @change="saveImgCfg" />
+          </template>
+
+          <!-- Gemini 设置 -->
+          <template v-if="imgCfg.apiFormat === 'gemini'">
+            <div class="setting-item"><div class="setting-label"><span class="label-text">Gemini Base URL</span></div></div>
+            <input v-model="imgCfg.gemini.url" class="setting-input" placeholder="https://generativelanguage.googleapis.com" @change="saveImgCfg" />
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">API Key</span></div></div>
+            <div class="input-row">
+              <input v-model="imgCfg.gemini.key" :type="showImageGenKey ? 'text' : 'password'" class="setting-input" placeholder="AIza..." @change="saveImgCfg" />
+              <button class="icon-action" @click="showImageGenKey = !showImageGenKey">{{ showImageGenKey ? '◇' : '◉' }}</button>
+            </div>
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">模型</span></div></div>
+            <input v-model="imgCfg.gemini.model" class="setting-input" placeholder="gemini-2.0-flash-exp" @change="saveImgCfg" />
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">宽高比</span></div></div>
+            <select v-model="imgCfg.gemini.aspectRatio" class="setting-select" @change="saveImgCfg">
+              <option v-for="ar in aspectRatios" :key="ar" :value="ar">{{ ar }}</option>
+            </select>
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">图片尺寸</span></div></div>
+            <select v-model="imgCfg.gemini.imageSize" class="setting-select" @change="saveImgCfg">
+              <option value="auto">自动</option>
+              <option value="1K">1K</option>
+              <option value="2K">2K</option>
+              <option value="4K">4K</option>
+            </select>
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">Prompt 前缀</span></div></div>
+            <input v-model="imgCfg.gemini.promptPrefix" class="setting-input" placeholder="可选" @change="saveImgCfg" />
+            <div class="setting-item"><div class="setting-label"><span class="label-text">Prompt 后缀</span></div></div>
+            <input v-model="imgCfg.gemini.promptSuffix" class="setting-input" placeholder="可选" @change="saveImgCfg" />
+          </template>
+        </div>
       </div>
 
       <!-- ===== 对话设置 ===== -->
@@ -247,9 +468,17 @@
             <input type="range" min="0" max="4" v-model.number="s.fontSize" class="slider" />
             <span class="slider-label-lg">A</span>
           </div>
-          <div class="font-preview" :style="{ fontSize: fontSizes[s.fontSize]?.size + 'px' }">
+          <div class="font-preview" :style="{ fontSize: fontSizes[s.fontSize]?.size + 'px', fontFamily: s.customFontFamily || 'inherit' }">
             这是预览文本 Preview Text
           </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="label-text">自定义字体</span>
+              <span class="label-desc">输入 CSS 字体名称，如 LXGW WenKai, Noto Sans SC</span>
+            </div>
+          </div>
+          <input v-model="s.customFontFamily" class="setting-input" placeholder="留空使用系统默认字体" />
         </div>
       </div>
 
@@ -341,10 +570,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
 import { useSettingsStore } from '@/stores/settings'
 import { usePhoneStore } from '@/stores/phone'
+import { loadImageGenConfig, saveImageGenConfig, IMAGE_ASPECT_RATIO_OPTIONS, type ImageGenConfig } from '@/utils/imageGenConfig'
 
 const settingsStore = useSettingsStore()
 const phoneStore = usePhoneStore()
@@ -352,8 +582,18 @@ const phoneStore = usePhoneStore()
 // 直接引用 settings 的响应式对象（自动保存到 localStorage）
 const s = settingsStore.settings
 
+// 图片生成配置（独立 localStorage）
+const imgCfg = reactive<ImageGenConfig>(loadImageGenConfig())
+function saveImgCfg() {
+  saveImageGenConfig(imgCfg)
+}
+
+const aspectRatios = IMAGE_ASPECT_RATIO_OPTIONS
+
 const activeTab = ref('api')
 const showApiKey = ref(false)
+const showSocialApiKey = ref(false)
+const showImageGenKey = ref(false)
 const showClearConfirm = ref(false)
 const modelList = ref<string[]>([])
 const fetchingModels = ref(false)

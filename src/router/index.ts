@@ -37,6 +37,10 @@ const routeFeatureMap: Record<string, string> = {
   Zhihu: 'zhihu',
   Xiaohongshu: 'xiaohongshu',
   Douyin: 'douyin',
+  Email: 'email',
+  Browser: 'browser',
+  Map: 'map',
+  Calendar: 'calendar',
 }
 
 const routes: RouteRecordRaw[] = [
@@ -206,6 +210,26 @@ const routes: RouteRecordRaw[] = [
     path: '/currency',
     name: 'CurrencyConverter',
     component: () => import('@/pages/tools/CurrencyConverterPage.vue'),
+  },
+  {
+    path: '/email',
+    name: 'Email',
+    component: () => import('@/pages/tools/EmailPage.vue'),
+  },
+  {
+    path: '/browser',
+    name: 'Browser',
+    component: () => import('@/pages/tools/BrowserPage.vue'),
+  },
+  {
+    path: '/map',
+    name: 'Map',
+    component: () => import('@/pages/tools/MapPage.vue'),
+  },
+  {
+    path: '/calendar',
+    name: 'Calendar',
+    component: () => import('@/pages/tools/CalendarPage.vue'),
   },
   // === 其他 ===
   {

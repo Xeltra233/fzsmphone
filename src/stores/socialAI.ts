@@ -22,6 +22,10 @@ import {
   parseShoppingContent,
   parseCoupleContent,
   parseStockContent,
+  parseEmailContent,
+  parseBrowserContent,
+  parseMapContent,
+  parseCalendarContent,
   generateId,
 } from '@/utils/socialParsers'
 import type {
@@ -44,6 +48,10 @@ import type {
   FootprintItem,
   StockIndex,
   StockItem as StockItemType,
+  EmailItem,
+  BrowserResult,
+  MapLocation,
+  CalendarEvent,
 } from '@/utils/socialParsers'
 
 // ==================== 存储键 ====================
@@ -61,6 +69,10 @@ const STORAGE_KEYS = {
   shopping: 'social-data-shopping',
   couple: 'social-data-couple',
   stock: 'social-data-stock',
+  email: 'social-data-email',
+  browser: 'social-data-browser',
+  map: 'social-data-map',
+  calendar: 'social-data-calendar',
 }
 
 // ==================== AI配置读取 ====================
@@ -69,16 +81,21 @@ function getAIConfig() {
     const saved = localStorage.getItem('fzsm-settings')
     if (saved) {
       const s = JSON.parse(saved)
-      const apiKey = s.apiKey || ''
-      const apiUrl = s.apiUrl === 'custom' ? (s.customApiUrl || '') : (s.apiUrl || '')
-      const model = s.model || ''
+      const mainApiKey = s.apiKey || ''
+      const mainApiUrl = s.apiUrl === 'custom' ? (s.customApiUrl || '') : (s.apiUrl || '')
+      const mainModel = s.model || ''
+      // 优先使用社交API配置，留空则回退到主API
+      const apiKey = s.socialApiKey || mainApiKey
+      const apiUrl = s.socialApiUrl || mainApiUrl
+      const model = s.socialModel || mainModel
       const maxTokens = s.maxLength || 4000
       const temperature = s.temperature ?? 0.9
-      return { apiKey, apiUrl, model, maxTokens, temperature }
+      const enableYamlParsing = s.enableYamlParsing ?? false
+      return { apiKey, apiUrl, model, maxTokens, temperature, enableYamlParsing }
     }
-    return { apiKey: '', apiUrl: '', model: '', maxTokens: 4000, temperature: 0.9 }
+    return { apiKey: '', apiUrl: '', model: '', maxTokens: 4000, temperature: 0.9, enableYamlParsing: false }
   } catch {
-    return { apiKey: '', apiUrl: '', model: '', maxTokens: 4000, temperature: 0.9 }
+    return { apiKey: '', apiUrl: '', model: '', maxTokens: 4000, temperature: 0.9, enableYamlParsing: false }
   }
 }
 
@@ -141,6 +158,22 @@ export const useSocialAIStore = defineStore('socialAI', () => {
   const stockItems = ref<StockItemType[]>([])
   const stockLoading = ref(false)
 
+  // ==================== 邮箱状态 ====================
+  const emailItems = ref<EmailItem[]>([])
+  const emailLoading = ref(false)
+
+  // ==================== 浏览器状态 ====================
+  const browserResults = ref<BrowserResult[]>([])
+  const browserLoading = ref(false)
+
+  // ==================== 地图状态 ====================
+  const mapLocations = ref<MapLocation[]>([])
+  const mapLoading = ref(false)
+
+  // ==================== 日历状态 ====================
+  const calendarEvents = ref<CalendarEvent[]>([])
+  const calendarLoading = ref(false)
+
   // ==================== 通用 ====================
   const generating = ref(false)
   const lastError = ref('')
@@ -199,6 +232,18 @@ export const useSocialAIStore = defineStore('socialAI', () => {
             indices: stockIndices.value,
             stocks: stockItems.value,
           }))
+          break
+        case 'email':
+          localStorage.setItem(STORAGE_KEYS.email, JSON.stringify(emailItems.value))
+          break
+        case 'browser':
+          localStorage.setItem(STORAGE_KEYS.browser, JSON.stringify(browserResults.value))
+          break
+        case 'map':
+          localStorage.setItem(STORAGE_KEYS.map, JSON.stringify(mapLocations.value))
+          break
+        case 'calendar':
+          localStorage.setItem(STORAGE_KEYS.calendar, JSON.stringify(calendarEvents.value))
           break
       }
     } catch { /* ignore */ }
@@ -306,6 +351,26 @@ export const useSocialAIStore = defineStore('socialAI', () => {
             stockIndices.value = data.indices || []
             stockItems.value = data.stocks || []
           }
+          break
+        }
+        case 'email': {
+          const saved = localStorage.getItem(STORAGE_KEYS.email)
+          if (saved) emailItems.value = JSON.parse(saved)
+          break
+        }
+        case 'browser': {
+          const saved = localStorage.getItem(STORAGE_KEYS.browser)
+          if (saved) browserResults.value = JSON.parse(saved)
+          break
+        }
+        case 'map': {
+          const saved = localStorage.getItem(STORAGE_KEYS.map)
+          if (saved) mapLocations.value = JSON.parse(saved)
+          break
+        }
+        case 'calendar': {
+          const saved = localStorage.getItem(STORAGE_KEYS.calendar)
+          if (saved) calendarEvents.value = JSON.parse(saved)
           break
         }
       }
@@ -979,6 +1044,98 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     }
   }
 
+  // ==================== 邮箱操作 ====================
+  async function generateEmailContent(action?: string) {
+    if (generating.value) return
+    generating.value = true
+    emailLoading.value = true
+    lastError.value = ''
+    try {
+      const raw = await callAI('email', action)
+      const data = parseEmailContent(raw)
+      if (data.emails.length > 0) {
+        emailItems.value = [...emailItems.value, ...data.emails]
+        saveData('email')
+      } else {
+        lastError.value = 'AI未生成有效的邮箱内容'
+      }
+    } catch (e: any) {
+      lastError.value = e.message || '生成失败'
+    } finally {
+      generating.value = false
+      emailLoading.value = false
+    }
+  }
+
+  // ==================== 浏览器操作 ====================
+  async function generateBrowserContent(action?: string) {
+    if (generating.value) return
+    generating.value = true
+    browserLoading.value = true
+    lastError.value = ''
+    try {
+      const raw = await callAI('browser', action)
+      const data = parseBrowserContent(raw)
+      if (data.results.length > 0) {
+        browserResults.value = data.results
+        saveData('browser')
+      } else {
+        lastError.value = 'AI未生成有效的搜索结果'
+      }
+    } catch (e: any) {
+      lastError.value = e.message || '生成失败'
+    } finally {
+      generating.value = false
+      browserLoading.value = false
+    }
+  }
+
+  // ==================== 地图操作 ====================
+  async function generateMapContent(action?: string) {
+    if (generating.value) return
+    generating.value = true
+    mapLoading.value = true
+    lastError.value = ''
+    try {
+      const raw = await callAI('map', action)
+      const data = parseMapContent(raw)
+      if (data.locations.length > 0) {
+        mapLocations.value = data.locations
+        saveData('map')
+      } else {
+        lastError.value = 'AI未生成有效的地图内容'
+      }
+    } catch (e: any) {
+      lastError.value = e.message || '生成失败'
+    } finally {
+      generating.value = false
+      mapLoading.value = false
+    }
+  }
+
+  // ==================== 日历操作 ====================
+  async function generateCalendarContent(action?: string) {
+    if (generating.value) return
+    generating.value = true
+    calendarLoading.value = true
+    lastError.value = ''
+    try {
+      const raw = await callAI('calendar', action)
+      const data = parseCalendarContent(raw)
+      if (data.events.length > 0) {
+        calendarEvents.value = data.events
+        saveData('calendar')
+      } else {
+        lastError.value = 'AI未生成有效的日历内容'
+      }
+    } catch (e: any) {
+      lastError.value = e.message || '生成失败'
+    } finally {
+      generating.value = false
+      calendarLoading.value = false
+    }
+  }
+
   // ==================== 清除数据 ====================
   function clearData(type: SocialType) {
     switch (type) {
@@ -1026,6 +1183,18 @@ export const useSocialAIStore = defineStore('socialAI', () => {
       case 'stock':
         stockIndices.value = []
         stockItems.value = []
+        break
+      case 'email':
+        emailItems.value = []
+        break
+      case 'browser':
+        browserResults.value = []
+        break
+      case 'map':
+        mapLocations.value = []
+        break
+      case 'calendar':
+        calendarEvents.value = []
         break
     }
     saveData(type)
@@ -1141,6 +1310,26 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     stockItems,
     stockLoading,
     generateStockContent,
+
+    // 邮箱
+    emailItems,
+    emailLoading,
+    generateEmailContent,
+
+    // 浏览器
+    browserResults,
+    browserLoading,
+    generateBrowserContent,
+
+    // 地图
+    mapLocations,
+    mapLoading,
+    generateMapContent,
+
+    // 日历
+    calendarEvents,
+    calendarLoading,
+    generateCalendarContent,
 
     // 通用
     generating,
