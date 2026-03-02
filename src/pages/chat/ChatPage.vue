@@ -719,9 +719,11 @@ function handleRedPacketClick(msg: ChatMessage) {
 function buildMessageHistory(extraSystemHint?: string): AIMessage[] {
   const character = currentCharacter.value
 
+  const contextLimit = settingsStore.settings.contextSize || 20
+
   const recent: AIMessage[] = chatStore.currentMessages
     .filter((m: ChatMessage) => m.role === 'user' || m.role === 'assistant')
-    .slice(-10)
+    .slice(-contextLimit)
     .map((m: ChatMessage) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
@@ -786,9 +788,10 @@ async function doAIReply(extraSystemHint?: string) {
     // Update world book count
     const character = currentCharacter.value
     const allEntries = getCharacterWorldBookEntries(character?.id, character?.worldBooks)
+    const contextLimit = settingsStore.settings.contextSize || 20
     const recentText = chatStore.currentMessages
       .filter((m: ChatMessage) => m.role === 'user' || m.role === 'assistant')
-      .slice(-10)
+      .slice(-contextLimit)
       .map((m: ChatMessage) => m.content)
       .join(' ')
     const matched = matchWorldBookEntries(recentText, allEntries)

@@ -2,8 +2,11 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -87,14 +90,33 @@ func (h *AIProxyHandler) Chat(w http.ResponseWriter, r *http.Request) {
 		upstreamBody["temperature"] = *req.Temperature
 	}
 	if req.MaxTokens == 0 {
-		upstreamBody["max_tokens"] = 1000
+		upstreamBody["max_tokens"] = 4000
 	}
 
 	bodyBytes, _ := json.Marshal(upstreamBody)
 
-	// Create upstream request
-	client := &http.Client{Timeout: 120 * time.Second}
-	upReq, err := http.NewRequestWithContext(r.Context(), "POST", apiUrl, bytes.NewReader(bodyBytes))
+	log.Printf("[AIProxy] user=%d model=%s stream=%v url=%s", userID, req.Model, req.Stream, apiUrl)
+
+	// Create upstream request with an INDEPENDENT context (not tied to r.Context()).
+	// This prevents reverse proxies (nginx/Cloudflare) from cancelling the upstream
+	// request when they time out the client-facing connection.
+	upstreamTimeout := 300 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), upstreamTimeout)
+	defer cancel()
+
+	// Still respect explicit client abort for non-streaming requests
+	if !req.Stream {
+		go func() {
+			select {
+			case <-r.Context().Done():
+				cancel()
+			case <-ctx.Done():
+			}
+		}()
+	}
+
+	client := &http.Client{}
+	upReq, err := http.NewRequestWithContext(ctx, "POST", apiUrl, bytes.NewReader(bodyBytes))
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to create upstream request")
 		return
@@ -104,7 +126,8 @@ func (h *AIProxyHandler) Chat(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := client.Do(upReq)
 	if err != nil {
-		mw.Error(w, http.StatusBadGateway, "AI API request failed: "+err.Error())
+		log.Printf("[AIProxy] upstream error: %v", err)
+		mw.Error(w, http.StatusBadGateway, fmt.Sprintf("AI API request failed: %v", err))
 		return
 	}
 	defer resp.Body.Close()
@@ -112,6 +135,7 @@ func (h *AIProxyHandler) Chat(w http.ResponseWriter, r *http.Request) {
 	if resp.StatusCode != http.StatusOK {
 		// Forward error from upstream
 		errorBody, _ := io.ReadAll(resp.Body)
+		log.Printf("[AIProxy] upstream returned status %d: %s", resp.StatusCode, string(errorBody))
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)
 		w.Write(errorBody)
@@ -123,6 +147,7 @@ func (h *AIProxyHandler) Chat(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("X-Accel-Buffering", "no") // Tell nginx not to buffer SSE
 
 		flusher, ok := w.(http.Flusher)
 		if !ok {
@@ -132,20 +157,28 @@ func (h *AIProxyHandler) Chat(w http.ResponseWriter, r *http.Request) {
 
 		buf := make([]byte, 4096)
 		for {
-			n, err := resp.Body.Read(buf)
+			n, readErr := resp.Body.Read(buf)
 			if n > 0 {
-				w.Write(buf[:n])
+				if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+					log.Printf("[AIProxy] client write error: %v", writeErr)
+					return
+				}
 				flusher.Flush()
 			}
-			if err != nil {
+			if readErr != nil {
+				if readErr != io.EOF {
+					log.Printf("[AIProxy] upstream read error: %v", readErr)
+				}
 				break
 			}
 		}
+		log.Printf("[AIProxy] stream completed for user=%d", userID)
 	} else {
 		// Non-stream: forward JSON response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		io.Copy(w, resp.Body)
+		n, err := io.Copy(w, resp.Body)
+		log.Printf("[AIProxy] non-stream completed for user=%d, bytes=%d, err=%v", userID, n, err)
 	}
 }
 

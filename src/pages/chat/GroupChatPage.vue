@@ -427,7 +427,8 @@ async function getAIReply(member: GroupMember, userText: string): Promise<string
 </群聊规则>`
 
   // Build recent message history
-  const recent = messages.value.slice(-10)
+  const contextLimit = s.contextSize || 20
+  const recent = messages.value.slice(-contextLimit)
   const aiMessages: AIMessage[] = [
     { role: 'system', content: systemPrompt },
     ...recent.map(m => ({
@@ -445,7 +446,7 @@ async function getAIReply(member: GroupMember, userText: string): Promise<string
     model: s.model,
     messages: aiMessages,
     temperature: Math.min((s.temperature || 0.7) + 0.1, 1.5),
-    maxTokens: Math.min(s.maxLength || 200, 300),
+    maxTokens: Math.min(s.maxLength || 1000, 1000), // 群聊保持简短
     stream: isStream,
     timeout: s.timeout,
     onChunk: (chunk: string) => {

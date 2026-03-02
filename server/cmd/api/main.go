@@ -53,8 +53,8 @@ func main() {
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      handler,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  60 * time.Second,
+		WriteTimeout: 300 * time.Second, // Must be long enough for AI API streaming (can take 30+s)
 		IdleTimeout:  60 * time.Second,
 	}
 

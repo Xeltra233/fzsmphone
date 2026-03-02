@@ -334,14 +334,34 @@
 
           <div class="setting-item">
             <div class="setting-label">
-              <span class="label-text">最大回复长度</span>
-              <span class="label-desc">{{ s.maxLength }} tokens</span>
+              <span class="label-text">最大回复长度 (Max Tokens)</span>
+              <span class="label-desc">AI 单次回复的最大 token 数</span>
             </div>
           </div>
-          <div class="slider-row">
-            <span class="slider-min">短</span>
-            <input type="range" min="1" max="40" :value="s.maxLength / 100" @input="s.maxLength = Number(($event.target as HTMLInputElement).value) * 100" class="slider" />
-            <span class="slider-max">长</span>
+          <div class="token-input-row">
+            <input type="number" v-model.number="s.maxLength" class="setting-input token-input" min="1" max="1000000" placeholder="4000" />
+            <span class="token-unit">tokens</span>
+          </div>
+          <div class="quick-tokens">
+            <button v-for="v in [500, 1000, 2000, 4000, 8000, 16000, 32000]" :key="v"
+              :class="['quick-token-btn', s.maxLength === v && 'active']"
+              @click="s.maxLength = v">{{ v >= 1000 ? (v/1000)+'K' : v }}</button>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="label-text">上下文消息条数</span>
+              <span class="label-desc">发送给 AI 的最近聊天记录条数（越多消耗越多 token）</span>
+            </div>
+          </div>
+          <div class="token-input-row">
+            <input type="number" v-model.number="s.contextSize" class="setting-input token-input" min="1" max="999" placeholder="20" />
+            <span class="token-unit">条</span>
+          </div>
+          <div class="quick-tokens">
+            <button v-for="v in [5, 10, 20, 50, 100, 200, 500]" :key="v"
+              :class="['quick-token-btn', s.contextSize === v && 'active']"
+              @click="s.contextSize = v">{{ v }}</button>
           </div>
 
           <div class="setting-item">
@@ -892,6 +912,60 @@ function resetToDefaults() {
   padding: 0 16px 8px;
   font-size: 12px;
   color: #ff3b30;
+}
+
+/* Token input */
+.token-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 4px;
+}
+
+.token-input {
+  width: 120px !important;
+  flex: none !important;
+  text-align: center;
+  font-weight: 600;
+  font-size: 16px !important;
+  -moz-appearance: textfield;
+}
+
+.token-input::-webkit-inner-spin-button,
+.token-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.token-unit {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.quick-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 16px 10px;
+}
+
+.quick-token-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--separator);
+  border-radius: 14px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quick-token-btn.active {
+  background: var(--brand-primary, #007aff);
+  color: #fff;
+  border-color: var(--brand-primary, #007aff);
 }
 
 /* Toggle */

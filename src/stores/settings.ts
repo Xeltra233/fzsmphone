@@ -15,6 +15,7 @@ export interface ChatSettings {
   // 对话参数
   temperature: number
   maxLength: number
+  contextSize: number       // 发送给 AI 的最大历史消息条数
   streamEnabled: boolean
   enableSplit: boolean
   timeout: number
@@ -50,7 +51,8 @@ const DEFAULT_SETTINGS: ChatSettings = {
   socialModel: '',
   enableYamlParsing: false,
   temperature: 0.9,
-  maxLength: 1000,
+  maxLength: 4000,
+  contextSize: 20,
   streamEnabled: true,
   enableSplit: true,
   timeout: 60,
