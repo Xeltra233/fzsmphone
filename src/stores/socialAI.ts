@@ -473,6 +473,17 @@ export const useSocialAIStore = defineStore('socialAI', () => {
       zhihu: zhihuQuestions.value,
       xiaohongshu: xhsNotes.value,
       douyin: douyinVideos.value,
+      music: musicTracks.value,
+      live: liveStreamers.value,
+      theater: theaterDramas.value,
+      takeaway: takeawayRestaurants.value,
+      shopping: shoppingProducts.value,
+      couple: [...coupleLetters.value, ...coupleWishes.value, ...coupleFootprints.value],
+      stock: stockItems.value,
+      email: emailItems.value,
+      browser: browserResults.value,
+      map: mapLocations.value,
+      calendar: calendarEvents.value,
     }
     const roots = dataMap[socialType]
     if (!roots) return null
@@ -977,6 +988,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     try {
       const raw = await callAI('music', action)
       const data = parseMusicContent(raw)
+      handleImagePromptsGenerically(raw, data, () => saveData('music'))
       if (data.tracks.length > 0) {
         musicTracks.value = data.tracks
         musicPlaylists.value = data.playlists
@@ -1001,6 +1013,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     try {
       const raw = await callAI('live', action)
       const data = parseLiveContent(raw)
+      handleImagePromptsGenerically(raw, data, () => saveData('live'))
       if (data.streamers.length > 0) {
         liveStreamers.value = data.streamers
         saveData('live')
@@ -1024,6 +1037,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     try {
       const raw = await callAI('theater', action)
       const data = parseTheaterContent(raw)
+      handleImagePromptsGenerically(raw, data, () => saveData('theater'))
       if (data.dramas.length > 0) {
         theaterDramas.value = data.dramas
         saveData('theater')
@@ -1047,6 +1061,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     try {
       const raw = await callAI('takeaway', action)
       const data = parseTakeawayContent(raw)
+      handleImagePromptsGenerically(raw, data, () => saveData('takeaway'))
       if (data.restaurants.length > 0) {
         takeawayRestaurants.value = data.restaurants
         saveData('takeaway')
@@ -1071,6 +1086,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     try {
       const raw = await callAI('shopping', action)
       const data = parseShoppingContent(raw)
+      handleImagePromptsGenerically(raw, data, () => saveData('shopping'))
       if (data.products.length > 0) {
         shoppingProducts.value = data.products
         saveData('shopping')
@@ -1095,6 +1111,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     try {
       const raw = await callAI('couple', action)
       const data = parseCoupleContent(raw)
+      handleImagePromptsGenerically(raw, data, () => saveData('couple'))
       let hasData = false
       if (data.letters.length > 0) {
         const existingIds = new Set(coupleLetters.value.map(l => l.id))
@@ -1143,6 +1160,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     try {
       const raw = await callAI('stock', action)
       const data = parseStockContent(raw)
+      handleImagePromptsGenerically(raw, data, () => saveData('stock'))
       if (data.stocks.length > 0) {
         stockIndices.value = data.indices
         stockItems.value = data.stocks
@@ -1168,6 +1186,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     try {
       const raw = await callAI('email', action)
       const data = parseEmailContent(raw)
+      handleImagePromptsGenerically(raw, data, () => saveData('email'))
       if (data.emails.length > 0) {
         emailItems.value = [...emailItems.value, ...data.emails]
         saveData('email')
@@ -1191,6 +1210,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     try {
       const raw = await callAI('browser', action)
       const data = parseBrowserContent(raw)
+      handleImagePromptsGenerically(raw, data, () => saveData('browser'))
       if (data.results.length > 0) {
         browserResults.value = data.results
         saveData('browser')
@@ -1214,6 +1234,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     try {
       const raw = await callAI('map', action)
       const data = parseMapContent(raw)
+      handleImagePromptsGenerically(raw, data, () => saveData('map'))
       if (data.locations.length > 0) {
         mapLocations.value = data.locations
         saveData('map')
@@ -1237,6 +1258,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     try {
       const raw = await callAI('calendar', action)
       const data = parseCalendarContent(raw)
+      handleImagePromptsGenerically(raw, data, () => saveData('calendar'))
       if (data.events.length > 0) {
         calendarEvents.value = data.events
         saveData('calendar')

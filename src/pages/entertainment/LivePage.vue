@@ -46,7 +46,18 @@
           @click="enterRoom(s)"
         >
           <div class="streamer-preview" :style="{ background: s.bgGradient }">
-            <div class="streamer-avatar-big">{{ s.avatar }}</div>
+            <template v-if="getStreamerImages(s).length">
+              <div class="img-wrapper">
+                <img :src="getStreamerImages(s)[0]" class="streamer-gen-image" alt="" />
+                <button v-if="getStoreStreamer(s)?.imagePrompt" class="regen-btn" :disabled="store.regeneratingImages.has(`${getStoreStreamer(s)?.id}-0`)" @click.stop="store.regenerateImage('live', getStoreStreamer(s)!.id, 0)">
+                  <span v-if="store.regeneratingImages.has(`${getStoreStreamer(s)?.id}-0`)" class="regen-spin"></span>
+                  <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
+                </button>
+              </div>
+            </template>
+            <template v-else>
+              <div class="streamer-avatar-big">{{ s.avatar }}</div>
+            </template>
             <div class="viewer-count">◉ {{ formatNumber(s.viewers) }}</div>
             <div v-if="s.isLive" class="live-dot"></div>
           </div>
@@ -387,6 +398,15 @@ async function handleGenerate() {
   }
 }
 
+function getStreamerImages(s: Streamer): string[] {
+  const storeItem = store.liveStreamers.find(ls => ls.name === s.name) as any
+  return Array.isArray(storeItem?.images) ? storeItem.images.filter((x: string) => !!x) : []
+}
+
+function getStoreStreamer(s: Streamer): any {
+  return store.liveStreamers.find(ls => ls.name === s.name) || null
+}
+
 onMounted(() => {
   store.loadData('live')
   if (store.liveStreamers.length > 0) {
@@ -516,6 +536,13 @@ onUnmounted(() => {
 }
 
 .streamer-avatar-big { font-size: 40px; }
+.streamer-gen-image { width: 100%; height: 100%; object-fit: cover; display: block; }
+.streamer-preview .img-wrapper { position: relative; width: 100%; height: 100%; }
+.regen-btn { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.5); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; z-index: 2; }
+.img-wrapper:hover .regen-btn { opacity: 1; }
+.regen-btn:disabled { cursor: wait; opacity: 1 !important; }
+.regen-spin { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .viewer-count {
   position: absolute;

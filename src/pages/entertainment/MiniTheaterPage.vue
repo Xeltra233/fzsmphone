@@ -124,7 +124,18 @@
             @click="openDrama(d)"
           >
             <div class="hot-cover" :style="{ background: d.bgGradient }">
-              <div class="hot-emoji">{{ d.emoji }}</div>
+              <template v-if="getDramaImages(d).length">
+                <div class="img-wrapper">
+                  <img :src="getDramaImages(d)[0]" class="cover-gen-image" alt="" />
+                  <button v-if="getStoreDrama(d)?.imagePrompt" class="regen-btn" :disabled="aiStore.regeneratingImages.has(`${getStoreDrama(d)?.id}-0`)" @click.stop="aiStore.regenerateImage('theater', getStoreDrama(d)!.id, 0)">
+                    <span v-if="aiStore.regeneratingImages.has(`${getStoreDrama(d)?.id}-0`)" class="regen-spin"></span>
+                    <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
+                  </button>
+                </div>
+              </template>
+              <template v-else>
+                <div class="hot-emoji">{{ d.emoji }}</div>
+              </template>
               <div class="hot-badge">{{ d.category }}</div>
             </div>
             <div class="hot-title">{{ d.title }}</div>
@@ -143,7 +154,18 @@
           @click="openDrama(d)"
         >
           <div class="drama-cover" :style="{ background: d.bgGradient }">
-            <div class="cover-emoji">{{ d.emoji }}</div>
+            <template v-if="getDramaImages(d).length">
+              <div class="img-wrapper">
+                <img :src="getDramaImages(d)[0]" class="cover-gen-image" alt="" />
+                <button v-if="getStoreDrama(d)?.imagePrompt" class="regen-btn" :disabled="aiStore.regeneratingImages.has(`${getStoreDrama(d)?.id}-0`)" @click.stop="aiStore.regenerateImage('theater', getStoreDrama(d)!.id, 0)">
+                  <span v-if="aiStore.regeneratingImages.has(`${getStoreDrama(d)?.id}-0`)" class="regen-spin"></span>
+                  <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
+                </button>
+              </div>
+            </template>
+            <template v-else>
+              <div class="cover-emoji">{{ d.emoji }}</div>
+            </template>
           </div>
           <div class="drama-detail">
             <div class="drama-title">{{ d.title }}</div>
@@ -344,6 +366,15 @@ async function handleGenerate() {
   }
 }
 
+function getDramaImages(d: Drama): string[] {
+  const storeItem = aiStore.theaterDramas.find(td => td.title === d.title) as any
+  return Array.isArray(storeItem?.images) ? storeItem.images.filter((x: string) => !!x) : []
+}
+
+function getStoreDrama(d: Drama): any {
+  return aiStore.theaterDramas.find(td => td.title === d.title) || null
+}
+
 onMounted(() => {
   aiStore.loadData('theater')
   if (aiStore.theaterDramas.length > 0) {
@@ -490,6 +521,13 @@ onUnmounted(() => {
 }
 
 .cover-emoji { font-size: 36px; }
+.cover-gen-image { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
+.hot-cover .img-wrapper, .drama-cover .img-wrapper { position: relative; width: 100%; height: 100%; }
+.regen-btn { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.5); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; z-index: 2; }
+.img-wrapper:hover .regen-btn { opacity: 1; }
+.regen-btn:disabled { cursor: wait; opacity: 1 !important; }
+.regen-spin { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: rspin 0.8s linear infinite; }
+@keyframes rspin { to { transform: rotate(360deg); } }
 
 .drama-detail {
   flex: 1;

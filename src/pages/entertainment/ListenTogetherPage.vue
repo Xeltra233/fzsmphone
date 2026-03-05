@@ -21,10 +21,21 @@
 
     <!-- 当前播放 -->
     <div class="now-playing" v-if="currentTrack">
-      <div class="album-art" :class="{ spinning: isPlaying }">
-        <div class="album-disc">
-          <div class="disc-center"></div>
-        </div>
+      <div class="album-art" :class="{ spinning: isPlaying && !getTrackImages(currentTrack).length }">
+        <template v-if="getTrackImages(currentTrack).length">
+          <div class="img-wrapper">
+            <img :src="getTrackImages(currentTrack)[0]" class="album-gen-image" alt="" />
+            <button v-if="getStoreTrack(currentTrack)?.imagePrompt" class="regen-btn" :disabled="store.regeneratingImages.has(`${getStoreTrack(currentTrack)?.id}-0`)" @click.stop="store.regenerateImage('music', getStoreTrack(currentTrack)!.id, 0)">
+              <span v-if="store.regeneratingImages.has(`${getStoreTrack(currentTrack)?.id}-0`)" class="regen-spin"></span>
+              <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <div class="album-disc">
+            <div class="disc-center"></div>
+          </div>
+        </template>
       </div>
       <div class="track-info">
         <h2 class="track-name">{{ currentTrack.name }}</h2>
@@ -279,6 +290,17 @@ async function handleGenerate() {
   }
 }
 
+function getTrackImages(t: Track | null): string[] {
+  if (!t) return []
+  const storeItem = store.musicTracks.find(mt => mt.name === t.name) as any
+  return Array.isArray(storeItem?.images) ? storeItem.images.filter((x: string) => !!x) : []
+}
+
+function getStoreTrack(t: Track | null): any {
+  if (!t) return null
+  return store.musicTracks.find(mt => mt.name === t.name) || null
+}
+
 onMounted(() => {
   store.loadData('music')
   if (store.musicTracks.length > 0) {
@@ -384,6 +406,13 @@ onUnmounted(() => {
   border-radius: 50%;
   background: linear-gradient(135deg, #5B6EF5, #8B5CF6);
 }
+.album-gen-image { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; display: block; }
+.album-art .img-wrapper { position: relative; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; }
+.regen-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.5); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; z-index: 2; }
+.img-wrapper:hover .regen-btn { opacity: 1; }
+.regen-btn:disabled { cursor: wait; opacity: 1 !important; }
+.regen-spin { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: rspin 0.8s linear infinite; }
+@keyframes rspin { to { transform: rotate(360deg); } }
 
 .track-info {
   text-align: center;

@@ -32,6 +32,15 @@
         <div class="result-title">{{ r.title }}</div>
         <div class="result-url">{{ r.url }}</div>
         <div class="result-summary">{{ r.summary }}</div>
+        <div v-if="getResultImages(r).length" class="result-images">
+          <div v-for="(img, idx) in getResultImages(r)" :key="idx" class="result-img-wrapper">
+            <img :src="img" class="result-gen-image" alt="" />
+            <button v-if="(r as any).imagePrompt" class="regen-btn" :disabled="store.regeneratingImages.has(`${r.id}-${idx}`)" @click.stop="store.regenerateImage('browser', r.id, idx)">
+              <span v-if="store.regeneratingImages.has(`${r.id}-${idx}`)" class="regen-spin"></span>
+              <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -61,6 +70,10 @@ function doSearch() {
   if (!searchQuery.value.trim()) return
   store.generateBrowserContent(`用户搜索了：${searchQuery.value}`)
 }
+
+function getResultImages(r: any): string[] {
+  return Array.isArray(r?.images) ? r.images.filter((x: string) => !!x) : []
+}
 </script>
 
 <style scoped>
@@ -86,6 +99,13 @@ function doSearch() {
 .result-title { font-size: 16px; font-weight: 600; color: var(--brand-primary); }
 .result-url { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
 .result-summary { font-size: 14px; color: var(--text-secondary); margin-top: 6px; line-height: 1.5; }
+.result-images { display: flex; gap: 8px; margin-top: 8px; overflow-x: auto; }
+.result-img-wrapper { position: relative; flex-shrink: 0; }
+.result-gen-image { width: 120px; height: 80px; object-fit: cover; border-radius: 8px; display: block; }
+.regen-btn { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,0.5); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; z-index: 2; }
+.result-img-wrapper:hover .regen-btn { opacity: 1; }
+.regen-btn:disabled { cursor: wait; opacity: 1 !important; }
+.regen-spin { width: 10px; height: 10px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
 
 .article-view { flex: 1; overflow-y: auto; padding: 0 16px 80px; }
 .back-link { background: none; border: none; color: var(--brand-primary); font-size: 14px; padding: 12px 0; cursor: pointer; }

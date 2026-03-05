@@ -60,7 +60,20 @@
         class="product-card"
         @click="selectProduct(product)"
       >
-        <div class="product-image"><GradientIcon :name="product.iconKey" :size="48" shape="square" /></div>
+        <div class="product-image">
+          <template v-if="getProductImages(product).length">
+            <div class="img-wrapper">
+              <img :src="getProductImages(product)[0]" class="product-gen-image" alt="" />
+              <button v-if="getStoreProduct(product)?.imagePrompt" class="regen-btn" :disabled="aiStore.regeneratingImages.has(`${getStoreProduct(product)?.id}-0`)" @click.stop="aiStore.regenerateImage('shopping', getStoreProduct(product)!.id, 0)">
+                <span v-if="aiStore.regeneratingImages.has(`${getStoreProduct(product)?.id}-0`)" class="regen-spin"></span>
+                <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
+              </button>
+            </div>
+          </template>
+          <template v-else>
+            <GradientIcon :name="product.iconKey" :size="48" shape="square" />
+          </template>
+        </div>
         <div class="product-info">
           <div class="product-name">{{ product.name }}</div>
           <div class="product-desc">{{ product.description || product.desc }}</div>
@@ -413,6 +426,15 @@ function loadData() {
   }
 }
 
+function getProductImages(p: Product): string[] {
+  const storeItem = aiStore.shoppingProducts.find(sp => sp.name === p.name) as any
+  return Array.isArray(storeItem?.images) ? storeItem.images.filter((x: string) => !!x) : []
+}
+
+function getStoreProduct(p: Product): any {
+  return aiStore.shoppingProducts.find(sp => sp.name === p.name) || null
+}
+
 onMounted(() => {
   loadData()
   bannerTimer = setInterval(() => {
@@ -577,7 +599,15 @@ onUnmounted(() => {
   justify-content: center;
   font-size: 50px;
   background: var(--bg-tertiary);
+  overflow: hidden;
 }
+.product-gen-image { width: 100%; height: 100%; object-fit: cover; display: block; }
+.product-image .img-wrapper { position: relative; width: 100%; height: 100%; }
+.regen-btn { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.5); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; z-index: 2; }
+.img-wrapper:hover .regen-btn { opacity: 1; }
+.regen-btn:disabled { cursor: wait; opacity: 1 !important; }
+.regen-spin { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: rspin 0.8s linear infinite; }
+@keyframes rspin { to { transform: rotate(360deg); } }
 
 .product-info {
   padding: 10px;

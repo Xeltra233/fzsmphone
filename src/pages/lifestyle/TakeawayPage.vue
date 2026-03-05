@@ -65,9 +65,20 @@
         class="restaurant-card"
       >
         <div class="rest-img">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 8h1a4 4 0 0 1 0 8h-1" /><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" /><line x1="6" y1="1" x2="6" y2="4" /><line x1="10" y1="1" x2="10" y2="4" /><line x1="14" y1="1" x2="14" y2="4" />
-          </svg>
+          <template v-if="getRestImages(r).length">
+            <div class="img-wrapper">
+              <img :src="getRestImages(r)[0]" class="rest-gen-image" alt="" />
+              <button v-if="getStoreRest(r)?.imagePrompt" class="regen-btn" :disabled="aiStore.regeneratingImages.has(`${getStoreRest(r)?.id}-0`)" @click.stop="aiStore.regenerateImage('takeaway', getStoreRest(r)!.id, 0)">
+                <span v-if="aiStore.regeneratingImages.has(`${getStoreRest(r)?.id}-0`)" class="regen-spin"></span>
+                <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
+              </button>
+            </div>
+          </template>
+          <template v-else>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8h1a4 4 0 0 1 0 8h-1" /><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" /><line x1="6" y1="1" x2="6" y2="4" /><line x1="10" y1="1" x2="10" y2="4" /><line x1="14" y1="1" x2="14" y2="4" />
+            </svg>
+          </template>
         </div>
         <div class="rest-info">
           <div class="rest-name">{{ r.name }}</div>
@@ -128,6 +139,15 @@ onMounted(() => {
     aiStore.generateTakeawayContent()
   }
 })
+
+function getRestImages(r: any): string[] {
+  const storeItem = aiStore.takeawayRestaurants.find(tr => tr.name === r.name) as any
+  return Array.isArray(storeItem?.images) ? storeItem.images.filter((x: string) => !!x) : []
+}
+
+function getStoreRest(r: any): any {
+  return aiStore.takeawayRestaurants.find(tr => tr.name === r.name) || null
+}
 </script>
 
 <style scoped>
@@ -285,6 +305,12 @@ onMounted(() => {
 }
 
 .rest-img svg { width: 36px; height: 36px; color: var(--text-tertiary); }
+.rest-gen-image { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rest-img .img-wrapper { position: relative; width: 100%; height: 100%; }
+.regen-btn { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,0.5); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; z-index: 2; }
+.img-wrapper:hover .regen-btn { opacity: 1; }
+.regen-btn:disabled { cursor: wait; opacity: 1 !important; }
+.regen-spin { width: 10px; height: 10px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; }
 
 .rest-info {
   flex: 1;
