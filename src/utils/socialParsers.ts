@@ -14,6 +14,8 @@ export interface ForumThread {
   timestamp: string
   likes: number
   isLiked: boolean
+  imagePrompt?: string
+  images?: string[]
 }
 
 export interface ForumReply {
@@ -58,6 +60,8 @@ export interface WeiboItem {
   reposts: number
   comments: WeiboComment[]
   showComments: boolean
+  imagePrompt?: string
+  images?: string[]
 }
 
 export interface WeiboComment {
@@ -101,6 +105,8 @@ export interface MomentItem {
   comments: MomentComment[]
   showInteraction: boolean
   commentDraft: string
+  imagePrompt?: string
+  images?: string[]
 }
 
 export interface MomentComment {
@@ -608,6 +614,8 @@ export interface ZhihuAnswer {
   isUpvoted: boolean
   isDownvoted: boolean
   comments: ZhihuComment[]
+  imagePrompt?: string
+  images?: string[]
 }
 
 export interface ZhihuComment {
@@ -640,6 +648,8 @@ export interface XhsNote {
   isCollected: boolean
   comments: XhsComment[]
   showComments: boolean
+  imagePrompt?: string
+  images?: string[]
 }
 
 export interface XhsComment {
@@ -671,6 +681,8 @@ export interface DouyinVideo {
   shares: number
   comments: DouyinComment[]
   showComments: boolean
+  imagePrompt?: string
+  images?: string[]
 }
 
 export interface DouyinComment {

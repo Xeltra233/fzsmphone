@@ -3,7 +3,7 @@
  * 管理论坛、微博、朋友圈的AI生成数据
  */
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { sendAIRequest } from '@/utils/aiService'
 import { generateImageFromPrompt, isSocialAutoImageGenEnabled } from '@/utils/imageGenService'
 import type { AIMessage } from '@/utils/aiService'
@@ -381,6 +381,8 @@ export const useSocialAIStore = defineStore('socialAI', () => {
 
 
   // ==================== 通用图片生成处理 ====================
+  const regeneratingImages = reactive<Set<string>>(new Set())
+
   function handleImagePromptsGenerically(content: string, parsedData: any, saveCallback: () => void) {
     const prompts = parseImagePrompts(content)
     if (Object.keys(prompts).length === 0) {
@@ -460,6 +462,61 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     lastRawResponse.value = response.content
 
     return response.content
+  }
+
+  // ==================== 图片重新生成 ====================
+  function findItemById(socialType: string, itemId: string): any {
+    const dataMap: Record<string, any[]> = {
+      forum: forumThreads.value,
+      weibo: weiboPosts.value,
+      moments: moments.value,
+      zhihu: zhihuQuestions.value,
+      xiaohongshu: xhsNotes.value,
+      douyin: douyinVideos.value,
+    }
+    const roots = dataMap[socialType]
+    if (!roots) return null
+    // Deep search through all nested objects
+    const stack = [...roots]
+    const seen = new Set()
+    while (stack.length > 0) {
+      const curr = stack.pop()
+      if (!curr || typeof curr !== 'object' || seen.has(curr)) continue
+      seen.add(curr)
+      if (curr.id === itemId) return curr
+      for (const key of Object.keys(curr)) {
+        if (typeof curr[key] === 'object') stack.push(curr[key])
+      }
+    }
+    return null
+  }
+
+  async function regenerateImage(socialType: string, itemId: string, imageIndex: number) {
+    const item = findItemById(socialType, itemId)
+    if (!item?.imagePrompt) {
+      console.warn(`[Regen] No imagePrompt found for ${socialType}/${itemId}`)
+      return
+    }
+    const key = `${itemId}-${imageIndex}`
+    regeneratingImages.add(key)
+    try {
+      console.log(`[Regen] 重生成 ${key}: ${item.imagePrompt.slice(0, 80)}...`)
+      const url = await generateImageFromPrompt(item.imagePrompt)
+      if (url) {
+        if (!item.images) item.images = []
+        if (imageIndex < item.images.length) {
+          item.images[imageIndex] = url
+        } else {
+          item.images.push(url)
+        }
+        saveData(socialType as any)
+        console.log(`[Regen] ✅ ${key} 重生成成功`)
+      }
+    } catch (err: any) {
+      console.error(`[Regen] ❌ ${key} 重生成失败: ${err.message}`)
+    } finally {
+      regeneratingImages.delete(key)
+    }
   }
 
   // ==================== 论坛操作 ====================
@@ -1396,5 +1453,9 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     loadData,
     saveData,
     clearData,
+
+    // 图片重生成
+    regeneratingImages,
+    regenerateImage,
   }
 })

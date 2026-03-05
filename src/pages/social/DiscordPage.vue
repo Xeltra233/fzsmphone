@@ -77,7 +77,13 @@
                 <div class="msg-title">{{ thread.title }}</div>
                 <div class="msg-content">{{ thread.content }}</div>
                 <div v-if="getItemImages(thread).length" class="msg-images">
-                  <img v-for="(img, idx) in getItemImages(thread)" :key="idx" :src="img" class="msg-gen-img" alt="" />
+                  <div v-for="(img, idx) in getItemImages(thread)" :key="idx" class="img-wrapper">
+                    <img :src="img" class="msg-gen-img" alt="" />
+                    <button v-if="(thread as any).imagePrompt" class="regen-btn" :disabled="store.regeneratingImages.has(`${thread.id}-${idx}`)" @click="store.regenerateImage('forum', thread.id, idx)">
+                      <span v-if="store.regeneratingImages.has(`${thread.id}-${idx}`)" class="regen-spin"></span>
+                      <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
+                    </button>
+                  </div>
                 </div>
                 <div class="msg-actions">
                   <button class="react-btn" :class="{ active: thread.isLiked }" @click="store.toggleForumLike(thread.id)">
@@ -110,7 +116,13 @@
                   </div>
                   <div class="msg-content">{{ reply.content }}</div>
                   <div v-if="getItemImages(reply).length" class="msg-images">
-                    <img v-for="(img, idx) in getItemImages(reply)" :key="idx" :src="img" class="msg-gen-img" alt="" />
+                    <div v-for="(img, idx) in getItemImages(reply)" :key="idx" class="img-wrapper">
+                      <img :src="img" class="msg-gen-img" alt="" />
+                      <button v-if="(reply as any).imagePrompt" class="regen-btn" :disabled="store.regeneratingImages.has(`${reply.id}-${idx}`)" @click="store.regenerateImage('forum', reply.id, idx)">
+                        <span v-if="store.regeneratingImages.has(`${reply.id}-${idx}`)" class="regen-spin"></span>
+                        <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -519,4 +531,9 @@ function clearAllData() {
 .slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s ease; }
 .slide-up-enter-from, .slide-up-leave-to { opacity: 0; }
 .slide-up-enter-from .prompt-sheet, .slide-up-leave-to .prompt-sheet { transform: translateY(100%); }
+.img-wrapper { position: relative; display: inline-block; width: 100%; }
+.regen-btn { position: absolute; top: 6px; right: 6px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.5); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; z-index: 2; }
+.img-wrapper:hover .regen-btn { opacity: 1; }
+.regen-btn:disabled { cursor: wait; opacity: 1 !important; }
+.regen-spin { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; display: block; }
 </style>
