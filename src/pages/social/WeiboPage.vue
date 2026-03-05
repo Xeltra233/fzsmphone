@@ -87,6 +87,9 @@
 
             <!-- 内容 -->
             <div class="wb-text" v-html="formatContent(post.content)"></div>
+            <div v-if="getItemImages(post).length" class="wb-images">
+              <img v-for="(img, idx) in getItemImages(post)" :key="idx" :src="img" class="wb-gen-image" alt="" />
+            </div>
 
             <!-- 操作栏 -->
             <div class="wb-action-bar">
@@ -376,6 +379,9 @@ function clearAllData() {
     showPromptEditor.value = false
   }
 }
+function getItemImages(item: any): string[] {
+  return Array.isArray(item?.images) ? item.images.filter((s: string) => !!s) : []
+}
 </script>
 
 <style scoped>
@@ -631,6 +637,9 @@ function clearAllData() {
   background: #f5f5f5;
   color: #999;
 }
+
+.wb-images { margin-bottom: 10px; }
+.wb-gen-image { width: 100%; border-radius: 8px; margin-bottom: 4px; }
 
 .wb-text {
   font-size: 15px;

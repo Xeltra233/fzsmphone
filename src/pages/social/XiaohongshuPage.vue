@@ -50,7 +50,8 @@
         <div v-else class="waterfall">
           <div class="waterfall-col">
             <div v-for="note in leftCol" :key="note.id" class="note-card" @click="openNote(note)">
-              <div class="note-cover" :style="{ background: getNoteBg(note) }">
+              <div class="note-cover" :style="{ background: getNoteImages(note).length ? 'none' : getNoteBg(note) }">
+                <img v-if="getNoteImages(note).length" :src="getNoteImages(note)[0]" class="cover-img" alt="" />
                 <div class="cover-text">{{ note.title || note.content.slice(0, 20) }}</div>
               </div>
               <div class="note-body">
@@ -70,7 +71,8 @@
           </div>
           <div class="waterfall-col">
             <div v-for="note in rightCol" :key="note.id" class="note-card" @click="openNote(note)">
-              <div class="note-cover" :style="{ background: getNoteBg(note) }">
+              <div class="note-cover" :style="{ background: getNoteImages(note).length ? 'none' : getNoteBg(note) }">
+                <img v-if="getNoteImages(note).length" :src="getNoteImages(note)[0]" class="cover-img" alt="" />
                 <div class="cover-text">{{ note.title || note.content.slice(0, 20) }}</div>
               </div>
               <div class="note-body">
@@ -120,6 +122,9 @@
                 <div class="detail-avatar" :style="{ background: getAvatarColor(selectedNote.author) }">{{ selectedNote.author.charAt(0) }}</div>
                 <span class="detail-author-name">{{ selectedNote.author }}</span>
                 <span class="detail-time">{{ formatRelativeTime(selectedNote.timestamp) }}</span>
+              </div>
+              <div v-if="getNoteImages(selectedNote).length" class="detail-images">
+                <img v-for="(img, idx) in getNoteImages(selectedNote)" :key="idx" :src="img" class="detail-img" alt="" />
               </div>
               <div class="detail-title">{{ selectedNote.title }}</div>
               <div class="detail-content">{{ selectedNote.content }}</div>
@@ -205,6 +210,10 @@ function getNoteBg(note: XhsNote): string {
   let hash = 0
   for (let i = 0; i < note.id.length; i++) hash = hash * 31 + note.id.charCodeAt(i)
   return NOTE_COLORS[Math.abs(hash) % NOTE_COLORS.length]
+}
+
+function getNoteImages(note: any): string[] {
+  return Array.isArray(note?.images) ? note.images.filter((s: string) => !!s) : []
 }
 
 const leftCol = computed(() => store.xhsNotes.filter((_, i) => i % 2 === 0))
@@ -302,8 +311,11 @@ function clearAllData() {
 .waterfall-col { flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .note-card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); position: relative; cursor: pointer; transition: transform 0.15s; }
 .note-card:active { transform: scale(0.98); }
-.note-cover { height: 120px; display: flex; align-items: flex-end; padding: 10px; position: relative; }
-.cover-text { color: #fff; font-size: 13px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.3); line-height: 1.4; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.note-cover { height: 160px; display: flex; align-items: flex-end; padding: 10px; position: relative; overflow: hidden; }
+.cover-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+.cover-text { position: relative; z-index: 1; color: #fff; font-size: 13px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.3); line-height: 1.4; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.detail-images { margin-bottom: 12px; }
+.detail-img { width: 100%; border-radius: 8px; margin-bottom: 8px; }
 .note-body { padding: 8px 10px 10px; }
 .note-title { font-size: 13px; font-weight: 600; color: #333; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 6px; }
 .note-footer { display: flex; justify-content: space-between; align-items: center; }

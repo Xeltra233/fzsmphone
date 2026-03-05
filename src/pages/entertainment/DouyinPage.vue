@@ -47,7 +47,8 @@
       <div v-else class="video-container" :style="{ transform: `translateY(-${currentIndex * 100}%)` }">
         <div v-for="(video, idx) in store.douyinVideos" :key="video.id" class="video-card">
           <!-- 模拟视频背景 -->
-          <div class="video-bg" :style="{ background: getVideoBg(idx) }">
+          <div class="video-bg" :style="{ background: getVideoImages(video).length ? '#000' : getVideoBg(idx) }">
+            <img v-if="getVideoImages(video).length" :src="getVideoImages(video)[0]" class="video-bg-img" alt="" />
             <div class="video-text-overlay">
               <div class="video-desc-main">{{ video.description }}</div>
             </div>
@@ -244,6 +245,10 @@ function clearAllData() {
     showPromptEditor.value = false
   }
 }
+
+function getVideoImages(video: any): string[] {
+  return Array.isArray(video?.images) ? video.images.filter((s: string) => !!s) : []
+}
 </script>
 
 <style scoped>
@@ -285,7 +290,8 @@ function clearAllData() {
 .video-container { width: 100%; height: 100%; transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
 .video-card { width: 100%; height: 100%; position: relative; overflow: hidden; }
 .video-bg { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; }
-.video-text-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 70%; }
+.video-bg-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+.video-text-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 70%; z-index: 1; }
 .video-desc-main { color: rgba(255,255,255,0.15); font-size: 28px; font-weight: 900; line-height: 1.3; word-break: break-word; }
 
 /* 右侧操作栏 */

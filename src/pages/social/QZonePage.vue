@@ -73,6 +73,9 @@
           <div class="moment-body">
             <div class="moment-author">{{ moment.author }}</div>
             <div class="moment-text" v-html="formatContent(moment.content)"></div>
+            <div v-if="getItemImages(moment).length" class="moment-images">
+              <img v-for="(img, idx) in getItemImages(moment)" :key="idx" :src="img" class="moment-gen-img" alt="" />
+            </div>
 
             <!-- 时间和操作 -->
             <div class="moment-meta">
@@ -355,6 +358,10 @@ function clearAllData() {
     showPromptEditor.value = false
   }
 }
+
+function getItemImages(item: any): string[] {
+  return Array.isArray(item?.images) ? item.images.filter((s: string) => !!s) : []
+}
 </script>
 
 <style scoped>
@@ -571,6 +578,9 @@ function clearAllData() {
   word-break: break-word;
   margin-bottom: 8px;
 }
+
+.moment-images { margin-bottom: 8px; }
+.moment-gen-img { width: 100%; border-radius: 8px; margin-bottom: 4px; }
 
 .moment-text :deep(.mention) {
   color: #576b95;

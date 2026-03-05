@@ -72,6 +72,9 @@
                 <span class="preview-name">{{ q.answers[0].author }}</span>
               </div>
               <div class="preview-text">{{ truncateText(q.answers[0].content, 100) }}</div>
+              <div v-if="getItemImages(q.answers[0]).length" class="preview-images">
+                <img v-for="(img, idx) in getItemImages(q.answers[0])" :key="idx" :src="img" class="preview-gen-img" alt="" />
+              </div>
               <div class="preview-stats">
                 <span>▲ {{ q.answers[0].upvotes }}</span>
               </div>
@@ -104,6 +107,9 @@
               </div>
             </div>
             <div class="ans-content">{{ a.content }}</div>
+            <div v-if="getItemImages(a).length" class="ans-images">
+              <img v-for="(img, idx) in getItemImages(a)" :key="idx" :src="img" class="ans-gen-img" alt="" />
+            </div>
             <div class="ans-actions">
               <button class="vote-btn" :class="{ voted: a.isUpvoted }" @click="store.toggleZhihuVote(selectedQuestion!.id, a.id, 'up')">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" :stroke="a.isUpvoted ? '#0066ff' : 'currentColor'" stroke-width="2">
@@ -242,6 +248,10 @@ function clearAllData() {
     showPromptEditor.value = false
   }
 }
+
+function getItemImages(item: any): string[] {
+  return Array.isArray(item?.images) ? item.images.filter((s: string) => !!s) : []
+}
 </script>
 
 <style scoped>
@@ -330,6 +340,10 @@ function clearAllData() {
 .ans-name { font-size: 15px; font-weight: 600; color: #333; }
 .ans-time { font-size: 12px; color: #bbb; }
 .ans-content { font-size: 15px; color: #333; line-height: 1.8; word-break: break-word; margin-bottom: 12px; white-space: pre-wrap; }
+.ans-images { margin-bottom: 12px; }
+.ans-gen-img { width: 100%; border-radius: 8px; margin-bottom: 4px; }
+.preview-images { margin-top: 6px; }
+.preview-gen-img { width: 100%; border-radius: 6px; margin-bottom: 4px; }
 
 .ans-actions { display: flex; align-items: center; gap: 16px; padding-top: 8px; border-top: 1px solid #f5f5f5; }
 .vote-btn { display: flex; align-items: center; gap: 4px; border: 1px solid #e8e8e8; background: #f7f8fa; color: #8590a6; font-size: 13px; cursor: pointer; padding: 6px 14px; border-radius: 16px; transition: all 0.15s; }
