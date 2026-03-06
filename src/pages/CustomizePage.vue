@@ -494,6 +494,44 @@
               <span v-if="s.wallpaper === wp.id" class="wp-check">✓</span>
             </div>
           </div>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="label-text">自定义壁纸图片</span>
+              <span class="label-desc">上传图片覆盖渐变壁纸</span>
+            </div>
+          </div>
+          <div class="wallpaper-image-picker">
+            <div class="wip-presets">
+              <div
+                class="wip-thumb"
+                :class="{ active: !s.wallpaperImage }"
+                @click="s.wallpaperImage = ''"
+              >
+                <div class="wip-thumb-inner" style="background: linear-gradient(160deg, #0f0c29, #302b63)"></div>
+                <span>无</span>
+              </div>
+              <div
+                class="wip-thumb"
+                :class="{ active: s.wallpaperImage === '/wallpapers/aurora.png' }"
+                @click="s.wallpaperImage = '/wallpapers/aurora.png'"
+              >
+                <div class="wip-thumb-inner" style="background: url('/wallpapers/aurora.png') center/cover"></div>
+                <span>极光</span>
+              </div>
+            </div>
+            <div class="wip-upload-row">
+              <input
+                type="file"
+                accept="image/*"
+                class="wip-file-input"
+                ref="wpFileInput"
+                @change="handleWallpaperUpload"
+              />
+              <button class="wip-upload-btn" @click="triggerWpUpload">📷 上传壁纸</button>
+              <button v-if="s.wallpaperImage && !s.wallpaperImage.startsWith('/')" class="wip-clear-btn" @click="s.wallpaperImage = ''">清除</button>
+            </div>
+          </div>
         </div>
 
         <div class="section">
@@ -756,6 +794,29 @@ function resetToDefaults() {
   if (confirm('确定要恢复默认设置吗？')) {
     settingsStore.resetSettings()
   }
+}
+
+const wpFileInput = ref<HTMLInputElement | null>(null)
+
+function triggerWpUpload() {
+  wpFileInput.value?.click()
+}
+
+function handleWallpaperUpload(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (!input.files?.[0]) return
+  const file = input.files[0]
+  if (file.size > 5 * 1024 * 1024) {
+    alert('图片不能超过 5MB')
+    input.value = ''
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = () => {
+    settingsStore.settings.wallpaperImage = reader.result as string
+  }
+  reader.readAsDataURL(file)
+  input.value = ''
 }
 </script>
 
@@ -1202,4 +1263,84 @@ function resetToDefaults() {
 
 .btn-cancel { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn-danger { background: #ff3b30; color: #fff; }
+
+/* 壁纸图片选择器 */
+.wallpaper-image-picker {
+  padding: 0 16px 12px;
+}
+
+.wip-presets {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  padding: 4px 0;
+}
+
+.wip-thumb {
+  flex-shrink: 0;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.wip-thumb.active {
+  opacity: 1;
+}
+
+.wip-thumb-inner {
+  width: 56px;
+  height: 96px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  overflow: hidden;
+}
+
+.wip-thumb.active .wip-thumb-inner {
+  border-color: var(--brand-primary, #007aff);
+}
+
+.wip-thumb span {
+  display: block;
+  font-size: 10px;
+  color: var(--text-secondary, #999);
+  margin-top: 4px;
+}
+
+.wip-upload-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wip-file-input {
+  display: none;
+}
+
+.wip-upload-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px dashed var(--border-color, #444);
+  background: transparent;
+  color: var(--text-primary, #fff);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.wip-upload-btn:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.wip-clear-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #ff3b30;
+  background: transparent;
+  color: #ff3b30;
+  font-size: 13px;
+  cursor: pointer;
+}
 </style>
