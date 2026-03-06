@@ -380,6 +380,17 @@ onUnmounted(() => {
   z-index: 0;
 }
 
+.wallpaper::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: var(--wallpaper-image, none);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 1;
+}
+
 .wallpaper::after {
   content: '';
   position: absolute;
