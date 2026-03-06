@@ -54,6 +54,13 @@ watchEffect(() => {
   const gradient = wallpaperGradients[s.wallpaper] || wallpaperGradients.default
   root.style.setProperty('--wallpaper-gradient', gradient)
 
+  // 自定义壁纸图片
+  if (s.wallpaperImage) {
+    root.style.setProperty('--wallpaper-image', `url(${s.wallpaperImage})`)
+  } else {
+    root.style.setProperty('--wallpaper-image', 'none')
+  }
+
   // 字号
   const baseFontSize = fontSizeMap[s.fontSize] ?? 14
   root.style.setProperty('--font-size-base', `${baseFontSize}px`)
