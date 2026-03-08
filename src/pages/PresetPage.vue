@@ -104,6 +104,23 @@
             <div class="expand-label">预填充 (prefill)</div>
             <div class="expand-value code">{{ truncate(preset.prefill, 100) }}</div>
           </div>
+          <!-- ST promptItems 逐项展示 -->
+          <div v-if="preset.promptItems && preset.promptItems.length > 0" class="expand-section">
+            <div class="expand-label">Prompt 条目 ({{ preset.promptItems.length }} 项)</div>
+            <div class="prompt-items-list">
+              <div
+                v-for="(pi, idx) in preset.promptItems"
+                :key="idx"
+                class="prompt-item-row"
+                :class="{ disabled: !pi.enabled }"
+              >
+                <span class="pi-status" :class="pi.enabled ? 'on' : 'off'">{{ pi.enabled ? '●' : '○' }}</span>
+                <span class="pi-role">{{ pi.role }}</span>
+                <span class="pi-name">{{ pi.name || pi.identifier }}</span>
+                <span class="pi-len">{{ pi.content.length }}字</span>
+              </div>
+            </div>
+          </div>
           <div class="expand-actions">
             <button class="btn-edit" @click="openEditor(preset)">✎ 编辑</button>
             <button class="btn-duplicate" @click="duplicatePreset(preset)">▤ 复制</button>
@@ -194,6 +211,50 @@ import { ref, computed, onMounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
 import { presetApi } from '@/api/services'
 
+// SillyTavern 预设中的单个 prompt 条目
+interface PromptItem {
+  identifier: string           // 唯一标识，如 "main", "nsfw", "jailbreak", 自定义名
+  name: string                 // 显示名称
+  role: 'system' | 'user' | 'assistant'  // 注入角色
+  content: string              // 提示词文本
+  enabled: boolean             // 是否启用
+  injectionPosition?: number   // 0=相对位置, 1=绝对位置（按深度）
+  injectionDepth?: number      // 深度（用于 injectionPosition=1）
+  marker?: boolean             // 是否为位置标记（不含实际内容）
+}
+
+function normalizePromptItems(raw: unknown): PromptItem[] | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const items = raw
+    .map((item: any) => {
+      if (!item || typeof item !== 'object') return null
+      const role = item.role === 'user' || item.role === 'assistant' ? item.role : 'system'
+      const injectionPositionNum = Number(item.injectionPosition ?? item.injection_position)
+      const injectionDepthNum = Number(item.injectionDepth ?? item.injection_depth)
+      return {
+        identifier: String(item.identifier || item.name || ''),
+        name: String(item.name || item.identifier || ''),
+        role,
+        content: String(item.content || ''),
+        enabled: item.enabled !== false,
+        injectionPosition: Number.isFinite(injectionPositionNum) ? injectionPositionNum : 0,
+        injectionDepth: Number.isFinite(injectionDepthNum) ? injectionDepthNum : 4,
+        marker: !!item.marker,
+      } as PromptItem
+    })
+    .filter((item): item is PromptItem => !!item && !!item.identifier)
+  return items.length > 0 ? items : undefined
+}
+
+function getPromptItemsFromAny(source: any): PromptItem[] | undefined {
+  return normalizePromptItems(source?.prompt_items) || normalizePromptItems(source?.promptItems)
+}
+
+function isInChatPrompt(prompt: any): boolean {
+  const pos = Number(prompt?.injection_position ?? prompt?.injectionPosition)
+  return Number.isFinite(pos) && pos === 1
+}
+
 interface Preset {
   id: string
   name: string
@@ -201,9 +262,10 @@ interface Preset {
   category: string
   description: string
   shortDesc: string
-  content: string     // 系统提示词内容
+  content: string     // 系统提示词内容（合并后的，用于向后兼容）
   prefill: string     // 预填充
   enablePrefill: boolean  // 是否启用预填充
+  promptItems?: PromptItem[]  // ST 导入时保留的逐项 prompt 列表
   gradient: string
   updatedAt: string
   createdAt: string
@@ -352,6 +414,23 @@ const presets = ref<Preset[]>([])
 
 // 从 API 然后 localStorage 加载
 async function loadPresets() {
+  // 先读取本地缓存，用于补全 API 暂未持久化的 promptItems
+  const localPromptItemsById = new Map<string, PromptItem[]>()
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed)) {
+        for (const p of parsed) {
+          const normalized = normalizePromptItems(p?.promptItems)
+          if (normalized && p?.id) {
+            localPromptItemsById.set(String(p.id), normalized)
+          }
+        }
+      }
+    }
+  } catch { /* ignore */ }
+
   try {
     const res = await presetApi.list()
     if (res.data && res.data.length > 0) {
@@ -365,11 +444,13 @@ async function loadPresets() {
         content: p.content || '',
         prefill: p.prefill || '',
         enablePrefill: p.enable_prefill || false,
+        promptItems: getPromptItemsFromAny(p) || localPromptItemsById.get(String(p.id)),
         gradient: p.gradient || 'linear-gradient(135deg, #667eea, #764ba2)',
         updatedAt: p.updated_at ? formatDateStr(new Date(p.updated_at)) : '',
         createdAt: p.created_at || '',
         isBuiltin: p.is_builtin || false,
       }))
+      saveToStorage()
       activePresetId.value = localStorage.getItem(ACTIVE_KEY) || null
       return
     }
@@ -506,6 +587,9 @@ async function savePreset() {
             description: form.value.description, content: form.value.content,
             prefill: form.value.prefill, enable_prefill: form.value.enablePrefill,
             gradient: presets.value[idx].gradient, is_builtin: presets.value[idx].isBuiltin,
+            ...(presets.value[idx].promptItems?.length
+              ? { prompt_items: presets.value[idx].promptItems }
+              : {}),
           })
         } catch { /* ignore */ }
       }
@@ -534,6 +618,7 @@ async function savePreset() {
         description: newPreset.description, content: newPreset.content,
         prefill: newPreset.prefill, enable_prefill: newPreset.enablePrefill,
         gradient: newPreset.gradient, is_builtin: false,
+        ...(newPreset.promptItems?.length ? { prompt_items: newPreset.promptItems } : {}),
       })
       // Update local id with server id
       if (res.id) newPreset.id = String(res.id)
@@ -586,13 +671,17 @@ function deactivatePreset() {
 }
 
 function exportPreset(p: Preset) {
-  const data = {
+  const data: Record<string, any> = {
     name: p.name,
     emoji: p.emoji,
     category: p.category,
     description: p.description,
     content: p.content,
     prefill: p.prefill,
+  }
+  // 导出时保留 promptItems 以便再次导入时恢复结构
+  if (p.promptItems && p.promptItems.length > 0) {
+    data.promptItems = p.promptItems
   }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -624,84 +713,174 @@ function isSillyTavernPreset(data: any): boolean {
 /**
  * 将 SillyTavern 预设转换为本应用格式
  */
-function convertSillyTavernPreset(data: any, fileName: string): { name: string; content: string; prefill: string } {
-  const parts: string[] = []
-
-  // 1. 从 prompts 数组提取内容（按 prompt_order 排序，或直接遍历）
-  if (Array.isArray(data.prompts)) {
-    // 如果有 prompt_order，按顺序处理；否则直接遍历
-    const orderedPrompts: any[] = []
-
-    if (Array.isArray(data.prompt_order)) {
-      // SillyTavern prompt_order 格式:
-      // [{ "character_id_value": [{ identifier: "...", enabled: true/false }, ...] }]
-      // 每个元素是一个对象，key 是 character_id（如 "100001"），value 是排序数组
-      // 也可能是简单的 [{identifier, enabled}] 数组
-      let orderItems: { identifier: string; enabled: boolean }[] = []
-
-      for (const entry of data.prompt_order) {
-        if (entry && typeof entry === 'object') {
-          // 检查是否是嵌套格式 { "some_id": [{identifier, enabled}] }
-          if (entry.identifier !== undefined) {
-            // 简单格式: 直接是 {identifier, enabled} 对象
-            orderItems.push(entry)
-          } else {
-            // 嵌套格式: { "character_id": [{identifier, enabled}] }
-            for (const key of Object.keys(entry)) {
-              const val = entry[key]
-              if (Array.isArray(val)) {
-                orderItems.push(...val)
+/**
+ * 解析 ST prompt_order 得到排序后的 identifier 列表及 enabled 状态
+ */
+function parsePromptOrder(promptOrder: any[]): { identifier: string; enabled: boolean }[] {
+  const orderItems: { identifier: string; enabled: boolean }[] = []
+  for (const entry of promptOrder) {
+    if (typeof entry === 'string') {
+      const identifier = entry.trim()
+      if (identifier) {
+        orderItems.push({ identifier, enabled: true })
+      }
+      continue
+    }
+    if (entry && typeof entry === 'object') {
+      if (entry.identifier !== undefined) {
+        orderItems.push({
+          identifier: String(entry.identifier || '').trim(),
+          enabled: entry.enabled !== false,
+        })
+      } else {
+        for (const key of Object.keys(entry)) {
+          const val = entry[key]
+          if (Array.isArray(val)) {
+            for (const nested of val) {
+              if (typeof nested === 'string') {
+                const identifier = nested.trim()
+                if (identifier) orderItems.push({ identifier, enabled: true })
+              } else if (nested && typeof nested === 'object' && nested.identifier !== undefined) {
+                orderItems.push({
+                  identifier: String(nested.identifier || '').trim(),
+                  enabled: nested.enabled !== false,
+                })
               }
             }
           }
         }
       }
+    }
+  }
+  return orderItems.filter(i => !!i.identifier)
+}
+
+/**
+ * 将 ST role 数字映射为 AIMessage role
+ */
+function stRoleToMessageRole(role?: string | number): 'system' | 'user' | 'assistant' {
+  if (role === 'user' || role === 1) return 'user'
+  if (role === 'assistant' || role === 2) return 'assistant'
+  return 'system'
+}
+
+function convertSillyTavernPreset(data: any, fileName: string): {
+  name: string
+  content: string
+  prefill: string
+  promptItems: PromptItem[]
+} {
+  const parts: string[] = []
+  const promptItems: PromptItem[] = []
+
+  // 1. 从 prompts 数组提取内容（按 prompt_order 排序，或直接遍历）
+  if (Array.isArray(data.prompts)) {
+    const orderedPrompts: any[] = []
+
+    if (Array.isArray(data.prompt_order)) {
+      const orderItems = parsePromptOrder(data.prompt_order)
 
       for (const orderItem of orderItems) {
         const id = typeof orderItem === 'string' ? orderItem : orderItem?.identifier
-        const isEnabled = typeof orderItem === 'string' ? true : orderItem?.enabled !== false
-        if (!isEnabled || !id) continue
+        const isEnabledByOrder = typeof orderItem === 'string' ? true : orderItem?.enabled !== false
+        if (!id) continue
 
         const prompt = data.prompts.find((p: any) => p.identifier === id || p.name === id)
-        if (prompt && prompt.content && prompt.enabled !== false) {
-          orderedPrompts.push(prompt)
+        if (prompt) {
+          // 保留逐项信息（包括被禁用的，以便用户能在编辑器中切换）
+          const injectionPosition = Number(prompt.injection_position ?? prompt.injectionPosition)
+          const injectionDepth = Number(prompt.injection_depth ?? prompt.injectionDepth)
+          promptItems.push({
+            identifier: prompt.identifier || prompt.name || id,
+            name: prompt.name || prompt.identifier || id,
+            role: stRoleToMessageRole(prompt.role),
+            content: (prompt.content || '').trim(),
+            enabled: isEnabledByOrder && prompt.enabled !== false,
+            injectionPosition: Number.isFinite(injectionPosition) ? injectionPosition : 0,
+            injectionDepth: Number.isFinite(injectionDepth) ? injectionDepth : 4,
+            marker: !!prompt.marker,
+          })
+
+          // 生成合并 content：仅保留非 marker 且非 in-chat 注入条目，避免重复注入
+          if (isEnabledByOrder && prompt.enabled !== false && !prompt.marker && !isInChatPrompt(prompt)) {
+            const content = (prompt.content || '').trim()
+            if (content) {
+              orderedPrompts.push(prompt)
+            }
+          }
         }
       }
     }
 
-    // 如果通过 prompt_order 没有找到或 prompt_order 不存在，直接遍历 prompts
-    const promptsToUse = orderedPrompts.length > 0 ? orderedPrompts : data.prompts
-    for (const p of promptsToUse) {
-      if (p.enabled === false || p.marker === true) continue
-      const content = (p.content || '').trim()
-      if (!content) continue
+    // 如果没有 prompt_order 或 prompt_order 未解析到内容，直接遍历 prompts
+    if (promptItems.length === 0) {
+      for (const p of data.prompts) {
+        const injectionPosition = Number(p.injection_position ?? p.injectionPosition)
+        const injectionDepth = Number(p.injection_depth ?? p.injectionDepth)
+        promptItems.push({
+          identifier: p.identifier || p.name || '',
+          name: p.name || p.identifier || '',
+          role: stRoleToMessageRole(p.role),
+          content: (p.content || '').trim(),
+          enabled: p.enabled !== false,
+          injectionPosition: Number.isFinite(injectionPosition) ? injectionPosition : 0,
+          injectionDepth: Number.isFinite(injectionDepth) ? injectionDepth : 4,
+          marker: !!p.marker,
+        })
+      }
+    }
 
-      // 添加标记以便理解来源
-      const label = p.name || p.identifier || p.role || ''
-      if (label && label !== 'main' && label !== 'nsfw') {
-        parts.push(`[${label}]\n${content}`)
-      } else {
-        parts.push(content)
+    // 生成合并后的 content
+    const promptsToUse = orderedPrompts.length > 0 ? orderedPrompts : data.prompts
+    if (orderedPrompts.length === 0) {
+      // fallback: use data.prompts directly
+      for (const p of promptsToUse) {
+        if (p.enabled === false || p.marker === true || isInChatPrompt(p)) continue
+        const content = (p.content || '').trim()
+        if (!content) continue
+        const label = p.name || p.identifier || p.role || ''
+        if (label && label !== 'main' && label !== 'nsfw') {
+          parts.push(`[${label}]\n${content}`)
+        } else {
+          parts.push(content)
+        }
+      }
+    } else {
+      for (const p of orderedPrompts) {
+        if (isInChatPrompt(p)) continue
+        const content = (p.content || '').trim()
+        if (!content) continue
+        const label = p.name || p.identifier || p.role || ''
+        if (label && label !== 'main' && label !== 'nsfw') {
+          parts.push(`[${label}]\n${content}`)
+        } else {
+          parts.push(content)
+        }
       }
     }
   }
 
-  // 2. 如果没有 prompts 数组，从独立字段提取
+  // 2. 如果没有 prompts 数组，从独立字段提取并构建 promptItems
   if (parts.length === 0) {
-    if (data.system_prompt) {
-      parts.push(data.system_prompt)
-    }
-    if (data.main_prompt) {
-      parts.push(data.main_prompt)
-    }
-    if (data.nsfw_prompt) {
-      parts.push(data.nsfw_prompt)
-    }
-    if (data.jailbreak_prompt) {
-      parts.push(data.jailbreak_prompt)
-    }
-    if (data.enhance_definitions) {
-      parts.push(data.enhance_definitions)
+    const fallbackFields: { key: string; identifier: string; name: string }[] = [
+      { key: 'system_prompt', identifier: 'system_prompt', name: 'System Prompt' },
+      { key: 'main_prompt', identifier: 'main', name: 'Main Prompt' },
+      { key: 'nsfw_prompt', identifier: 'nsfw', name: 'NSFW Prompt' },
+      { key: 'jailbreak_prompt', identifier: 'jailbreak', name: 'Jailbreak' },
+      { key: 'enhance_definitions', identifier: 'enhance_definitions', name: 'Enhance Definitions' },
+    ]
+    for (const f of fallbackFields) {
+      const val = data[f.key]
+      if (val && typeof val === 'string') {
+        parts.push(val)
+        promptItems.push({
+          identifier: f.identifier,
+          name: f.name,
+          role: 'system',
+          content: val.trim(),
+          enabled: true,
+        })
+      }
     }
   }
 
@@ -721,7 +900,6 @@ function convertSillyTavernPreset(data: any, fileName: string): { name: string; 
   // 4. 确定名称
   let name = data.name || ''
   if (!name) {
-    // 从文件名提取
     name = fileName.replace(/\.(json|txt)$/i, '').replace(/^preset[-_]/i, '')
   }
   if (!name) {
@@ -732,6 +910,7 @@ function convertSillyTavernPreset(data: any, fileName: string): { name: string; 
     name,
     content: parts.join('\n\n'),
     prefill,
+    promptItems: promptItems.filter(pi => !pi.marker), // 过滤掉纯标记条目
   }
 }
 
@@ -743,6 +922,7 @@ interface ImportedPresetPayload {
   emoji: string
   category: string
   description: string
+  promptItems?: PromptItem[]
 }
 
 function normalizeImportItem(data: any, fileName: string): ImportedPresetPayload | null {
@@ -753,6 +933,7 @@ function normalizeImportItem(data: any, fileName: string): ImportedPresetPayload
   let importEmoji = data?.emoji || '◈'
   let importCategory = data?.category || '角色扮演'
   let importDescription = data?.description || ''
+  let importPromptItems: PromptItem[] | undefined
 
   if (isSillyTavernPreset(data)) {
     const converted = convertSillyTavernPreset(data, fileName)
@@ -760,9 +941,10 @@ function normalizeImportItem(data: any, fileName: string): ImportedPresetPayload
     importContent = converted.content
     importPrefill = converted.prefill
     importEnablePrefill = !!converted.prefill
+    importPromptItems = converted.promptItems.length > 0 ? converted.promptItems : undefined
     importEmoji = '◈'
     importCategory = '角色扮演'
-    importDescription = '从 SillyTavern 导入'
+    importDescription = `从 SillyTavern 导入${importPromptItems ? ` (${importPromptItems.length} 项)` : ''}`
 
     if (!importContent) {
       return null
@@ -775,6 +957,10 @@ function normalizeImportItem(data: any, fileName: string): ImportedPresetPayload
     importEmoji = data.emoji || importEmoji
     importCategory = data.category || importCategory
     importDescription = data.description || importDescription
+    // 支持从本应用导出的 promptItems
+    if (Array.isArray(data.promptItems)) {
+      importPromptItems = data.promptItems
+    }
   } else {
     return null
   }
@@ -787,6 +973,7 @@ function normalizeImportItem(data: any, fileName: string): ImportedPresetPayload
     emoji: importEmoji,
     category: importCategory,
     description: importDescription,
+    promptItems: importPromptItems,
   }
 }
 
@@ -831,6 +1018,7 @@ function handleImport(e: Event) {
           content: normalized.content,
           prefill: normalized.prefill,
           enablePrefill: normalized.enablePrefill,
+          promptItems: normalized.promptItems,
           gradient: 'linear-gradient(135deg, #667eea, #764ba2)',
           updatedAt: formatDateStr(now),
           createdAt: now.toISOString(),
@@ -1186,6 +1374,62 @@ onMounted(() => {
 .btn-duplicate { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn-export { background: var(--bg-tertiary); color: var(--text-primary); }
 .btn-delete { background: rgba(255, 59, 48, 0.1); color: #ff3b30; }
+
+/* Prompt Items 列表 */
+.prompt-items-list {
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 4px 0;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.prompt-item-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.prompt-item-row:last-child {
+  border-bottom: none;
+}
+
+.prompt-item-row.disabled {
+  opacity: 0.4;
+}
+
+.pi-status { font-size: 8px; flex-shrink: 0; }
+.pi-status.on { color: #34c759; }
+.pi-status.off { color: var(--text-quaternary); }
+
+.pi-role {
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(88, 86, 214, 0.15);
+  color: #5856d6;
+  font-weight: 600;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.pi-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+
+.pi-len {
+  font-size: 10px;
+  color: var(--text-quaternary);
+  flex-shrink: 0;
+}
 
 /* 空状态 */
 .empty-state {

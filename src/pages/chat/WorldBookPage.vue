@@ -80,11 +80,9 @@
         >
           <div class="entry-header" @click="toggleEntryExpand(entry.id)">
             <div class="entry-title-row">
-              <span class="entry-icon">▤</span>
+              <span class="entry-status-light" :class="entryStatusClass(entry)" :title="entryStatusLabel(entry)"></span>
               <span class="entry-title">{{ entry.title }}</span>
-              <span class="entry-status" :class="{ on: entry.enabled }">
-                {{ entry.enabled ? '✓' : '✕' }}
-              </span>
+              <span class="entry-status-tag">{{ entryStatusLabel(entry) }}</span>
             </div>
             <div class="entry-keywords-preview" v-if="entry.keywords.length > 0">
               <span class="kw-tag" v-for="kw in entry.keywords.slice(0, 5)" :key="kw">{{ kw }}</span>
@@ -407,6 +405,36 @@ const entryForm = ref({
   useProbability: true,
   excludeRecursion: false,
 })
+
+// 条目状态指示灯
+function entryStatusClass(entry: WorldBookEntry): string {
+  if (!entry.enabled) return 'status-disabled'      // 红灯：禁用
+  if (entry.constant) return 'status-constant'       // 蓝灯：常驻
+  if (entry.selective) return 'status-selective'      // 黄灯：选择性
+  return 'status-normal'                              // 绿灯：普通
+}
+
+function entryStatusLabel(entry: WorldBookEntry): string {
+  if (!entry.enabled) return '禁用'
+  if (entry.constant) return '常驻'
+  if (entry.selective) return '选择性'
+  return '正常'
+}
+
+function parseStPosition(raw: unknown): number {
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+  if (typeof raw === 'string') {
+    const n = Number(raw)
+    if (Number.isFinite(n)) return n
+    const key = raw.trim().toLowerCase()
+    if (key === 'before_char' || key === 'before_prompt' || key === 'before_an' || key === 'before_system') return 0
+    if (key === 'after_char' || key === 'after_prompt' || key === 'after_an' || key === 'after_system') return 1
+    if (key === 'before_history' || key === 'before_chat' || key === 'before_messages') return 2
+    if (key === 'after_history' || key === 'after_chat' || key === 'after_messages') return 3
+    if (key === 'at_depth' || key === 'in_chat' || key === 'chat' || key === 'depth') return 4
+  }
+  return 0
+}
 
 const currentBook = computed(() => {
   if (!currentBookId.value) return null
@@ -740,9 +768,7 @@ function handleImport(e: Event) {
             order: typeof e.insertion_order === 'number'
               ? e.insertion_order
               : (typeof e.order === 'number' ? e.order : parseInt(key) || 0),
-            position: typeof ext.position === 'number'
-              ? ext.position
-              : (typeof e.position === 'number' ? e.position : 0),
+            position: parseStPosition(ext.position ?? e.position),
             depth: typeof ext.depth === 'number'
               ? ext.depth
               : (typeof e.depth === 'number' ? e.depth : 4),
@@ -776,7 +802,7 @@ function handleImport(e: Event) {
             caseSensitive: e.caseSensitive ?? false,
             matchWholeWords: e.matchWholeWords ?? false,
             order: e.order ?? 0,
-            position: e.position ?? 0,
+            position: parseStPosition(e.position),
             depth: e.depth ?? 4,
             probability: e.probability ?? 100,
             useProbability: e.useProbability !== false,
@@ -1096,7 +1122,44 @@ onMounted(() => {
   color: var(--text-primary);
 }
 
-.entry-status { font-size: 12px; }
+/* 蓝绿灯状态指示 */
+.entry-status-light {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 4px currentColor;
+}
+
+.entry-status-light.status-normal {
+  background: #34c759;
+  color: #34c759;
+}
+
+.entry-status-light.status-constant {
+  background: #007aff;
+  color: #007aff;
+}
+
+.entry-status-light.status-selective {
+  background: #ff9500;
+  color: #ff9500;
+}
+
+.entry-status-light.status-disabled {
+  background: #ff3b30;
+  color: #ff3b30;
+  opacity: 0.6;
+}
+
+.entry-status-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
 
 .entry-keywords-preview {
   display: flex;

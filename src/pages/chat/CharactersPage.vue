@@ -236,10 +236,18 @@ function toStringArray(value: unknown): string[] {
 }
 
 function normalizeCharacterBookPosition(entry: any): number {
-  if (typeof entry?.extensions?.position === 'number') return entry.extensions.position
-  if (typeof entry?.position === 'number') return entry.position
-  if (entry?.position === 'before_char') return 0
-  if (entry?.position === 'after_char') return 1
+  const rawPos = entry?.extensions?.position ?? entry?.position
+  if (typeof rawPos === 'number') return rawPos
+  if (typeof rawPos === 'string') {
+    const n = Number(rawPos)
+    if (Number.isFinite(n)) return n
+    const key = rawPos.trim().toLowerCase()
+    if (key === 'before_char' || key === 'before_prompt' || key === 'before_an' || key === 'before_system') return 0
+    if (key === 'after_char' || key === 'after_prompt' || key === 'after_an' || key === 'after_system') return 1
+    if (key === 'before_history' || key === 'before_chat' || key === 'before_messages') return 2
+    if (key === 'after_history' || key === 'after_chat' || key === 'after_messages') return 3
+    if (key === 'at_depth' || key === 'in_chat' || key === 'chat' || key === 'depth') return 4
+  }
   return 0
 }
 
@@ -404,6 +412,20 @@ function buildCharacterFromSTData(data: any, avatar: string = ''): any {
   if (data.spec) stExtensions.spec = data.spec
   if (data.spec_version) stExtensions.spec_version = data.spec_version
 
+  // 提取 depth_prompt（ST V2 extensions 中的 depth_prompt）
+  let depthPromptText = ''
+  let depthPromptDepth = 4
+  const extDepthPrompt = charData.extensions?.depth_prompt
+  if (extDepthPrompt) {
+    depthPromptText = extDepthPrompt.prompt || ''
+    depthPromptDepth = typeof extDepthPrompt.depth === 'number' ? extDepthPrompt.depth : 4
+  }
+
+  // 提取 alternate_greetings
+  const alternateGreetings: string[] = Array.isArray(charData.alternate_greetings)
+    ? charData.alternate_greetings.filter((g: any) => typeof g === 'string' && g.trim())
+    : []
+
   return {
     id: Date.now() + Math.floor(Math.random() * 10000),
     type: 'char',
@@ -414,6 +436,9 @@ function buildCharacterFromSTData(data: any, avatar: string = ''): any {
     scenario: charData.scenario || data.scenario || '',
     firstMessage: charData.first_mes || data.first_mes || '',
     exampleDialogue: charData.mes_example || data.mes_example || '',
+    alternateGreetings,
+    depthPromptText,
+    depthPromptDepth,
     tags: charData.tags || data.tags || [],
     worldBooks: [],
     // 保留 SillyTavern 扩展字段

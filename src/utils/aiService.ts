@@ -3,6 +3,8 @@
  * 集成预设、世界书、角色人设、用户人设
  */
 
+import { processTemplate, type EjsContext } from './ejsTemplateEngine'
+
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
@@ -19,11 +21,35 @@ export interface AIRequestOptions {
   timeout?: number
   onChunk?: (text: string) => void
   signal?: AbortSignal
+  // Function calling 透传
+  tools?: AIToolDefinition[]
+  tool_choice?: string | { type: string; function?: { name: string } }
+}
+
+// OpenAI 兼容的 tool 定义
+export interface AIToolDefinition {
+  type: 'function'
+  function: {
+    name: string
+    description?: string
+    parameters?: Record<string, any>  // JSON Schema
+  }
+}
+
+// Function call 结果
+export interface AIToolCall {
+  id: string
+  type: 'function'
+  function: {
+    name: string
+    arguments: string  // JSON string
+  }
 }
 
 export interface AIResponse {
   content: string
   finishReason?: string
+  toolCalls?: AIToolCall[]
 }
 
 // 角色数据结构（与 localStorage 中 characters 一致）
@@ -38,6 +64,10 @@ export interface CharacterData {
   firstMessage?: string
   exampleDialogue?: string
   worldBooks?: Array<string | number>
+  // SillyTavern V2 扩展字段
+  alternateGreetings?: string[]
+  depthPromptText?: string
+  depthPromptDepth?: number
   // 兼容旧字段
   personality?: string
   system_prompt?: string
@@ -51,13 +81,25 @@ export interface UserPersonaData {
   persona?: string
 }
 
+// 预设中的单个 prompt 条目（与 PresetPage PromptItem 保持一致）
+export interface PresetPromptItem {
+  identifier: string
+  name: string
+  role: 'system' | 'user' | 'assistant'
+  content: string
+  enabled: boolean
+  injectionPosition?: number   // 0=相对位置（系统提示词区域）, 1=绝对位置（按深度插入对话历史）
+  injectionDepth?: number      // 深度（用于 injectionPosition=1）
+}
+
 // 预设数据
 export interface PresetData {
   id?: string
   name?: string
-  content?: string   // 系统提示词
+  content?: string   // 系统提示词（合并后的，向后兼容）
   prefill?: string   // 预填充
   enablePrefill?: boolean  // 是否启用预填充（默认关闭）
+  promptItems?: PresetPromptItem[]  // ST 导入保留的逐项 prompt 列表
 }
 
 // 世界书条目（兼容 SillyTavern 高级字段）
@@ -82,17 +124,6 @@ export interface WorldBookEntryData {
   scanDepth?: number | null   // 扫描深度：仅扫描最近N条消息（null=全部扫描）
   caseSensitive?: boolean     // 区分大小写
   matchWholeWords?: boolean   // 全词匹配
-}
-
-/**
- * 确保 API URL 以 /chat/completions 结尾
- */
-function normalizeApiUrl(url: string): string {
-  if (!url) return url
-  if (url.includes('/chat/completions')) return url
-  if (url.endsWith('/v1')) return `${url}/chat/completions`
-  if (url.includes('/v1')) return url.replace(/\/v1.*$/, '/v1/chat/completions')
-  return `${url.replace(/\/$/, '')}/v1/chat/completions`
 }
 
 /**
@@ -142,7 +173,6 @@ function appendSnapshotAsDelta(existing: string, snapshot: string): string {
  * 非流式请求
  */
 async function requestNonStream(options: AIRequestOptions): Promise<AIResponse> {
-  const url = normalizeApiUrl(options.apiUrl)
   const timeoutMs = (options.timeout || 60) * 1000
 
   const controller = new AbortController()
@@ -172,6 +202,9 @@ async function requestNonStream(options: AIRequestOptions): Promise<AIResponse> 
         stream: false,
         apiUrl: options.apiUrl || '',
         apiKey: options.apiKey || '',
+        // Function calling 透传
+        ...(options.tools?.length ? { tools: options.tools } : {}),
+        ...(options.tool_choice ? { tool_choice: options.tool_choice } : {}),
       }),
       signal: controller.signal,
     })
@@ -184,7 +217,8 @@ async function requestNonStream(options: AIRequestOptions): Promise<AIResponse> 
     }
 
     const data = await response.json()
-    let content = data.choices?.[0]?.message?.content || ''
+    const choice = data.choices?.[0]
+    let content = choice?.message?.content || ''
 
     if (Array.isArray(content)) {
       content = content
@@ -199,9 +233,22 @@ async function requestNonStream(options: AIRequestOptions): Promise<AIResponse> 
       content = String(content || '')
     }
 
+    // 提取 tool_calls
+    const toolCalls: AIToolCall[] | undefined = choice?.message?.tool_calls?.length
+      ? choice.message.tool_calls.map((tc: any) => ({
+          id: tc.id || '',
+          type: tc.type || 'function',
+          function: {
+            name: tc.function?.name || '',
+            arguments: tc.function?.arguments || '{}',
+          },
+        }))
+      : undefined
+
     return {
       content: content.trim(),
-      finishReason: data.choices?.[0]?.finish_reason,
+      finishReason: choice?.finish_reason,
+      toolCalls,
     }
   } catch (err: any) {
     clearTimeout(timeoutId)
@@ -216,7 +263,6 @@ async function requestNonStream(options: AIRequestOptions): Promise<AIResponse> 
  * 流式请求 (SSE)
  */
 async function requestStream(options: AIRequestOptions): Promise<AIResponse> {
-  const url = normalizeApiUrl(options.apiUrl)
   const timeoutMs = (options.timeout || 60) * 1000
 
   const controller = new AbortController()
@@ -246,6 +292,9 @@ async function requestStream(options: AIRequestOptions): Promise<AIResponse> {
         stream: true,
         apiUrl: options.apiUrl || '',
         apiKey: options.apiKey || '',
+        // Function calling 透传
+        ...(options.tools?.length ? { tools: options.tools } : {}),
+        ...(options.tool_choice ? { tool_choice: options.tool_choice } : {}),
       }),
       signal: controller.signal,
     })
@@ -266,6 +315,13 @@ async function requestStream(options: AIRequestOptions): Promise<AIResponse> {
     let fullContent = ''
     let finishReason = ''
     let buffer = ''
+
+    // 流式数据读取期间的活动超时：每收到数据重置计时器
+    let streamTimeoutId = setTimeout(() => controller.abort(), timeoutMs)
+    const resetStreamTimeout = () => {
+      clearTimeout(streamTimeoutId)
+      streamTimeoutId = setTimeout(() => controller.abort(), timeoutMs)
+    }
 
     const applyStreamEvent = (json: any) => {
       const choice = json.choices?.[0]
@@ -308,6 +364,9 @@ async function requestStream(options: AIRequestOptions): Promise<AIResponse> {
       const { done, value } = await reader.read()
       if (done) break
 
+      // 收到数据，重置流超时计时器
+      resetStreamTimeout()
+
       buffer += decoder.decode(value, { stream: true })
 
       const lines = buffer.split('\n')
@@ -342,6 +401,8 @@ async function requestStream(options: AIRequestOptions): Promise<AIResponse> {
         // ignore invalid tail
       }
     }
+
+    clearTimeout(streamTimeoutId)
 
     return {
       content: fullContent.trim(),
@@ -762,13 +823,29 @@ function wbRoleToMessageRole(role?: number): 'system' | 'user' | 'assistant' {
   }
 }
 
+function normalizeEntryPosition(position: unknown): number {
+  if (typeof position === 'number' && Number.isFinite(position)) return position
+  if (typeof position === 'string') {
+    const n = Number(position)
+    if (Number.isFinite(n)) return n
+    const key = position.trim().toLowerCase()
+    if (key === 'before_char' || key === 'before_prompt' || key === 'before_an' || key === 'before_system') return 0
+    if (key === 'after_char' || key === 'after_prompt' || key === 'after_an' || key === 'after_system') return 1
+    if (key === 'before_history' || key === 'before_chat' || key === 'before_messages') return 2
+    if (key === 'after_history' || key === 'after_chat' || key === 'after_messages') return 3
+    if (key === 'at_depth' || key === 'in_chat' || key === 'chat' || key === 'depth') return 4
+  }
+  return 0
+}
+
 /**
  * 将世界书条目转为 AIMessage
  */
-function wbEntryToMessage(entry: WorldBookEntryData): AIMessage {
+function wbEntryToMessage(entry: WorldBookEntryData, templateCtx?: EjsContext): AIMessage {
+  const rawContent = `[${entry.title || 'Worldbook Entry'}]: ${entry.content}`
   return {
     role: wbRoleToMessageRole(entry.role),
-    content: `[${entry.title || 'Worldbook Entry'}]: ${entry.content}`,
+    content: templateCtx ? processTemplate(rawContent, templateCtx, 'prompt') : rawContent,
   }
 }
 
@@ -785,6 +862,7 @@ export function buildFullMessages(
   character: CharacterData | null,
   recentMessages: AIMessage[],
   maxLength?: number,
+  chatId?: string,
 ): AIMessage[] {
   // 获取预设
   const preset = getActivePreset()
@@ -799,18 +877,31 @@ export function buildFullMessages(
     .map(m => m.content)
   const matchedEntries = matchWorldBookEntries(messageTexts, allEntries)
 
-  // 按 position 分组世界书条目
-  const pos0Entries = matchedEntries.filter(e => e.position === 0)         // 系统提示词之前
-  const pos1Entries = matchedEntries.filter(e => (e.position ?? 0) === 0 ? false : e.position === 1)  // 系统提示词之后
-  const pos2Entries = matchedEntries.filter(e => e.position === 2)         // 对话历史之前
-  const pos3Entries = matchedEntries.filter(e => e.position === 3)         // 对话历史之后
-  const pos4Entries = matchedEntries.filter(e => e.position === 4)         // 按深度插入
+  const templateCtx: EjsContext = {
+    charName: character?.name || '角色',
+    userName: userPersona?.name || '用户',
+    chatId: chatId || String(character?.id || 'default'),
+    messages: recentMessages,
+    characterData: character || undefined,
+    presetData: preset || undefined,
+    worldBookEntries: matchedEntries as any[],
+  }
 
-  // 对于 position 未设置（undefined/0）的条目，归入系统提示词内（由 buildSystemPrompt 处理）
-  // 只有明确设为 position=0 的归入 pos0，其余未设置的走默认
-  const systemEmbedEntries = matchedEntries.filter(e =>
-    e.position === undefined || e.position === null || (e.position === 0 && !pos0Entries.includes(e))
-  )
+  // 按 position 分组世界书条目（支持 ST 字符串位置名）
+  const resolvedEntries = matchedEntries.map(entry => ({
+    entry,
+    position: entry.position === undefined || entry.position === null
+      ? null
+      : normalizeEntryPosition(entry.position),
+  }))
+  const pos0Entries = resolvedEntries.filter(i => i.position === 0).map(i => i.entry)
+  const pos1Entries = resolvedEntries.filter(i => i.position === 1).map(i => i.entry)
+  const pos2Entries = resolvedEntries.filter(i => i.position === 2).map(i => i.entry)
+  const pos3Entries = resolvedEntries.filter(i => i.position === 3).map(i => i.entry)
+  const pos4Entries = resolvedEntries.filter(i => i.position === 4).map(i => i.entry)
+
+  // 对于 position 未设置的条目，归入系统提示词（保持旧行为）
+  const systemEmbedEntries = resolvedEntries.filter(i => i.position === null).map(i => i.entry)
 
   // 将 pos0 和 systemEmbed 条目都传给 buildSystemPrompt 以嵌入系统提示词
   const systemEntries = [...pos0Entries, ...systemEmbedEntries, ...pos1Entries]
@@ -827,16 +918,16 @@ export function buildFullMessages(
   const msgs: AIMessage[] = []
 
   // 1. 系统提示词
-  msgs.push({ role: 'system', content: systemPrompt })
+  msgs.push({ role: 'system', content: processTemplate(systemPrompt, templateCtx, 'prompt') })
 
   // 2. position=2 的条目（对话历史之前）
   for (const entry of pos2Entries) {
-    msgs.push(wbEntryToMessage(entry))
+    msgs.push(wbEntryToMessage(entry, templateCtx))
   }
 
   // 3. 如果角色有 firstMessage 且消息列表为空，添加为第一条 assistant 消息
   if (character?.firstMessage && recentMessages.length === 0) {
-    msgs.push({ role: 'assistant', content: character.firstMessage })
+    msgs.push({ role: 'assistant', content: processTemplate(character.firstMessage, templateCtx, 'prompt') })
   }
 
   // 4. 添加历史消息（并处理 position=4 的深度插入）
@@ -845,16 +936,60 @@ export function buildFullMessages(
     content: m.content,
   }))
 
-  // 处理 position=4 的条目：按 depth 从大到小排序后插入
+  // 处理 position=4 的条目 + 角色 depth_prompt：按 depth 从大到小排序后插入
   // depth 表示从末尾往前数第几条消息处插入
-  if (pos4Entries.length > 0 && chatMessages.length > 0) {
+  interface DepthInsert {
+    depth: number
+    message: AIMessage
+  }
+
+  const depthInserts: DepthInsert[] = []
+
+  // 世界书 position=4 条目
+  for (const entry of pos4Entries) {
+    depthInserts.push({
+      depth: entry.depth ?? 4,
+      message: wbEntryToMessage(entry, templateCtx),
+    })
+  }
+
+  // 角色卡 depth_prompt（SillyTavern V2 extension）
+  if (character?.depthPromptText) {
+    const charName = character.name || '角色'
+    const userName = userPersona?.name || '用户'
+    const dpText = character.depthPromptText
+      .replace(/\{\{char\}\}/g, charName)
+      .replace(/\{\{user\}\}/g, userName)
+    depthInserts.push({
+      depth: character.depthPromptDepth ?? 4,
+      message: { role: 'system', content: processTemplate(dpText, templateCtx, 'prompt') },
+    })
+  }
+
+  // 预设 promptItems 中 injectionPosition=1 的条目（按深度插入对话历史）
+  if (preset?.promptItems) {
+    const charName = character?.name || '角色'
+    const userName = userPersona?.name || '用户'
+    for (const pi of preset.promptItems) {
+      if (!pi.enabled || !pi.content) continue
+      if (pi.injectionPosition === 1) {
+        const piContent = pi.content
+          .replace(/\{\{char\}\}/g, charName)
+          .replace(/\{\{user\}\}/g, userName)
+        depthInserts.push({
+          depth: pi.injectionDepth ?? 4,
+          message: { role: pi.role, content: processTemplate(piContent, templateCtx, 'prompt') },
+        })
+      }
+    }
+  }
+
+  if (depthInserts.length > 0 && chatMessages.length > 0) {
     // 按 depth 降序排列，这样先插入 depth 大的（靠前位置），不会影响后续插入位置
-    const sorted = [...pos4Entries].sort((a, b) => (b.depth ?? 4) - (a.depth ?? 4))
-    for (const entry of sorted) {
-      const d = entry.depth ?? 4
-      // 插入位置：从末尾往前数 d 条
-      const insertIdx = Math.max(0, chatMessages.length - d)
-      chatMessages.splice(insertIdx, 0, wbEntryToMessage(entry))
+    depthInserts.sort((a, b) => b.depth - a.depth)
+    for (const item of depthInserts) {
+      const insertIdx = Math.max(0, chatMessages.length - item.depth)
+      chatMessages.splice(insertIdx, 0, item.message)
     }
   }
 
@@ -862,12 +997,12 @@ export function buildFullMessages(
 
   // 5. position=3 的条目（对话历史之后）
   for (const entry of pos3Entries) {
-    msgs.push(wbEntryToMessage(entry))
+    msgs.push(wbEntryToMessage(entry, templateCtx))
   }
 
   // 6. 如果预设启用了预填充且有 prefill 内容，添加为 assistant 消息的开头引导
   if (preset?.enablePrefill && preset?.prefill) {
-    msgs.push({ role: 'assistant', content: preset.prefill })
+    msgs.push({ role: 'assistant', content: processTemplate(preset.prefill, templateCtx, 'prompt') })
   }
 
   return msgs

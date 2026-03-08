@@ -308,6 +308,17 @@ export interface OrderInput {
 }
 
 // ========== 预设 ==========
+export interface PresetPromptItem {
+  identifier: string
+  name: string
+  role: 'system' | 'user' | 'assistant'
+  content: string
+  enabled: boolean
+  injectionPosition?: number
+  injectionDepth?: number
+  marker?: boolean
+}
+
 export interface Preset {
   id: number
   user_id: number
@@ -320,6 +331,8 @@ export interface Preset {
   enable_prefill: boolean
   is_builtin: boolean
   gradient: string
+  prompt_items?: PresetPromptItem[]
+  promptItems?: PresetPromptItem[]
   created_at: string
   updated_at: string
 }
@@ -334,6 +347,8 @@ export interface PresetInput {
   enable_prefill?: boolean
   is_builtin?: boolean
   gradient?: string
+  prompt_items?: PresetPromptItem[]
+  promptItems?: PresetPromptItem[]
 }
 
 // ========== 通话记录 ==========
@@ -415,3 +430,97 @@ export interface WalletTransactionInput {
   target?: string
 }
 
+// ========== 游戏记录 ==========
+export interface GameRecordItem {
+  id: number
+  game: string
+  detail: string
+  amount: number
+  win: boolean
+  created_at: string
+}
+
+export interface GameRecordInput {
+  game: string
+  detail: string
+  amount: number
+  win: boolean
+}
+
+// ========== 购物商品 ==========
+export interface Product {
+  id: number
+  name: string
+  category: string
+  price: number
+  original_price?: number
+  image_url: string
+  description?: string
+  sales: number
+  rating: number
+  tags?: string[]
+  created_at: string
+}
+
+export interface CartItem {
+  id: number
+  user_id: number
+  product_id: number
+  quantity: number
+  product?: Product
+  created_at: string
+}
+
+export interface ShoppingOrder {
+  id: number
+  user_id: number
+  order_no: string
+  items: ShoppingOrderItem[]
+  total: number
+  status: string
+  created_at: string
+}
+
+export interface ShoppingOrderItem {
+  product_id: number
+  name: string
+  price: number
+  quantity: number
+  image_url?: string
+}
+
+// ========== 情侣空间 ==========
+export interface CoupleSpace {
+  id: number
+  user_id: number
+  partner_a: string
+  partner_b: string
+  start_date: string
+  created_at: string
+  updated_at: string
+}
+
+export interface Anniversary {
+  id: number
+  user_id: number
+  title: string
+  date: string
+  icon: string
+  created_at: string
+}
+
+export interface CouplePhoto {
+  id: number
+  user_id: number
+  date: string
+  url: string
+  created_at: string
+}
+
+export interface CoupleTask {
+  id: number
+  user_id: number
+  text: string
+  done: boolean
+  created_at: string
+}

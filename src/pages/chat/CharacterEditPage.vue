@@ -91,9 +91,40 @@
           <textarea v-model="formData.firstMessage" placeholder="角色发送的第一条消息..." class="form-textarea" rows="3"></textarea>
         </div>
 
+        <!-- 备选开场白 (Alternate Greetings) -->
+        <div v-if="formData.type === 'char' && formData.alternateGreetings.length > 0" class="form-group">
+          <label>备选开场白 (Alternate Greetings)</label>
+          <div class="alternate-greetings">
+            <div v-for="(greeting, idx) in formData.alternateGreetings" :key="idx" class="alt-greeting-item">
+              <div class="alt-greeting-header">
+                <span class="alt-greeting-label">开场白 #{{ idx + 2 }}</span>
+                <div class="alt-greeting-actions">
+                  <button class="alt-btn use-btn" @click="useAlternateGreeting(idx)" title="使用此开场白">▶</button>
+                  <button class="alt-btn remove-btn" @click="removeAlternateGreeting(idx)" title="删除">✕</button>
+                </div>
+              </div>
+              <textarea v-model="formData.alternateGreetings[idx]" placeholder="备选开场白内容..." class="form-textarea" rows="2"></textarea>
+            </div>
+          </div>
+        </div>
+        <div v-if="formData.type === 'char'" class="form-group" style="margin-top: -12px;">
+          <button class="add-alt-btn" @click="addAlternateGreeting">+ 添加备选开场白</button>
+        </div>
+
         <div v-if="formData.type === 'char'" class="form-group">
           <label>示例对话 (Example Dialogue)</label>
           <textarea v-model="formData.exampleDialogue" placeholder="示例对话格式：&#10;{{user}}: 你好&#10;{{char}}: 嗯，你来了..." class="form-textarea" rows="4"></textarea>
+        </div>
+
+        <!-- 深度提示词 (Depth Prompt) -->
+        <div v-if="formData.type === 'char'" class="form-group">
+          <label>深度提示词 (Depth Prompt)</label>
+          <textarea v-model="formData.depthPromptText" placeholder="（可选）在聊天历史的指定深度注入的系统提示词&#10;常用于角色的隐藏指令或行为约束" class="form-textarea" rows="3"></textarea>
+          <div v-if="formData.depthPromptText" class="depth-config">
+            <label class="depth-label">插入深度</label>
+            <input v-model.number="formData.depthPromptDepth" type="number" min="0" max="99" class="depth-input" />
+            <span class="depth-hint">（从末尾往前数第 N 条消息处插入，默认 4）</span>
+          </div>
         </div>
 
         <!-- 用户身份设置 -->
@@ -177,8 +208,24 @@ const formData = ref({
   scenario: '',
   firstMessage: '',
   exampleDialogue: '',
+  alternateGreetings: [] as string[],
+  depthPromptText: '',
+  depthPromptDepth: 4,
   worldBooks: [] as number[],
 })
+
+// 备选开场白操作
+const addAlternateGreeting = () => {
+  formData.value.alternateGreetings.push('')
+}
+const removeAlternateGreeting = (idx: number) => {
+  formData.value.alternateGreetings.splice(idx, 1)
+}
+const useAlternateGreeting = (idx: number) => {
+  const current = formData.value.firstMessage
+  formData.value.firstMessage = formData.value.alternateGreetings[idx]
+  formData.value.alternateGreetings[idx] = current
+}
 
 // 检查是否是当前使用的用户身份
 const isCurrentUser = computed(() => {
@@ -311,7 +358,13 @@ const loadCharacter = () => {
     const characters = JSON.parse(localStorage.getItem('characters') || '[]')
     const character = characters.find((c: any) => c.id === Number(characterId))
     if (character) {
-      formData.value = { ...character, worldBooks: character.worldBooks || [] }
+      formData.value = {
+        ...character,
+        worldBooks: character.worldBooks || [],
+        alternateGreetings: character.alternateGreetings || [],
+        depthPromptText: character.depthPromptText || '',
+        depthPromptDepth: character.depthPromptDepth ?? 4,
+      }
       avatarPreview.value = character.avatar || ''
       // 保存 stExtensions 以便编辑保存时能保留
       if (character.stExtensions) {
@@ -763,5 +816,107 @@ onMounted(() => {
   color: var(--brand-primary, #007aff);
   font-size: 18px;
   font-weight: 600;
+}
+
+/* 备选开场白 */
+.alternate-greetings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.alt-greeting-item {
+  border: 1px solid var(--separator);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--bg-secondary);
+}
+
+.alt-greeting-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.alt-greeting-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.alt-greeting-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.alt-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alt-btn.use-btn {
+  background: rgba(0, 122, 255, 0.1);
+  color: var(--brand-primary, #007aff);
+}
+
+.alt-btn.remove-btn {
+  background: rgba(255, 59, 48, 0.1);
+  color: #ff3b30;
+}
+
+.add-alt-btn {
+  padding: 8px 16px;
+  border: 1px dashed var(--separator);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.add-alt-btn:active {
+  background: var(--fill-tertiary);
+}
+
+/* 深度提示词 */
+.depth-config {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.depth-label {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--text-secondary) !important;
+  margin-bottom: 0 !important;
+}
+
+.depth-input {
+  width: 60px;
+  padding: 6px 8px;
+  border: 1px solid var(--separator);
+  border-radius: 6px;
+  font-size: 14px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.depth-hint {
+  font-size: 11px;
+  color: var(--text-tertiary);
 }
 </style>

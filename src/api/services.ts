@@ -40,6 +40,16 @@ import type {
   WalletInfo,
   WalletTransaction,
   WalletTransactionInput,
+  GameRecordItem,
+  GameRecordInput,
+  Product,
+  CartItem,
+  ShoppingOrder,
+  ShoppingOrderItem,
+  CoupleSpace,
+  Anniversary,
+  CouplePhoto,
+  CoupleTask,
 } from './types'
 
 // ========== 角色 API ==========
@@ -329,23 +339,7 @@ export const walletApi = {
   },
 }
 
-// ========== Game Records ==========
-export interface GameRecordItem {
-  id: number
-  game: string
-  detail: string
-  amount: number
-  win: boolean
-  created_at: string
-}
-
-export interface GameRecordInput {
-  game: string
-  detail: string
-  amount: number
-  win: boolean
-}
-
+// ========== 游戏记录 API ==========
 export const gameApi = {
   listRecords() {
     return api.get<ListResponse<GameRecordItem>>('/api/games/records')
@@ -361,13 +355,15 @@ export const gameApi = {
 // ========== 购物 API ==========
 export const shoppingApi = {
   listProducts(category?: string) {
-    return api.get<ListResponse<any>>('/api/shopping/products' + (category ? `?category=${category}` : ''))
+    const p: Record<string, string> = {}
+    if (category) p.category = category
+    return api.get<ListResponse<Product>>('/api/shopping/products', p)
   },
   getProduct(id: number) {
-    return api.get<any>(`/api/shopping/products/${id}`)
+    return api.get<Product>(`/api/shopping/products/${id}`)
   },
   listCart() {
-    return api.get<ListResponse<any>>('/api/shopping/cart')
+    return api.get<ListResponse<CartItem>>('/api/shopping/cart')
   },
   addToCart(data: { product_id: number; quantity: number }) {
     return api.post<CreateResponse>('/api/shopping/cart', data)
@@ -382,9 +378,9 @@ export const shoppingApi = {
     return api.delete<MessageResponse>('/api/shopping/cart')
   },
   listOrders() {
-    return api.get<ListResponse<any>>('/api/shopping/orders')
+    return api.get<ListResponse<ShoppingOrder>>('/api/shopping/orders')
   },
-  createOrder(data: { items: any[]; total: number; order_no: string }) {
+  createOrder(data: { items: ShoppingOrderItem[]; total: number; order_no: string }) {
     return api.post<CreateResponse>('/api/shopping/orders', data)
   },
   listFavorites() {
@@ -401,13 +397,13 @@ export const shoppingApi = {
 // ========== 情侣空间 API ==========
 export const coupleApi = {
   getSpace() {
-    return api.get<any>('/api/couple/space')
+    return api.get<CoupleSpace>('/api/couple/space')
   },
   updateSpace(data: { partner_a?: string; partner_b?: string; start_date?: string }) {
     return api.put<MessageResponse>('/api/couple/space', data)
   },
   listAnniversaries() {
-    return api.get<ListResponse<any>>('/api/couple/anniversaries')
+    return api.get<ListResponse<Anniversary>>('/api/couple/anniversaries')
   },
   createAnniversary(data: { title: string; date: string; icon: string }) {
     return api.post<CreateResponse>('/api/couple/anniversaries', data)
@@ -416,7 +412,7 @@ export const coupleApi = {
     return api.delete<MessageResponse>(`/api/couple/anniversaries/${id}`)
   },
   listPhotos() {
-    return api.get<ListResponse<any>>('/api/couple/photos')
+    return api.get<ListResponse<CouplePhoto>>('/api/couple/photos')
   },
   createPhoto(data: { date: string; url?: string }) {
     return api.post<CreateResponse>('/api/couple/photos', data)
@@ -425,7 +421,7 @@ export const coupleApi = {
     return api.delete<MessageResponse>(`/api/couple/photos/${id}`)
   },
   listTasks() {
-    return api.get<ListResponse<any>>('/api/couple/tasks')
+    return api.get<ListResponse<CoupleTask>>('/api/couple/tasks')
   },
   createTask(data: { text: string }) {
     return api.post<CreateResponse>('/api/couple/tasks', data)

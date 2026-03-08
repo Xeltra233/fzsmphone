@@ -837,6 +837,7 @@ function buildMessageHistory(extraSystemHint?: string): AIMessage[] {
     character,
     recent,
     settingsStore.settings.maxLength,
+    conversationId.value || undefined,
   )
 }
 
