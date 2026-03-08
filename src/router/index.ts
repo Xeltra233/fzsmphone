@@ -1,54 +1,16 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { buildRouteFeatureMap } from '@/utils/appRegistry'
+import { useFeaturesStore } from '@/stores/features'
 
-// Route name -> featureId mapping for feature gating
-const routeFeatureMap: Record<string, string> = {
-  Friends: 'chat',
-  Chat: 'chat',
-  GroupChat: 'chat',
-  Characters: 'characters',
-  CharacterEdit: 'characters',
-  UserPersonas: 'personas',
-  WorldBook: 'worldbook',
-  Weibo: 'weibo',
-  QZone: 'qzone',
-  Moments: 'qzone',
-  CoupleSpace: 'couple_space',
-  Takeaway: 'takeaway',
-  Restaurant: 'takeaway',
-  TakeawayOrders: 'takeaway',
-  Shopping: 'shopping',
-  Wallet: 'wallet',
-  ListenTogether: 'music',
-  Live: 'live',
-  Games: 'games',
-  Casino: 'casino',
-  MiniTheater: 'mini_theater',
-  Diary: 'diary',
-  Phone: 'phone',
-  Sms: 'sms',
-  Stock: 'stock',
-  CurrencyConverter: 'currency',
-  VoiceCall: 'voice_call',
-  VideoCall: 'video_call',
-  PhonePeek: 'phone_peek',
-  ReversePhonePeek: 'reverse_phone_peek',
-  OfflineDate: 'offline_date',
-  Preset: 'preset',
-  Zhihu: 'zhihu',
-  Xiaohongshu: 'xiaohongshu',
-  Douyin: 'douyin',
-  Discord: 'discord',
-  Email: 'email',
-  Browser: 'browser',
-  Map: 'map',
-  Calendar: 'calendar',
-}
+// 从统一注册表自动生成 route -> featureId 映射
+const routeFeatureMap = buildRouteFeatureMap()
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'Home',
     component: () => import('@/pages/home/HomePage.vue'),
+    meta: { statusBarColor: '#ffffff' },
   },
   {
     path: '/login',
@@ -103,16 +65,19 @@ const routes: RouteRecordRaw[] = [
     path: '/weibo',
     name: 'Weibo',
     component: () => import('@/pages/social/WeiboPage.vue'),
+    meta: { statusBarColor: '#111111' },
   },
   {
     path: '/qzone',
     name: 'QZone',
     component: () => import('@/pages/social/QZonePage.vue'),
+    meta: { statusBarColor: '#ffffff' },
   },
   {
     path: '/moments',
     name: 'Moments',
     component: () => import('@/pages/social/QZonePage.vue'),
+    meta: { statusBarColor: '#ffffff' },
   },
   {
     path: '/couple-space',
@@ -170,6 +135,7 @@ const routes: RouteRecordRaw[] = [
     path: '/live',
     name: 'Live',
     component: () => import('@/pages/entertainment/LivePage.vue'),
+    meta: { statusBarColor: '#ffffff' },
   },
   {
     path: '/games',
@@ -185,6 +151,7 @@ const routes: RouteRecordRaw[] = [
     path: '/mini-theater',
     name: 'MiniTheater',
     component: () => import('@/pages/entertainment/MiniTheaterPage.vue'),
+    meta: { statusBarColor: '#ffffff' },
   },
   {
     path: '/douyin',
@@ -344,8 +311,8 @@ async function validateToken(token: string): Promise<boolean> {
     }
     return ok
   } catch {
-    tokenValidCache = null
-    return false
+    // 网络错误时采用乐观策略：如果有 token 就放行，后续 API 调用会处理失效
+    return true
   }
 }
 
@@ -368,7 +335,6 @@ router.beforeEach(async (to, _from, next) => {
   // Feature gating: block access to disabled features
   const routeName = to.name as string
   if (routeName && routeFeatureMap[routeName]) {
-    const { useFeaturesStore } = await import('@/stores/features')
     const featuresStore = useFeaturesStore()
     // Ensure features are loaded
     if (!featuresStore.loaded) {

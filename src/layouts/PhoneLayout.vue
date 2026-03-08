@@ -23,7 +23,13 @@
 
         <!-- 页面内容 -->
         <div class="screen-content">
-          <slot />
+          <div v-if="renderError" class="error-boundary">
+            <div class="error-icon">⚠️</div>
+            <div class="error-title">页面加载异常</div>
+            <div class="error-message">{{ renderError.message }}</div>
+            <button class="error-retry" @click="handleRetry">返回首页</button>
+          </div>
+          <slot v-else />
         </div>
 
         <!-- 底部指示器 -->
@@ -39,20 +45,33 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, onErrorCaptured, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import StatusBar from '@/components/phone/StatusBar.vue'
 import DynamicIsland from '@/components/phone/DynamicIsland.vue'
 import { usePhoneStore } from '@/stores/phone'
 
 const phone = usePhoneStore()
 const route = useRoute()
+const router = useRouter()
 
+// 从路由 meta 读取状态栏颜色，不再硬编码路由名
 const statusBarForeground = computed(() => {
-  if (route.name === 'Weibo') return '#111111'
-  if (route.name === 'Home' || route.name === 'QZone' || route.name === 'Moments' || route.name === 'Live' || route.name === 'MiniTheater') return '#ffffff'
-  return 'var(--text-primary)'
+  return (route.meta.statusBarColor as string) || 'var(--text-primary)'
 })
+
+// 错误边界：捕获子组件渲染错误，防止白屏
+const renderError = ref<Error | null>(null)
+onErrorCaptured((err: Error) => {
+  renderError.value = err
+  console.error('[PhoneLayout] 子组件渲染错误:', err)
+  return false // 阻止错误继续向上传播
+})
+
+function handleRetry() {
+  renderError.value = null
+  router.push('/')
+}
 </script>
 
 <style scoped>
@@ -148,6 +167,53 @@ const statusBarForeground = computed(() => {
   background: var(--text-primary);
   border-radius: 100px;
   opacity: 0.3;
+}
+
+/* 错误边界 */
+.error-boundary {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  text-align: center;
+  gap: 12px;
+}
+
+.error-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.error-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.error-message {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 280px;
+  word-break: break-word;
+}
+
+.error-retry {
+  margin-top: 8px;
+  padding: 10px 28px;
+  background: var(--brand-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-full);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.error-retry:active {
+  opacity: 0.8;
 }
 
 /* 响应式 - 小屏直接全屏 */

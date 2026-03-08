@@ -8,10 +8,10 @@
       <!-- 顶部间距（状态栏+灵动岛） -->
       <div class="top-spacer"></div>
 
-      <!-- 日期时间 -->
+      <!-- 日期时间（复用 phone store 统一时钟） -->
       <div class="datetime-widget">
-        <div class="widget-date">{{ dateStr }}</div>
-        <div class="widget-time">{{ timeStr }}</div>
+        <div class="widget-date">{{ phone.currentDate }}</div>
+        <div class="widget-time">{{ phone.currentTime }}</div>
       </div>
 
       <!-- 滑动区域 -->
@@ -66,7 +66,7 @@
       <div class="dock-bg"></div>
       <div class="dock-apps">
         <div
-          v-for="app in dockApps"
+          v-for="app in visibleDockApps"
           :key="app.name"
           class="dock-item pressable"
           @click="openApp(app)"
@@ -86,75 +86,22 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useFeaturesStore } from '@/stores/features'
 import { useAuthStore } from '@/stores/auth'
+import { usePhoneStore } from '@/stores/phone'
 import { appIcons } from '@/utils/appIcons'
+import { getHomeApps, getDockApps, type AppDefinition } from '@/utils/appRegistry'
 
 const router = useRouter()
 const featuresStore = useFeaturesStore()
 const authStore = useAuthStore()
-
-interface AppItem {
-  name: string
-  iconKey: string
-  color: string
-  route: string
-  featureId?: string
-  badge?: number
-  adminOnly?: boolean
-}
+const phone = usePhoneStore()
 
 function getIcon(key: string): string {
   return appIcons[key] || ''
 }
 
-const dateStr = ref('')
-const timeStr = ref('')
-let timer: ReturnType<typeof setInterval> | null = null
-
-function updateDateTime() {
-  const now = new Date()
-  const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-  dateStr.value = `${weekDays[now.getDay()]}  ${now.getMonth() + 1}月${now.getDate()}日`
-  timeStr.value = now.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-}
-
-const allApps: AppItem[] = [
-  { name: '聊天', iconKey: 'chat', color: 'linear-gradient(135deg, #5B6EF5, #8B5CF6)', route: '/friends', featureId: 'chat' },
-  { name: '微博', iconKey: 'weibo', color: 'linear-gradient(135deg, #E6162D, #FF4757)', route: '/weibo', featureId: 'weibo' },
-  { name: '朋友圈', iconKey: 'qzone', color: 'linear-gradient(135deg, #2ED573, #7BED9F)', route: '/qzone', featureId: 'qzone' },
-  { name: '外卖', iconKey: 'takeaway', color: 'linear-gradient(135deg, #0AB4FF, #26D0CE)', route: '/takeaway', featureId: 'takeaway' },
-  { name: '购物', iconKey: 'shopping', color: 'linear-gradient(135deg, #FF6348, #FF4757)', route: '/shopping', featureId: 'shopping' },
-  { name: '音乐', iconKey: 'music', color: 'linear-gradient(135deg, #FC5C7D, #6A82FB)', route: '/listen-together', featureId: 'music' },
-  { name: '直播', iconKey: 'live', color: 'linear-gradient(135deg, #A855F7, #EC4899)', route: '/live', featureId: 'live' },
-  { name: '日记', iconKey: 'diary', color: 'linear-gradient(135deg, #FECA57, #FF9FF3)', route: '/diary', featureId: 'diary' },
-  { name: '游戏', iconKey: 'games', color: 'linear-gradient(135deg, #6C5CE7, #A29BFE)', route: '/games', featureId: 'games' },
-  { name: '钱包', iconKey: 'wallet', color: 'linear-gradient(135deg, #00B894, #55EFC4)', route: '/wallet', featureId: 'wallet' },
-  { name: '影院', iconKey: 'theater', color: 'linear-gradient(135deg, #2D3436, #636E72)', route: '/mini-theater', featureId: 'mini_theater' },
-  { name: '股票', iconKey: 'stock', color: 'linear-gradient(135deg, #00B16A, #1ABC9C)', route: '/stock', featureId: 'stock' },
-  { name: '汇率', iconKey: 'currency', color: 'linear-gradient(135deg, #3498DB, #2980B9)', route: '/currency', featureId: 'currency' },
-  { name: '情侣', iconKey: 'couple', color: 'linear-gradient(135deg, #FD79A8, #E84393)', route: '/couple-space', featureId: 'couple_space' },
-  { name: '知乎', iconKey: 'zhihu', color: 'linear-gradient(135deg, #0066FF, #3399FF)', route: '/zhihu', featureId: 'zhihu' },
-  { name: '小红书', iconKey: 'xiaohongshu', color: 'linear-gradient(135deg, #FF2442, #FF6B81)', route: '/xiaohongshu', featureId: 'xiaohongshu' },
-  { name: '抖音', iconKey: 'douyin', color: 'linear-gradient(135deg, #25F4EE, #FE2C55)', route: '/douyin', featureId: 'douyin' },
-  { name: 'Discord', iconKey: 'discord', color: 'linear-gradient(135deg, #5865F2, #7289DA)', route: '/discord', featureId: 'discord' },
-  { name: '邮箱', iconKey: 'email', color: 'linear-gradient(135deg, #4A90D9, #357ABD)', route: '/email', featureId: 'email' },
-  { name: '浏览器', iconKey: 'browser', color: 'linear-gradient(135deg, #4285F4, #34A853)', route: '/browser', featureId: 'browser' },
-  { name: '地图', iconKey: 'map', color: 'linear-gradient(135deg, #34A853, #FBBC05)', route: '/map', featureId: 'map' },
-  { name: '日历', iconKey: 'calendar', color: 'linear-gradient(135deg, #FF6B6B, #EE5A24)', route: '/calendar', featureId: 'calendar' },
-  { name: '设置', iconKey: 'settings', color: 'linear-gradient(135deg, #636E72, #B2BEC3)', route: '/customize' },
-  { name: '角色', iconKey: 'characters', color: 'linear-gradient(135deg, #00CEC9, #81ECEC)', route: '/characters', featureId: 'characters' },
-  { name: '人设', iconKey: 'personas', color: 'linear-gradient(135deg, #E17055, #FAB1A0)', route: '/personas', featureId: 'personas' },
-  { name: '世界书', iconKey: 'worldbook', color: 'linear-gradient(135deg, #6C5CE7, #DDA0DD)', route: '/worldbook', featureId: 'worldbook' },
-  { name: '预设', iconKey: 'preset', color: 'linear-gradient(135deg, #FDCB6E, #F39C12)', route: '/preset', featureId: 'preset' },
-  { name: '管理', iconKey: 'admin', color: 'linear-gradient(135deg, #E74C3C, #C0392B)', route: '/admin/features', adminOnly: true },
-]
-
-// Filter apps: hide disabled features + admin-only for non-admins
+// 从统一注册表获取应用列表，按权限和 feature 过滤
 const apps = computed(() =>
-  allApps.filter((app) => {
+  getHomeApps().filter((app) => {
     if (app.adminOnly && !authStore.isAdmin) return false
     if (app.featureId && !featuresStore.isEnabled(app.featureId)) return false
     return true
@@ -166,7 +113,7 @@ const APPS_PER_PAGE = 12
 
 // 将 apps 分页
 const pages = computed(() => {
-  const result: AppItem[][] = []
+  const result: AppDefinition[][] = []
   const list = apps.value
   for (let i = 0; i < list.length; i += APPS_PER_PAGE) {
     result.push(list.slice(i, i + APPS_PER_PAGE))
@@ -176,21 +123,15 @@ const pages = computed(() => {
   return result
 })
 
-const allDockApps: AppItem[] = [
-  { name: '电话', iconKey: 'phone', color: 'linear-gradient(135deg, #2ED573, #7BED9F)', route: '/phone', featureId: 'phone' },
-  { name: '短信', iconKey: 'sms', color: 'linear-gradient(135deg, #2ED573, #7BED9F)', route: '/sms', featureId: 'sms' },
-  { name: '聊天', iconKey: 'chat', color: 'linear-gradient(135deg, #5B6EF5, #8B5CF6)', route: '/friends', featureId: 'chat' },
-  { name: '个人', iconKey: 'profile', color: 'linear-gradient(135deg, #636E72, #B2BEC3)', route: '/profile' },
-]
-
-const dockApps = computed(() =>
-  allDockApps.filter((app) => {
+// Dock 栏应用
+const visibleDockApps = computed(() =>
+  getDockApps().filter((app) => {
     if (app.featureId && !featuresStore.isEnabled(app.featureId)) return false
     return true
   }),
 )
 
-function openApp(app: AppItem) {
+function openApp(app: AppDefinition) {
   // 如果正在滑动，不触发点击
   if (hasSwiped.value) return
   router.push(app.route)
@@ -348,13 +289,10 @@ function onMouseUp() {
 }
 
 onMounted(() => {
-  updateDateTime()
-  timer = setInterval(updateDateTime, 1000)
   featuresStore.fetchFeatures()
 })
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
   if (mouseMoveBound) {
     window.removeEventListener('mousemove', onMouseMove)
     window.removeEventListener('mouseup', onMouseUp)

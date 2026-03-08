@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getCharacterById } from '@/utils/aiService'
 import { callApi } from '@/api/services'
 
 export interface CallRecord {

@@ -28,6 +28,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
+          'vendor-vue': ['vue', 'vue-router', 'pinia'],
           'social-ai': [
             './src/stores/socialAI.ts',
             './src/utils/socialParsers.ts',

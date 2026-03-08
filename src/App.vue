@@ -1,7 +1,7 @@
 <template>
   <PhoneLayout>
     <router-view v-slot="{ Component }">
-      <transition name="fade">
+      <transition :name="transitionName">
         <component :is="Component" />
       </transition>
     </router-view>
@@ -9,7 +9,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, watchEffect } from 'vue'
+import { ref, onMounted, onUnmounted, watchEffect } from 'vue'
+import { useRouter } from 'vue-router'
 import PhoneLayout from '@/layouts/PhoneLayout.vue'
 import { usePhoneStore } from '@/stores/phone'
 import { useAuthStore } from '@/stores/auth'
@@ -18,6 +19,83 @@ import { useSettingsStore } from '@/stores/settings'
 const phone = usePhoneStore()
 const auth = useAuthStore()
 const settingsStore = useSettingsStore()
+const router = useRouter()
+
+// === iOS 风格转场动画 ===
+const transitionName = ref('fade')
+
+// 为路由分配深度级别，用于判断前进/后退
+const routeDepthMap: Record<string, number> = {
+  Home: 0,
+  Login: 0,
+  // 一级页面
+  Friends: 1,
+  Characters: 1,
+  UserPersonas: 1,
+  WorldBook: 1,
+  Weibo: 1,
+  QZone: 1,
+  Moments: 1,
+  CoupleSpace: 1,
+  Takeaway: 1,
+  Shopping: 1,
+  Wallet: 1,
+  ListenTogether: 1,
+  Live: 1,
+  Games: 1,
+  Casino: 1,
+  MiniTheater: 1,
+  Diary: 1,
+  Phone: 1,
+  Sms: 1,
+  Stock: 1,
+  CurrencyConverter: 1,
+  Profile: 1,
+  Customize: 1,
+  Preset: 1,
+  Zhihu: 1,
+  Xiaohongshu: 1,
+  Douyin: 1,
+  Discord: 1,
+  Email: 1,
+  Browser: 1,
+  Map: 1,
+  Calendar: 1,
+  AdminFeatures: 1,
+  AdminUsers: 1,
+  AdminStats: 1,
+  AdminSettings: 1,
+  // 二级页面
+  Chat: 2,
+  GroupChat: 2,
+  CharacterEdit: 2,
+  Restaurant: 2,
+  TakeawayOrders: 2,
+  VoiceCall: 2,
+  VideoCall: 2,
+  PhonePeek: 2,
+  ReversePhonePeek: 2,
+  OfflineDate: 2,
+}
+
+const removeRouteTransitionGuard = router.beforeEach((to, from) => {
+  const toDepth = routeDepthMap[to.name as string] ?? 1
+  const fromDepth = routeDepthMap[from.name as string] ?? 1
+
+  if (from.name === undefined || from.name === null) {
+    // 初次加载，使用淡入
+    transitionName.value = 'fade'
+  } else if (toDepth > fromDepth) {
+    // 前进：从右侧推入
+    transitionName.value = 'slide-right'
+  } else if (toDepth < fromDepth) {
+    // 后退：从左侧推入
+    transitionName.value = 'slide-left'
+  } else {
+    // 同级切换：淡入淡出
+    transitionName.value = 'fade'
+  }
+})
 
 // 壁纸渐变映射
 const wallpaperGradients: Record<string, string> = {
@@ -80,6 +158,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  removeRouteTransitionGuard()
   phone.stopBatteryTimer()
   phone.stopClock()
 })
