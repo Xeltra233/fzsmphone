@@ -103,12 +103,11 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 // PATCH /api/users/{id}/role
 func (h *UserHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
-	// Only admins can update roles - verify caller is admin
-	callerID, _ := mw.GetUserID(r.Context())
-	var callerRole string
-	err := h.DB.Pool.QueryRow(r.Context(), `SELECT role FROM users WHERE id = $1`, callerID).Scan(&callerRole)
-	if err != nil || callerRole != "admin" {
-		mw.Error(w, http.StatusForbidden, "admin access required")
+	// Only super_admin can update roles
+	_, _ = mw.GetUserID(r.Context())
+	isSuperAdmin, _ := mw.GetIsSuperAdmin(r.Context())
+	if !isSuperAdmin {
+		mw.Error(w, http.StatusForbidden, "super_admin access required")
 		return
 	}
 
@@ -125,13 +124,13 @@ func (h *UserHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		mw.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if body.Role != "admin" && body.Role != "user" && body.Role != "moderator" {
+	if body.Role != "admin" && body.Role != "user" && body.Role != "moderator" && body.Role != "super_admin" {
 		mw.Error(w, http.StatusBadRequest, "invalid role")
 		return
 	}
 
 	result, err := h.DB.Pool.Exec(r.Context(), `
-		UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2
+	UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2
 	`, body.Role, id)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to update role")
@@ -143,6 +142,51 @@ func (h *UserHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mw.JSON(w, http.StatusOK, map[string]string{"message": "role updated"})
+}
+
+// POST /api/users/{id}/set-super-admin
+func (h *UserHandler) SetSuperAdmin(w http.ResponseWriter, r *http.Request) {
+	// Only super_admin can set other super_admin
+	callerID, _ := mw.GetUserID(r.Context())
+	callerIsSuperAdmin, _ := mw.GetIsSuperAdmin(r.Context())
+	if !callerIsSuperAdmin {
+		mw.Error(w, http.StatusForbidden, "super_admin access required")
+		return
+	}
+
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		mw.Error(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	// Cannot demote yourself
+	if id == callerID {
+		mw.Error(w, http.StatusBadRequest, "cannot modify your own super_admin status")
+		return
+	}
+
+	var body struct {
+		IsSuperAdmin bool `json:"is_super_admin"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		mw.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	result, err := h.DB.Pool.Exec(r.Context(), `
+	UPDATE users SET is_super_admin = $1, updated_at = NOW() WHERE id = $2
+	`, body.IsSuperAdmin, id)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to update super_admin status")
+		return
+	}
+	if result.RowsAffected() == 0 {
+		mw.Error(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]string{"message": "super_admin status updated"})
 }
 
 // POST /api/users/{id}/ban

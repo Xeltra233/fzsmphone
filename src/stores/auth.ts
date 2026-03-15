@@ -6,8 +6,10 @@ export interface User {
   id: string
   discordId: string
   username: string
+  email: string
   avatar: string
   role: string
+  isSuperAdmin: boolean
   approved: boolean
   banned: boolean
 }
@@ -19,13 +21,24 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isLoggedIn = computed(() => !!token.value && !!user.value)
   const isAdmin = computed(() => user.value?.role === 'admin')
+  const isSuperAdmin = computed(() => user.value?.isSuperAdmin === true)
 
   async function fetchUser() {
     if (!token.value) return
     loading.value = true
     try {
       const data = await api.get<User>('/api/auth/me')
-      user.value = data
+      user.value = {
+        id: String(data.id),
+        discordId: data.discord_id || '',
+        username: data.username,
+        email: data.email || '',
+        avatar: data.avatar_url || '',
+        role: data.role || 'user',
+        isSuperAdmin: data.is_super_admin || false,
+        approved: true,
+        banned: data.is_banned || false
+      }
     } catch {
       logout()
     } finally {
@@ -40,6 +53,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   function setUser(userData: User) {
     user.value = userData
+    localStorage.setItem('user', JSON.stringify(userData))
   }
 
   function logout() {
@@ -55,6 +69,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading,
     isLoggedIn,
     isAdmin,
+    isSuperAdmin,
     fetchUser,
     setToken,
     setUser,

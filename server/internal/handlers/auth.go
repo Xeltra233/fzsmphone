@@ -16,6 +16,7 @@ import (
 	mw "fzsmphone/internal/middleware"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthHandler struct {
@@ -338,20 +339,22 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user struct {
-		ID          int64  `json:"id"`
-		DiscordID   string `json:"discord_id"`
-		Username    string `json:"username"`
-		DisplayName string `json:"display_name"`
-		AvatarURL   string `json:"avatar_url"`
-		Role        string `json:"role"`
-		IsBanned    bool   `json:"is_banned"`
-		BanReason   string `json:"ban_reason"`
+		ID           int64  `json:"id"`
+		DiscordID    string `json:"discord_id"`
+		Username     string `json:"username"`
+		Email        string `json:"email"`
+		DisplayName  string `json:"display_name"`
+		AvatarURL    string `json:"avatar_url"`
+		Role         string `json:"role"`
+		IsSuperAdmin bool   `json:"is_super_admin"`
+		IsBanned     bool   `json:"is_banned"`
+		BanReason    string `json:"ban_reason"`
 	}
 
 	err := h.DB.Pool.QueryRow(r.Context(), `
-		SELECT id, discord_id, username, display_name, avatar_url, role, is_banned, ban_reason
-		FROM users WHERE id = $1
-	`, userID).Scan(&user.ID, &user.DiscordID, &user.Username, &user.DisplayName, &user.AvatarURL, &user.Role, &user.IsBanned, &user.BanReason)
+	SELECT id, COALESCE(discord_id, ''), username, COALESCE(email, ''), display_name, COALESCE(avatar_url, ''), role, is_super_admin, is_banned, ban_reason
+	FROM users WHERE id = $1
+	`, userID).Scan(&user.ID, &user.DiscordID, &user.Username, &user.Email, &user.DisplayName, &user.AvatarURL, &user.Role, &user.IsSuperAdmin, &user.IsBanned, &user.BanReason)
 	if err != nil {
 		mw.Error(w, http.StatusNotFound, "user not found")
 		return
@@ -372,4 +375,190 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mw.JSON(w, http.StatusOK, user)
+}
+
+// POST /api/auth/register - 用户注册
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		mw.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if strings.TrimSpace(body.Username) == "" {
+		mw.Error(w, http.StatusBadRequest, "用户名不能为空")
+		return
+	}
+	if strings.TrimSpace(body.Email) == "" {
+		mw.Error(w, http.StatusBadRequest, "邮箱不能为空")
+		return
+	}
+	if len(body.Password) < 6 {
+		mw.Error(w, http.StatusBadRequest, "密码长度至少6位")
+		return
+	}
+
+	// Check if email or username already exists
+	var exists bool
+	err := h.DB.Pool.QueryRow(r.Context(), `
+		SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 OR username = $2)
+	`, body.Email, body.Username).Scan(&exists)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to check user")
+		return
+	}
+	if exists {
+		mw.Error(w, http.StatusConflict, "用户名或邮箱已存在")
+		return
+	}
+
+	// Hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to hash password")
+		return
+	}
+
+	// Create user
+	var userID int64
+	var role string
+	var isSuperAdmin bool
+	err = h.DB.Pool.QueryRow(r.Context(), `
+		INSERT INTO users (username, email, password_hash, display_name, role, is_super_admin)
+		VALUES ($1, $2, $3, $1, 'user', false)
+		RETURNING id, role, is_super_admin
+	`, body.Username, body.Email, string(hashedPassword)).Scan(&userID, &role, &isSuperAdmin)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to create user")
+		return
+	}
+
+	// Generate JWT
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id":        userID,
+		"email":          body.Email,
+		"role":           role,
+		"is_super_admin": isSuperAdmin,
+		"exp":            time.Now().Add(7 * 24 * time.Hour).Unix(),
+	})
+
+	tokenStr, err := token.SignedString([]byte(h.Cfg.JWTSecret))
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to generate token")
+		return
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]interface{}{
+		"token": tokenStr,
+		"user": map[string]interface{}{
+			"id":             userID,
+			"username":       body.Username,
+			"email":          body.Email,
+			"display_name":   body.Username,
+			"role":           role,
+			"is_super_admin": isSuperAdmin,
+		},
+	})
+}
+
+// POST /api/auth/login - 邮箱/用户名 + 密码登录
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Identifier string `json:"identifier"` // 可以是邮箱或用户名
+		Password   string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		mw.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if strings.TrimSpace(body.Identifier) == "" {
+		mw.Error(w, http.StatusBadRequest, "请输入邮箱或用户名")
+		return
+	}
+	if body.Password == "" {
+		mw.Error(w, http.StatusBadRequest, "请输入密码")
+		return
+	}
+
+	// Find user by email or username
+	var user struct {
+		ID           int64  `json:"id"`
+		Username     string `json:"username"`
+		Email        string `json:"email"`
+		PasswordHash string `json:"-"`
+		DisplayName  string `json:"display_name"`
+		AvatarURL    string `json:"avatar_url"`
+		DiscordID    string `json:"discord_id"`
+		Role         string `json:"role"`
+		IsSuperAdmin bool   `json:"is_super_admin"`
+		IsBanned     bool   `json:"is_banned"`
+		BanReason    string `json:"ban_reason"`
+	}
+
+	err := h.DB.Pool.QueryRow(r.Context(), `
+		SELECT id, username, COALESCE(email, ''), password_hash, COALESCE(display_name, ''), 
+			   COALESCE(avatar_url, ''), COALESCE(discord_id, ''), role, is_super_admin, is_banned, ban_reason
+		FROM users 
+		WHERE email = $1 OR username = $1
+	`, body.Identifier).Scan(&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.DisplayName, &user.AvatarURL, &user.DiscordID, &user.Role, &user.IsSuperAdmin, &user.IsBanned, &user.BanReason)
+
+	if err != nil {
+		mw.Error(w, http.StatusUnauthorized, "用户名或密码错误")
+		return
+	}
+
+	// Check password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(body.Password)); err != nil {
+		mw.Error(w, http.StatusUnauthorized, "用户名或密码错误")
+		return
+	}
+
+	// Check if banned
+	if user.IsBanned {
+		msg := "您的账号已被封禁"
+		if user.BanReason != "" {
+			msg += "：" + user.BanReason
+		}
+		mw.JSON(w, http.StatusForbidden, map[string]interface{}{
+			"error":  msg,
+			"banned": true,
+			"reason": user.BanReason,
+		})
+		return
+	}
+
+	// Generate JWT
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id":        user.ID,
+		"email":          user.Email,
+		"discord_id":     user.DiscordID,
+		"role":           user.Role,
+		"is_super_admin": user.IsSuperAdmin,
+		"exp":            time.Now().Add(7 * 24 * time.Hour).Unix(),
+	})
+
+	tokenStr, err := token.SignedString([]byte(h.Cfg.JWTSecret))
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to generate token")
+		return
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]interface{}{
+		"token": tokenStr,
+		"user": map[string]interface{}{
+			"id":             user.ID,
+			"discord_id":     user.DiscordID,
+			"username":       user.Username,
+			"email":          user.Email,
+			"display_name":   user.DisplayName,
+			"avatar_url":     user.AvatarURL,
+			"role":           user.Role,
+			"is_super_admin": user.IsSuperAdmin,
+		},
+	})
 }

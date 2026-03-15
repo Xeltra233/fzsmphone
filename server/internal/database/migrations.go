@@ -394,9 +394,34 @@ var migrations = []migration{
 		Version: 20,
 		Name:    "add_user_ban_fields",
 		SQL: `
-			ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN NOT NULL DEFAULT false;
-			ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT NOT NULL DEFAULT '';
-			ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_at TIMESTAMPTZ;
-		`,
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_banned BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS ban_reason TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_at TIMESTAMPTZ;
+`,
+	},
+	{
+		Version: 21,
+		Name:    "add_password_and_super_admin",
+		SQL: `
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_super_admin BOOLEAN NOT NULL DEFAULT false;
+`,
+	},
+	{
+		Version: 22,
+		Name:    "create_user_api_settings",
+		SQL: `
+CREATE TABLE IF NOT EXISTS user_api_settings (
+	id BIGSERIAL PRIMARY KEY,
+	user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+	api_key TEXT NOT NULL DEFAULT '',
+	api_url TEXT NOT NULL DEFAULT '',
+	model TEXT NOT NULL DEFAULT '',
+	is_global BOOLEAN NOT NULL DEFAULT false,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_user_api_settings_user ON user_api_settings(user_id);
+`,
 	},
 }

@@ -332,6 +332,20 @@ router.beforeEach(async (to, _from, next) => {
 
   if (to.path === '/login' && token) return next('/')
 
+  // Admin route protection
+  if (to.meta.admin === true) {
+    const userStr = localStorage.getItem('user')
+    if (!userStr) return next('/login')
+    try {
+      const user = JSON.parse(userStr)
+      if (user.role !== 'admin' && user.role !== 'super_admin' && user.is_super_admin !== true && user.isSuperAdmin !== true) {
+        return next('/')
+      }
+    } catch {
+      return next('/login')
+    }
+  }
+
   // Feature gating: block access to disabled features
   const routeName = to.name as string
   if (routeName && routeFeatureMap[routeName]) {

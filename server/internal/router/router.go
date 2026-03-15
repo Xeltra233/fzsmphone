@@ -55,6 +55,8 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 	// Public routes
 	r.Route("/api", func(r chi.Router) {
 		// Auth (public)
+		r.Post("/auth/register", authH.Register)
+		r.Post("/auth/login", authH.Login)
 		r.Post("/auth/discord", authH.DiscordCallback)
 
 		// Protected routes
@@ -201,6 +203,8 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 			r.Route("/settings", func(r chi.Router) {
 				r.Get("/", settingsH.Get)
 				r.Put("/", settingsH.Update)
+				r.Get("/api", settingsH.GetUserApiSettings)
+				r.Put("/api", settingsH.UpdateUserApiSettings)
 			})
 
 			// === Feature Flags ===
@@ -215,6 +219,7 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 				r.Get("/", userH.List)
 				r.Get("/{id}", userH.Get)
 				r.Patch("/{id}/role", userH.UpdateRole)
+				r.Patch("/{id}/super-admin", userH.SetSuperAdmin)
 				r.Post("/{id}/ban", userH.Ban)
 				r.Post("/{id}/unban", userH.Unban)
 			})
