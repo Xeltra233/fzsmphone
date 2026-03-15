@@ -150,9 +150,6 @@ interface AuthResponse {
   }
 }
 
-const DISCORD_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || ''
-const REDIRECT_URI = import.meta.env.VITE_DISCORD_REDIRECT_URI || `${window.location.origin}/auth/callback`
-
 const isBanned = ref(false)
 const banReason = ref('')
 const loginMode = ref('password')

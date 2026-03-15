@@ -7,22 +7,22 @@
       <div class="settings-tabs">
         <button 
           class="tab-btn" 
-          :class="{ active: activeTab === 'system' }" 
+          :class="{ active: isSystemTab }" 
           @click="activeTab = 'system'"
         >
           系统配置
         </button>
         <button 
           class="tab-btn" 
-          :class="{ active: activeTab === 'api' }" 
+          :class="{ active: isApiTab }" 
           @click="activeTab = 'api'"
         >
           API设置
         </button>
       </div>
 
-      <!-- 系统配置 -->
-      <template v-if="activeTab === 'system'">
+<!-- 系统配置 -->
+<template v-if="isSystemTab">
         <div v-if="!authStore.isSuperAdmin" class="permission-notice">
           <span class="notice-icon">ℹ️</span>
           您的账户为管理员，只能查看系统配置。如需修改，请联系超级管理员。
@@ -101,8 +101,8 @@
         </div>
         </template>
 
-        <!-- API设置 -->
-        <template v-if="activeTab === 'api'">
+<!-- API设置 -->
+<template v-if="isApiTab">
           <div class="api-settings-section">
             <div v-if="apiSettingsLoading" class="loading-state">
               <div class="spinner"></div>
@@ -199,7 +199,10 @@ const saving = ref(false)
 const settingsList = ref<SettingItem[]>([])
 const toast = ref({ show: false, message: '', type: 'success' as 'success' | 'error' })
 
-const activeTab = ref<string>('system')
+const activeTab = ref<'system' | 'api'>('system')
+
+const isApiTab = computed(() => activeTab.value === 'api')
+const isSystemTab = computed(() => activeTab.value === 'system')
 
 const apiSettingsLoading = ref(false)
 const apiSaving = ref(false)
