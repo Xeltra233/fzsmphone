@@ -63,10 +63,21 @@
 
 ## 环境变量
 
-### 后端 (Go)
+### Zeabur 部署必需变量
+
+在 Zeabur 控制台的 **Environment Variables** 中必须设置以下变量：
+
+| 变量名 | 说明 | 示例 |
+|--------|------|------|
+| `JWT_SECRET` | JWT 签名密钥，必须设置一个随机字符串 | `your-random-secret-key-min-32-chars` |
+| `DATABASE_URL` | PostgreSQL 数据库连接字符串 | `postgres://user:pass@host:5432/db?sslmode=disable` |
+
+> ⚠️ **重要**: 如果没有设置 `JWT_SECRET`，应用将无法启动！
+
+### 后端 (Go) 完整配置
 
 ```env
-# 基础配置
+# 基础配置 (必需)
 PORT=8080
 DATABASE_URL=postgres://user:pass@host:5432/db?sslmode=disable
 JWT_SECRET=your-secret-key
@@ -91,6 +102,21 @@ DISCORD_ADMIN_IDS=admin-discord-id1,admin-discord-id2
 VITE_API_URL=http://localhost:8080
 VITE_DISCORD_CLIENT_ID=your-client-id
 VITE_DISCORD_REDIRECT_URI=http://localhost:3000/auth/callback
+```
+
+### 如何获取必需的环境变量
+
+#### JWT_SECRET
+生成一个随机的密钥，可以使用以下命令生成：
+```bash
+openssl rand -base64 32
+```
+或使用在线随机字符串生成器。
+
+#### DATABASE_URL
+如果使用 Zeabur 内置的 PostgreSQL 数据库，在 Zeabur 控制台的 **Variables** 中可以找到 `POSTGRES_URL`，格式为：
+```
+postgres://username:password@host:5432/databasename?sslmode=disable
 ```
 
 ## 快速开始
