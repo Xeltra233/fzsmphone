@@ -104,6 +104,20 @@ VITE_DISCORD_CLIENT_ID=your-client-id
 VITE_DISCORD_REDIRECT_URI=http://localhost:3000/auth/callback
 ```
 
+### Zeabur 部署 (单端口)
+
+本项目支持**单端口部署**，后端服务同时提供 API 和前端静态页面。
+
+**必需的环境变量**：
+
+| 变量名 | 说明 | 示例 |
+|--------|------|------|
+| `ENVIRONMENT` | 设为 `production` 开启单端口模式 | `production` |
+| `JWT_SECRET` | JWT 签名密钥 | `your-random-secret` |
+| `DATABASE_URL` | PostgreSQL 连接字符串 | `postgres://...` |
+
+设置 `ENVIRONMENT=production` 后，后端会自动从 `./dist` 文件夹提供前端页面，只需 **8080 端口**即可访问完整应用。
+
 ### 如何获取必需的环境变量
 
 #### JWT_SECRET
