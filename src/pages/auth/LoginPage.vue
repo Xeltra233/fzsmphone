@@ -136,6 +136,23 @@ const router = useRouter()
 const DISCORD_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || ''
 const REDIRECT_URI = import.meta.env.VITE_DISCORD_REDIRECT_URI || `${window.location.origin}/auth/callback`
 
+interface AuthResponse {
+  token: string
+  user: {
+    id: number
+    discord_id: string
+    username: string
+    email: string
+    display_name: string
+    avatar_url: string
+    role: string
+    is_super_admin: boolean
+  }
+}
+
+const DISCORD_CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID || ''
+const REDIRECT_URI = import.meta.env.VITE_DISCORD_REDIRECT_URI || `${window.location.origin}/auth/callback`
+
 const isBanned = ref(false)
 const banReason = ref('')
 const loginMode = ref('password')
@@ -187,11 +204,11 @@ async function handleLogin() {
   
   loggingIn.value = true
   try {
-    const res = await apiClient.post('/api/auth/login', {
+    const res = await apiClient.post<AuthResponse>('/api/auth/login', {
       identifier: identifier.value,
       password: password.value
-    })
-    
+    }) as AuthResponse
+
     localStorage.setItem('token', res.token)
     localStorage.setItem('user', JSON.stringify(res.user))
     window.location.href = '/'
@@ -215,8 +232,8 @@ async function handleRegister() {
   
   registering.value = true
   try {
-    const res = await apiClient.post('/api/auth/register', registerForm.value)
-    
+    const res = await apiClient.post<AuthResponse>('/api/auth/register', registerForm.value) as AuthResponse
+
     localStorage.setItem('token', res.token)
     localStorage.setItem('user', JSON.stringify(res.user))
     showRegister.value = false

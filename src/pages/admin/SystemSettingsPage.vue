@@ -199,11 +199,11 @@ const saving = ref(false)
 const settingsList = ref<SettingItem[]>([])
 const toast = ref({ show: false, message: '', type: 'success' as 'success' | 'error' })
 
-const activeTab = ref('system')
+const activeTab = ref<string>('system')
 
 const apiSettingsLoading = ref(false)
 const apiSaving = ref(false)
-const apiSettings = ref<any>(null)
+const apiSettings = ref<Record<string, any> | null>(null)
 const apiForm = ref({
   globalApiKey: '',
   globalApiUrl: '',
@@ -311,7 +311,7 @@ async function saveSettings() {
 async function fetchApiSettings() {
   apiSettingsLoading.value = true
   try {
-    const res = await apiClient.get('/api/settings/api')
+    const res = await apiClient.get<Record<string, any>>('/api/settings/api') as Record<string, any>
     apiSettings.value = res
     if (authStore.isSuperAdmin && res.global) {
       apiForm.value.globalApiKey = res.global.api_key || ''

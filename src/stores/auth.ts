@@ -14,6 +14,19 @@ export interface User {
   banned: boolean
 }
 
+interface UserResponse {
+  id: number
+  discord_id: string
+  username: string
+  email: string
+  display_name: string
+  avatar_url: string
+  role: string
+  is_super_admin: boolean
+  is_banned: boolean
+  ban_reason: string
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const token = ref<string | null>(localStorage.getItem('token'))
@@ -27,7 +40,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (!token.value) return
     loading.value = true
     try {
-      const data = await api.get<User>('/api/auth/me')
+      const data = await api.get<UserResponse>('/api/auth/me')
       user.value = {
         id: String(data.id),
         discordId: data.discord_id || '',
