@@ -2,121 +2,158 @@
   <div class="login-page">
     <div class="login-bg"></div>
     <div class="login-content">
-      <!-- 封禁提示 -->
-      <div v-if="isBanned" class="ban-alert">
-        <div class="ban-icon">
-          <svg viewBox="0 0 36 36" fill="none" width="36" height="36"><circle cx="18" cy="18" r="14" stroke="#ff6b6b" stroke-width="2.5"/><line x1="9" y1="9" x2="27" y2="27" stroke="#ff6b6b" stroke-width="2.5"/></svg>
-        </div>
-        <div class="ban-title">账号已被封禁</div>
-        <div v-if="banReason" class="ban-reason">封禁原因：{{ banReason }}</div>
-        <div class="ban-hint">如有疑问请联系管理员</div>
-      </div>
-
-      <div class="login-logo">
-        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="14" y="4" width="36" height="56" rx="8" stroke="#fff" stroke-width="2.5"/>
-          <rect x="26" y="8" width="12" height="4" rx="2" fill="rgba(255,255,255,0.5)"/>
-          <circle cx="32" cy="52" r="2" fill="rgba(255,255,255,0.4)"/>
-          <rect x="18" y="16" width="28" height="30" rx="2" fill="rgba(255,255,255,0.08)"/>
-        </svg>
-      </div>
-      <h1 class="login-title">{{ appName }}</h1>
-      <p class="login-subtitle">{{ isBanned ? '您的账号已被限制访问' : '请登录以继续' }}</p>
-
-      <!-- 登录方式切换 -->
-      <div class="login-tabs">
-        <button 
-          class="tab-btn" 
-          :class="{ active: loginMode === 'password' }" 
-          @click="loginMode = 'password'"
-        >
-          账号登录
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: loginMode === 'discord' }" 
-          @click="loginMode = 'discord'"
-        >
-          Discord
-        </button>
-      </div>
-
-      <!-- 账号密码登录 -->
-      <div v-if="loginMode === 'password'" class="login-form">
-        <div class="input-group">
-          <input 
-            v-model="identifier" 
-            type="text" 
-            placeholder="邮箱或用户名" 
-            class="login-input"
-          />
-        </div>
-        <div class="input-group">
-          <input 
-            v-model="password" 
-            type="password" 
-            placeholder="密码" 
-            class="login-input"
-            @keyup.enter="handleLogin"
-          />
-        </div>
-        
-        <button class="login-btn pressable" @click="handleLogin" :disabled="loggingIn">
-          <template v-if="loggingIn">
-            <div class="btn-spinner"></div>
-            登录中...
-          </template>
-          <template v-else>
-            登录
-          </template>
-        </button>
-
-        <div class="register-link">
-          还没有账号？
-          <span class="link" @click="showRegister = true">立即注册</span>
-        </div>
-      </div>
-
-      <!-- Discord 登录 -->
-      <div v-if="loginMode === 'discord'" class="login-form">
-        <button class="discord-btn pressable" @click="loginWithDiscord">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
-          </svg>
-          <span>使用 Discord 登录</span>
-        </button>
-        <p class="login-hint">需要加入指定 Discord 服务器才能使用</p>
-      </div>
-
-      <!-- 注册弹窗 -->
-      <div v-if="showRegister" class="modal-overlay" @click.self="showRegister = false">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h2>用户注册</h2>
-            <button class="close-btn" @click="showRegister = false">&times;</button>
-          </div>
-          <div class="modal-body">
+      <!-- 向导模式 - 首次设置 -->
+      <template v-if="isSetupMode">
+        <div class="setup-wizard">
+          <div class="setup-icon">⚙️</div>
+          <h2 class="setup-title">首次设置</h2>
+          <p class="setup-desc">创建管理员账号</p>
+          
+          <div class="setup-form">
             <div class="input-group">
-              <input v-model="registerForm.username" type="text" placeholder="用户名" class="login-input" />
+              <input v-model="setupForm.username" type="text" placeholder="用户名" class="login-input" />
             </div>
             <div class="input-group">
-              <input v-model="registerForm.email" type="email" placeholder="邮箱" class="login-input" />
+              <input v-model="setupForm.email" type="email" placeholder="邮箱" class="login-input" />
             </div>
             <div class="input-group">
-              <input v-model="registerForm.password" type="password" placeholder="密码（至少6位）" class="login-input" @keyup.enter="handleRegister" />
+              <input v-model="setupForm.password" type="password" placeholder="密码（至少6位）" class="login-input" @keyup.enter="handleSetup" />
             </div>
-            <button class="login-btn pressable" @click="handleRegister" :disabled="registering">
-              <template v-if="registering">
+            <div class="input-group">
+              <input v-model="setupForm.appName" type="text" placeholder="应用名称（可选）" class="login-input" />
+            </div>
+            
+            <button class="login-btn pressable" @click="handleSetup" :disabled="settingUp">
+              <template v-if="settingUp">
                 <div class="btn-spinner"></div>
-                注册中...
+                设置中...
               </template>
               <template v-else>
-                注册
+                创建管理员账号
               </template>
             </button>
           </div>
         </div>
-      </div>
+      </template>
+
+      <!-- 正常登录模式 -->
+      <template v-else>
+        <!-- 封禁提示 -->
+        <div v-if="isBanned" class="ban-alert">
+          <div class="ban-icon">
+            <svg viewBox="0 0 36 36" fill="none" width="36" height="36"><circle cx="18" cy="18" r="14" stroke="#ff6b6b" stroke-width="2.5"/><line x1="9" y1="9" x2="27" y2="27" stroke="#ff6b6b" stroke-width="2.5"/></svg>
+          </div>
+          <div class="ban-title">账号已被封禁</div>
+          <div v-if="banReason" class="ban-reason">封禁原因：{{ banReason }}</div>
+          <div class="ban-hint">如有疑问请联系管理员</div>
+        </div>
+
+        <div class="login-logo">
+          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="14" y="4" width="36" height="56" rx="8" stroke="#fff" stroke-width="2.5"/>
+            <rect x="26" y="8" width="12" height="4" rx="2" fill="rgba(255,255,255,0.5)"/>
+            <circle cx="32" cy="52" r="2" fill="rgba(255,255,255,0.4)"/>
+            <rect x="18" y="16" width="28" height="30" rx="2" fill="rgba(255,255,255,0.08)"/>
+          </svg>
+        </div>
+        <h1 class="login-title">{{ appName }}</h1>
+        <p class="login-subtitle">{{ isBanned ? '您的账号已被限制访问' : '请登录以继续' }}</p>
+
+        <!-- 登录方式切换 -->
+        <div class="login-tabs">
+          <button 
+            class="tab-btn" 
+            :class="{ active: loginMode === 'password' }" 
+            @click="loginMode = 'password'"
+          >
+            账号登录
+          </button>
+          <button 
+            class="tab-btn" 
+            :class="{ active: loginMode === 'discord' }" 
+            @click="loginMode = 'discord'"
+          >
+            Discord
+          </button>
+        </div>
+
+        <!-- 账号密码登录 -->
+        <div v-if="loginMode === 'password'" class="login-form">
+          <div class="input-group">
+            <input 
+              v-model="identifier" 
+              type="text" 
+              placeholder="邮箱或用户名" 
+              class="login-input"
+            />
+          </div>
+          <div class="input-group">
+            <input 
+              v-model="password" 
+              type="password" 
+              placeholder="密码" 
+              class="login-input"
+              @keyup.enter="handleLogin"
+            />
+          </div>
+          
+          <button class="login-btn pressable" @click="handleLogin" :disabled="loggingIn">
+            <template v-if="loggingIn">
+              <div class="btn-spinner"></div>
+              登录中...
+            </template>
+            <template v-else>
+              登录
+            </template>
+          </button>
+
+          <div class="register-link">
+            还没有账号？
+            <span class="link" @click="showRegister = true">立即注册</span>
+          </div>
+        </div>
+
+        <!-- Discord 登录 -->
+        <div v-if="loginMode === 'discord'" class="login-form">
+          <button class="discord-btn pressable" @click="loginWithDiscord">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+            </svg>
+            <span>使用 Discord 登录</span>
+          </button>
+          <p class="login-hint">需要加入指定 Discord 服务器才能使用</p>
+        </div>
+
+        <!-- 注册弹窗 -->
+        <div v-if="showRegister" class="modal-overlay" @click.self="showRegister = false">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2>用户注册</h2>
+              <button class="close-btn" @click="showRegister = false">&times;</button>
+            </div>
+            <div class="modal-body">
+              <div class="input-group">
+                <input v-model="registerForm.username" type="text" placeholder="用户名" class="login-input" />
+              </div>
+              <div class="input-group">
+                <input v-model="registerForm.email" type="email" placeholder="邮箱" class="login-input" />
+              </div>
+              <div class="input-group">
+                <input v-model="registerForm.password" type="password" placeholder="密码（至少6位）" class="login-input" @keyup.enter="handleRegister" />
+              </div>
+              <button class="login-btn pressable" @click="handleRegister" :disabled="registering">
+                <template v-if="registering">
+                  <div class="btn-spinner"></div>
+                  注册中...
+                </template>
+                <template v-else>
+                  注册
+                </template>
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
 
       <!-- 提示信息 -->
       <div class="toast" v-if="toast.show" :class="toast.type">
@@ -152,7 +189,15 @@ interface AuthResponse {
 
 const isBanned = ref(false)
 const banReason = ref('')
+const isSetupMode = ref(false)
+const settingUp = ref(false)
 const loginMode = ref('password')
+const setupForm = ref({
+  username: '',
+  email: '',
+  password: '',
+  appName: ''
+})
 const showRegister = ref(false)
 const loggingIn = ref(false)
 const registering = ref(false)
@@ -169,6 +214,54 @@ async function fetchAppName() {
   }
 }
 
+async function checkSetupNeeded() {
+  try {
+    const res = await apiClient.get<{ setup_needed: boolean }>('/api/auth/setup-needed')
+    isSetupMode.value = res.setup_needed
+  } catch {
+    // Not needed
+  }
+}
+
+async function handleSetup() {
+  if (!setupForm.value.username || !setupForm.value.email || !setupForm.value.password) {
+    showToast('请填写完整信息', 'error')
+    return
+  }
+  if (setupForm.value.password.length < 6) {
+    showToast('密码长度至少6位', 'error')
+    return
+  }
+  
+  settingUp.value = true
+  try {
+    // Save app name if provided
+    if (setupForm.value.appName) {
+      try {
+        await apiClient.put('/api/settings', { app_name: setupForm.value.appName })
+        appName.value = setupForm.value.appName
+      } catch {
+        // Continue anyway
+      }
+    }
+    
+    // Create admin account
+    const res = await apiClient.post<AuthResponse>('/api/auth/register', {
+      username: setupForm.value.username,
+      email: setupForm.value.email,
+      password: setupForm.value.password
+    }) as AuthResponse
+
+    localStorage.setItem('token', res.token)
+    localStorage.setItem('user', JSON.stringify(res.user))
+    window.location.href = '/'
+  } catch (err: any) {
+    showToast(err.response?.data?.error || '设置失败', 'error')
+  } finally {
+    settingUp.value = false
+  }
+}
+
 const identifier = ref('')
 const password = ref('')
 
@@ -180,13 +273,16 @@ const registerForm = ref({
 
 const toast = ref({ show: false, message: '', type: 'success' as 'success' | 'error' })
 
-onMounted(() => {
-  const urlParams = new URLSearchParams(window.location.search)
-  if (urlParams.get('banned') === '1') {
-    isBanned.value = true
-    banReason.value = urlParams.get('reason') || ''
+onMounted(async () => {
+  await checkSetupNeeded()
+  if (!isSetupMode.value) {
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get('banned') === '1') {
+      isBanned.value = true
+      banReason.value = urlParams.get('reason') || ''
+    }
+    fetchAppName()
   }
-  fetchAppName()
 })
 
 function showToast(message: string, type: 'success' | 'error' = 'success') {
@@ -414,6 +510,40 @@ async function handleRegister() {
   color: rgba(255, 255, 255, 0.35);
   margin-top: 16px;
   text-align: center;
+}
+
+/* Setup Wizard */
+.setup-wizard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.setup-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.setup-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+}
+
+.setup-desc {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 16px;
+}
+
+.setup-form {
+  width: 100%;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .register-link {

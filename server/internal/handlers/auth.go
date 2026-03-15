@@ -377,6 +377,20 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	mw.JSON(w, http.StatusOK, user)
 }
 
+// GET /api/auth/setup-needed - 检查是否需要初始化设置
+func (h *AuthHandler) SetupNeeded(w http.ResponseWriter, r *http.Request) {
+	var count int64
+	err := h.DB.Pool.QueryRow(r.Context(), `SELECT COUNT(*) FROM users`).Scan(&count)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to check users")
+		return
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]interface{}{
+		"setup_needed": count == 0,
+	})
+}
+
 // POST /api/auth/register - 用户注册
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var body struct {
@@ -423,15 +437,29 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check if this is the first user (make them super_admin)
+	var userCount int64
+	h.DB.Pool.QueryRow(r.Context(), `SELECT COUNT(*) FROM users`).Scan(&userCount)
+	isFirstUser := userCount == 0
+
 	// Create user
 	var userID int64
 	var role string
 	var isSuperAdmin bool
-	err = h.DB.Pool.QueryRow(r.Context(), `
-		INSERT INTO users (username, email, password_hash, display_name, role, is_super_admin)
-		VALUES ($1, $2, $3, $1, 'user', false)
-		RETURNING id, role, is_super_admin
-	`, body.Username, body.Email, string(hashedPassword)).Scan(&userID, &role, &isSuperAdmin)
+	if isFirstUser {
+		// First user becomes super_admin
+		err = h.DB.Pool.QueryRow(r.Context(), `
+			INSERT INTO users (username, email, password_hash, display_name, role, is_super_admin)
+			VALUES ($1, $2, $3, $1, 'super_admin', true)
+			RETURNING id, role, is_super_admin
+		`, body.Username, body.Email, string(hashedPassword)).Scan(&userID, &role, &isSuperAdmin)
+	} else {
+		err = h.DB.Pool.QueryRow(r.Context(), `
+			INSERT INTO users (username, email, password_hash, display_name, role, is_super_admin)
+			VALUES ($1, $2, $3, $1, 'user', false)
+			RETURNING id, role, is_super_admin
+		`, body.Username, body.Email, string(hashedPassword)).Scan(&userID, &role, &isSuperAdmin)
+	}
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to create user")
 		return
