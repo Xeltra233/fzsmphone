@@ -202,6 +202,7 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 			// === Settings ===
 			r.Route("/settings", func(r chi.Router) {
 				r.Get("/", settingsH.Get)
+				r.Get("/key", settingsH.GetByKey)
 				r.Put("/", settingsH.Update)
 				r.Get("/api", settingsH.GetUserApiSettings)
 				r.Put("/api", settingsH.UpdateUserApiSettings)

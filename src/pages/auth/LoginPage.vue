@@ -20,7 +20,7 @@
           <rect x="18" y="16" width="28" height="30" rx="2" fill="rgba(255,255,255,0.08)"/>
         </svg>
       </div>
-      <h1 class="login-title">贩子死妈小手机</h1>
+      <h1 class="login-title">{{ appName }}</h1>
       <p class="login-subtitle">{{ isBanned ? '您的账号已被限制访问' : '请登录以继续' }}</p>
 
       <!-- 登录方式切换 -->
@@ -156,6 +156,18 @@ const loginMode = ref('password')
 const showRegister = ref(false)
 const loggingIn = ref(false)
 const registering = ref(false)
+const appName = ref('贩子死妈小手机')
+
+async function fetchAppName() {
+  try {
+    const res = await apiClient.get<Record<string, any>>('/api/settings?key=app_name')
+    if (res.value) {
+      appName.value = res.value
+    }
+  } catch {
+    // Use default
+  }
+}
 
 const identifier = ref('')
 const password = ref('')
@@ -174,6 +186,7 @@ onMounted(() => {
     isBanned.value = true
     banReason.value = urlParams.get('reason') || ''
   }
+  fetchAppName()
 })
 
 function showToast(message: string, type: 'success' | 'error' = 'success') {
