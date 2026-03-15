@@ -486,10 +486,25 @@ CREATE TABLE IF NOT EXISTS coupon_redeem_records (
   credits_earned INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS system_logs (
+  id BIGSERIAL PRIMARY KEY,
+  level VARCHAR(20) NOT NULL DEFAULT 'INFO',
+  action VARCHAR(100) NOT NULL,
+  user_id BIGINT,
+  username VARCHAR(100),
+  details JSONB,
+  ip_address VARCHAR(50),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_system_logs_action ON system_logs(action);
+CREATE INDEX IF NOT EXISTS idx_system_logs_user ON system_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_system_logs_created ON system_logs(created_at DESC);
 `,
 	},
 	{
-		Version: 25,
+		Version: 26,
 		Name:    "add_default_settings",
 		SQL: `
 INSERT INTO app_settings (key, value, updated_at) VALUES 

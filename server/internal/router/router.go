@@ -52,6 +52,7 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 	gameH := &handlers.GameHandler{DB: db}
 	aiProxyH := &handlers.AIProxyHandler{DB: db}
 	creditsH := &handlers.CreditsHandler{DB: db}
+	loggerH := &handlers.LoggerHandler{DB: db}
 
 	// Public routes
 	r.Route("/api", func(r chi.Router) {
@@ -235,6 +236,11 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 			// === Credits & User Settings ===
 			r.Route("/credits", func(r chi.Router) {
 				creditsH.RegisterRoutes(r)
+			})
+
+			// === System Logs ===
+			r.Route("/logs", func(r chi.Router) {
+				loggerH.RegisterRoutes(r)
 			})
 		})
 	})
