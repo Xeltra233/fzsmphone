@@ -33,8 +33,8 @@ export const useAuthStore = defineStore('auth', () => {
   const loading = ref(false)
 
   const isLoggedIn = computed(() => !!token.value && !!user.value)
-  const isAdmin = computed(() => user.value?.role === 'admin')
-  const isSuperAdmin = computed(() => user.value?.isSuperAdmin === true)
+  const isAdmin = computed(() => user.value?.role === 'admin' || user.value?.role === 'super_admin' || user.value?.isSuperAdmin === true)
+  const isSuperAdmin = computed(() => user.value?.role === 'super_admin' || user.value?.isSuperAdmin === true)
 
   async function fetchUser() {
     if (!token.value) return
