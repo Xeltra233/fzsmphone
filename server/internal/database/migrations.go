@@ -431,4 +431,57 @@ CREATE INDEX IF NOT EXISTS idx_user_api_settings_user ON user_api_settings(user_
 ALTER TABLE users ALTER COLUMN discord_id DROP NOT NULL;
 `,
 	},
+	{
+		Version: 24,
+		Name:    "add_credits_system",
+		SQL: `
+ALTER TABLE users ADD COLUMN IF NOT EXISTS credits INTEGER NOT NULL DEFAULT 1000;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS total_tokens INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_signin_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS signin_streak INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code VARCHAR(20) NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS invited_by BIGINT REFERENCES users(id);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_rewards_claimed INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS model_display_names JSONB NOT NULL DEFAULT '{}';
+
+CREATE TABLE IF NOT EXISTS invite_rewards (
+  id BIGSERIAL PRIMARY KEY,
+  inviter_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  invited_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reward_credits INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS signin_records (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  credits_earned INTEGER NOT NULL DEFAULT 0,
+  streak_bonus INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS usage_records (
+  id BIGSERIAL PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  tokens_used INTEGER NOT NULL DEFAULT 0,
+  model VARCHAR(100) NOT NULL DEFAULT '',
+  credits_cost INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+`,
+	},
+	{
+		Version: 25,
+		Name:    "add_default_settings",
+		SQL: `
+INSERT INTO app_settings (key, value, updated_at) VALUES 
+  ('default_credits', '1000', NOW()),
+  ('signin_daily_credits', '10', NOW()),
+  ('signin_streak_bonus', '5', NOW()),
+  ('invite_reward_credits', '100', NOW()),
+  ('signin_enabled', 'true', NOW()),
+  ('invite_enabled', 'true', NOW())
+ON CONFLICT (key) DO NOTHING;
+`,
+	},
 }
