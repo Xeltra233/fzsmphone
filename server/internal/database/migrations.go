@@ -424,4 +424,11 @@ CREATE TABLE IF NOT EXISTS user_api_settings (
 CREATE INDEX IF NOT EXISTS idx_user_api_settings_user ON user_api_settings(user_id);
 `,
 	},
+	{
+		Version: 23,
+		Name:    "allow_null_discord_id",
+		SQL: `
+ALTER TABLE users ALTER COLUMN discord_id DROP NOT NULL;
+`,
+	},
 }

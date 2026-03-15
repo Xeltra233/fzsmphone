@@ -235,22 +235,21 @@ async function handleSetup() {
   
   settingUp.value = true
   try {
-    // Save app name if provided
-    if (setupForm.value.appName) {
-      try {
-        await apiClient.put('/api/settings', { app_name: setupForm.value.appName })
-        appName.value = setupForm.value.appName
-      } catch {
-        // Continue anyway
-      }
-    }
-    
-    // Create admin account
+    // Create admin account first (will auto-become super_admin)
     const res = await apiClient.post<AuthResponse>('/api/auth/register', {
       username: setupForm.value.username,
       email: setupForm.value.email,
       password: setupForm.value.password
     }) as AuthResponse
+
+    // Save app name after successful registration (now we have token)
+    if (setupForm.value.appName) {
+      try {
+        await apiClient.put('/api/settings', { app_name: setupForm.value.appName })
+      } catch {
+        // Continue anyway
+      }
+    }
 
     localStorage.setItem('token', res.token)
     localStorage.setItem('user', JSON.stringify(res.user))

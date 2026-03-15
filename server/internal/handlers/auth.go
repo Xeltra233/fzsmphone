@@ -439,7 +439,10 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 	// Check if this is the first user (make them super_admin)
 	var userCount int64
-	h.DB.Pool.QueryRow(r.Context(), `SELECT COUNT(*) FROM users`).Scan(&userCount)
+	err = h.DB.Pool.QueryRow(r.Context(), `SELECT COUNT(*) FROM users`).Scan(&userCount)
+	if err != nil {
+		log.Printf("[ERROR] Failed to count users: %v", err)
+	}
 	isFirstUser := userCount == 0
 
 	// Create user
@@ -449,14 +452,14 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if isFirstUser {
 		// First user becomes super_admin
 		err = h.DB.Pool.QueryRow(r.Context(), `
-			INSERT INTO users (username, email, password_hash, display_name, role, is_super_admin)
-			VALUES ($1, $2, $3, $1, 'super_admin', true)
+			INSERT INTO users (username, email, password_hash, display_name, role, is_super_admin, discord_id)
+			VALUES ($1, $2, $3, $1, 'super_admin', true, NULL)
 			RETURNING id, role, is_super_admin
 		`, body.Username, body.Email, string(hashedPassword)).Scan(&userID, &role, &isSuperAdmin)
 	} else {
 		err = h.DB.Pool.QueryRow(r.Context(), `
-			INSERT INTO users (username, email, password_hash, display_name, role, is_super_admin)
-			VALUES ($1, $2, $3, $1, 'user', false)
+			INSERT INTO users (username, email, password_hash, display_name, role, is_super_admin, discord_id)
+			VALUES ($1, $2, $3, $1, 'user', false, NULL)
 			RETURNING id, role, is_super_admin
 		`, body.Username, body.Email, string(hashedPassword)).Scan(&userID, &role, &isSuperAdmin)
 	}
