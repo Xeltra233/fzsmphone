@@ -279,6 +279,18 @@
             placeholder="qun_qrcode.jpg"
           />
         </div>
+        <div class="setting-item vertical">
+          <div class="setting-label">
+            <span class="label-text">网站图标路径</span>
+            <span class="label-desc">浏览器标签页图标，放在public目录下</span>
+          </div>
+          <input
+            v-model="systemSettings.favicon"
+            class="setting-input full-width"
+            :disabled="!authStore.isSuperAdmin"
+            placeholder="/icon.png"
+          />
+        </div>
       </div>
     </div>
 
@@ -404,6 +416,7 @@ const systemSettings = reactive({
   tips: '',
   disclaimer: '',
   qun_qrcode: '',
+  favicon: '/icon.png',
 })
 
 const apiSettingsLoading = ref(false)
@@ -454,6 +467,7 @@ async function fetchSystemSettings() {
     systemSettings.tips = data.tips || ''
     systemSettings.disclaimer = data.disclaimer || ''
     systemSettings.qun_qrcode = data.qun_qrcode || ''
+    systemSettings.favicon = data.favicon || '/icon.png'
   } catch (err: any) {
     console.error('Failed to load system settings:', err)
   }
@@ -488,6 +502,7 @@ async function saveSystemSettings() {
       tips: systemSettings.tips,
       disclaimer: systemSettings.disclaimer,
       qun_qrcode: systemSettings.qun_qrcode,
+      favicon: systemSettings.favicon,
     })
     showToast('系统设置已保存')
   } catch (err: any) {

@@ -52,11 +52,17 @@
           <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="14" y="4" width="36" height="56" rx="8" stroke="#fff" stroke-width="2.5"/>
             <rect x="26" y="8" width="12" height="4" rx="2" fill="rgba(255,255,255,0.5)"/>
-            <circle cx="32" cy="52" r="2" fill="rgba(255,255,255,0.4)"/>
-            <rect x="18" y="16" width="28" height="30" rx="2" fill="rgba(255,255,255,0.08)"/>
-          </svg>
-        </div>
-        <h1 class="login-title">{{ appName }}</h1>
+<circle cx="32" cy="52" r="2" fill="rgba(255,255,255,0.4)"/>
+  <rect x="18" y="16" width="28" height="30" rx="2" fill="rgba(255,255,255,0.08)"/>
+  </svg>
+  </div>
+
+  <!-- 公告 -->
+  <div v-if="announcement" class="announcement-banner">
+    {{ announcement }}
+  </div>
+
+  <h1 class="login-title">{{ appName }}</h1>
         <p class="login-subtitle">{{ isBanned ? '您的账号已被限制访问' : '请登录以继续' }}</p>
 
         <!-- 登录方式切换 -->
@@ -202,12 +208,17 @@ const showRegister = ref(false)
 const loggingIn = ref(false)
 const registering = ref(false)
 const appName = ref('贩子死妈小手机')
+const announcement = ref('')
 
 async function fetchAppName() {
   try {
-    const res = await apiClient.get<Record<string, any>>('/api/settings?key=app_name')
-    if (res.value) {
-      appName.value = res.value
+    const res = await apiClient.get<Record<string, any>>('/api/settings')
+    const data = res.data || res || {}
+    if (data.app_name) {
+      appName.value = data.app_name
+    }
+    if (data.announcement) {
+      announcement.value = data.announcement
     }
   } catch {
     // Use default
@@ -386,6 +397,18 @@ async function handleRegister() {
 .login-logo svg {
   width: 100%;
   height: 100%;
+}
+
+.announcement-banner {
+  background: rgba(91, 110, 245, 0.15);
+  border: 1px solid rgba(91, 110, 245, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  line-height: 1.5;
 }
 
 .login-title {
