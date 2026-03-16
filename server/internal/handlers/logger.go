@@ -212,18 +212,17 @@ func (h *LoggerHandler) ClearLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var body struct {
-		Days int `json:"days"`
+	daysStr := r.URL.Query().Get("days")
+	days := 30
+	if daysStr != "" {
+		if d, err := strconv.Atoi(daysStr); err == nil && d > 0 {
+			days = d
+		}
 	}
-	json.NewDecoder(r.Body).Decode(&body)
 
-	if body.Days <= 0 {
-		body.Days = 30
-	}
-
-	cutoff := time.Now().AddDate(0, 0, -body.Days)
+	cutoff := time.Now().AddDate(0, 0, -days)
 	result, err := h.DB.Pool.Exec(r.Context(), `
-		DELETE FROM system_logs WHERE created_at < $1
+	DELETE FROM system_logs WHERE created_at < $1
 	`, cutoff)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "清除失败")

@@ -82,10 +82,7 @@ export const useLogsStore = defineStore('logs', () => {
   }
 
 async function clearLogs(days: number = 30) {
-  return await api.request<{ message: string; deleted_rows: number }>('/api/logs', { 
-    method: 'DELETE', 
-    body: JSON.stringify({ days }) 
-  })
+  return await api.delete<{ message: string; deleted_rows: number }>(`/api/logs?days=${days}`)
 }
 
   return {
