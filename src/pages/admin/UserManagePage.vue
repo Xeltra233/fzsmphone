@@ -62,11 +62,12 @@
                 <svg viewBox="0 0 16 16" fill="none" width="12" height="12"><circle cx="8" cy="8" r="6.5" stroke="#ff6b6b" stroke-width="1.5"/><line x1="4" y1="4" x2="12" y2="12" stroke="#ff6b6b" stroke-width="1.5"/></svg>
               </div>
             </div>
-            <div class="user-info">
-              <div class="user-name">
-                {{ u.display_name || u.username }}
-                <span v-if="u.is_banned" class="ban-tag">已封禁</span>
-              </div>
+<div class="user-info">
+  <div class="user-name">
+    {{ u.display_name || u.username }}
+    <span v-if="u.is_super_admin" class="role-badge badge-super">超级管理员</span>
+    <span v-if="u.is_banned" class="ban-tag">已封禁</span>
+  </div>
               <div class="user-meta">
                 <span class="user-username">@{{ u.username }}</span>
                 <span class="user-date">{{ formatDate(u.created_at) }}</span>
@@ -75,18 +76,18 @@
                 原因：{{ u.ban_reason }}
               </div>
             </div>
-            <div class="user-actions">
-              <select
-                :value="u.role"
-                @change="changeRole(u, ($event.target as HTMLSelectElement).value)"
-                class="role-select"
-                :class="'role-' + u.role"
-                :disabled="u.is_banned"
-              >
-                <option value="user">普通用户</option>
-                <option value="moderator">版主</option>
-                <option value="admin">管理员</option>
-              </select>
+<div class="user-actions">
+  <select
+    :value="u.role"
+    @change="changeRole(u, ($event.target as HTMLSelectElement).value)"
+    class="role-select"
+    :class="'role-' + u.role"
+    :disabled="u.is_banned || (u.is_super_admin && !authStore.isSuperAdmin) || (u.role === 'admin' && !authStore.isSuperAdmin) || (String(u.id) === String(authStore.user?.id))"
+  >
+    <option value="user" :disabled="u.role === 'super_admin'">普通用户</option>
+    <option value="moderator" :disabled="u.role === 'super_admin' || u.role === 'admin'">版主</option>
+    <option value="admin" :disabled="!authStore.isSuperAdmin || u.role === 'super_admin'">管理员</option>
+  </select>
               <button
                 v-if="!u.is_banned && u.role !== 'admin'"
                 class="ban-btn"
@@ -168,6 +169,7 @@ interface UserRecord {
   display_name: string
   avatar_url: string
   role: string
+  is_super_admin: boolean
   is_banned: boolean
   ban_reason: string
   banned_at: string | null
@@ -231,6 +233,30 @@ async function fetchUsers() {
 async function changeRole(user: UserRecord, newRole: string) {
   if (newRole === user.role) return
   const oldRole = user.role
+
+  const currentUser = authStore.user
+  const currentIsSuperAdmin = currentUser?.isSuperAdmin || authStore.isSuperAdmin
+
+  if (user.is_super_admin && !currentIsSuperAdmin) {
+    alert('无法修改超级管理员的权限')
+    return
+  }
+
+  if (user.role === 'super_admin' && !currentIsSuperAdmin) {
+    alert('无法修改超级管理员的权限')
+    return
+  }
+
+  if (user.role === 'admin' && !currentIsSuperAdmin) {
+    alert('只有超级管理员可以修改管理员')
+    return
+  }
+
+  if (String(user.id) === String(currentUser?.id)) {
+    alert('无法修改自己的角色')
+    return
+  }
+
   saving.value = true
   try {
     await api.patch(`/api/users/${user.id}/role`, { role: newRole })
@@ -483,6 +509,19 @@ onMounted(() => {
   border-radius: 4px;
   font-weight: 600;
   flex-shrink: 0;
+}
+
+.role-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.badge-super {
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #1a1a1a;
 }
 
 .user-meta {
