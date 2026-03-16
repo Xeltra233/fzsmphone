@@ -36,10 +36,6 @@
 
 ## 部署
 
-### Zeabur 一键部署
-
-[![Deploy on Zeabur](https://zeabur.com/button.svg)](https://zeabur.com/templates/7PNREM)
-
 ## 认证与用户系统
 
 ### 登录方式
