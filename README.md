@@ -171,9 +171,10 @@ postgres://username:password@host:5432/databasename?sslmode=disable
    ```
 
 4. **访问应用**
-   - 打开 http://localhost:3000
-   - 使用邮箱注册或登录
-   - 或使用 Discord 账号登录
+- 本地开发：打开 http://localhost:3000
+- 生产部署：打开 http://your-domain:8080
+- 使用邮箱注册或登录
+- 或使用 Discord 账号登录
 
 ### Docker 部署
 

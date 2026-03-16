@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"fzsmphone/internal/database"
@@ -206,9 +207,14 @@ func (h *SettingsHandler) UpdateUserApiSettings(w http.ResponseWriter, r *http.R
 }
 
 func (h *SettingsHandler) Upload(w http.ResponseWriter, r *http.Request) {
-	userID, _ := mw.GetUserID(r.Context())
+	userID, isSuperAdmin := mw.GetUserID(r.Context())
 	if userID == 0 {
 		mw.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	if !isSuperAdmin {
+		mw.Error(w, http.StatusForbidden, "only super admin can upload")
 		return
 	}
 
@@ -225,9 +231,24 @@ func (h *SettingsHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
+	allowedExts := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".ico": true, ".webp": true, ".svg": true}
 	ext := filepath.Ext(handler.Filename)
+	if ext == "" {
+		ext = ".png"
+	}
+	ext = "." + strings.TrimPrefix(strings.ToLower(ext), ".")
+	if !allowedExts[ext] {
+		mw.Error(w, http.StatusBadRequest, "invalid file type")
+		return
+	}
+
 	newFilename := fmt.Sprintf("%d_%d%s", userID, time.Now().Unix(), ext)
 	uploadPath := filepath.Join(".", "public", newFilename)
+
+	if !strings.HasPrefix(uploadPath, filepath.Join(".", "public")) {
+		mw.Error(w, http.StatusBadRequest, "invalid path")
+		return
+	}
 
 	out, err := os.Create(uploadPath)
 	if err != nil {
