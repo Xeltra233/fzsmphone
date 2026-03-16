@@ -243,8 +243,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
+import apiClient from '@/api/client'
 
 interface Game {
   id: string
@@ -272,13 +273,28 @@ const allGames: Game[] = [
   { id: 'wordle', name: '猜词', icon: '▤', color: 'linear-gradient(135deg, #00CEC9, #81ECEC)', description: '猜出今天的词语', tags: ['单人', '文字'] },
 ]
 
-const leaderboard = ref([
+const leaderboard = ref<{ name: string; score: number }[]>([
   { name: '小明', score: 15200 },
   { name: '小红', score: 12800 },
   { name: '小华', score: 9600 },
   { name: '小李', score: 7400 },
   { name: '小张', score: 5100 },
 ])
+
+async function fetchLeaderboard() {
+  try {
+    const res = await apiClient.get('/api/credits/leaderboard')
+    if (res && Array.isArray(res)) {
+      leaderboard.value = res
+    }
+  } catch (e) {
+    console.error('Failed to load leaderboard:', e)
+  }
+}
+
+onMounted(() => {
+  fetchLeaderboard()
+})
 
 const activeGame = ref<Game | null>(null)
 

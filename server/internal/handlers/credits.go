@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math/rand"
 	"net/http"
+	"sort"
 	"time"
 
 	"fzsmphone/internal/database"
@@ -214,8 +215,8 @@ func (h *CreditsHandler) GetUserSettings(w http.ResponseWriter, r *http.Request)
 		"invite_code":     inviteCode,
 		"invite_count":    0,
 		"rewards_claimed": inviteRewards,
-		"announcement": announcement,
-		"tips": tips,
+		"announcement":    announcement,
+		"tips":            tips,
 		"settings": map[string]interface{}{
 			"default_credits":       defaultCredits,
 			"signin_daily_credits":  signinCredits,
@@ -587,9 +588,118 @@ func (h *CreditsHandler) ListCoupons(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *CreditsHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.DB.Pool.Query(r.Context(), `
+		SELECT username, COALESCE(total_tokens, 0) as tokens FROM users 
+		WHERE discord_id IS NOT NULL OR email IS NOT NULL
+		ORDER BY tokens DESC LIMIT 10
+	`)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to get leaderboard")
+		return
+	}
+	defer rows.Close()
+
+	var leaderboard []map[string]interface{}
+	rank := 1
+	for rows.Next() {
+		var username string
+		var tokens int
+		if err := rows.Scan(&username, &tokens); err != nil {
+			continue
+		}
+		level := calculateLevel(tokens)
+		leaderboard = append(leaderboard, map[string]interface{}{
+			"name":  username,
+			"score": tokens,
+			"level": level,
+			"rank":  rank,
+		})
+		rank++
+	}
+
+	fakeUsers := []struct {
+		name   string
+		tokens int
+	}{
+		{"小明", 152000},
+		{"小红", 128000},
+		{"小华", 96000},
+		{"小李", 74000},
+		{"小张", 51000},
+		{"小刚", 35000},
+		{"小丽", 28000},
+		{"小芳", 15000},
+		{"小军", 9000},
+		{"小美", 5000},
+	}
+
+	for _, fake := range fakeUsers {
+		exists := false
+		for _, l := range leaderboard {
+			if l["name"] == fake.name {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			level := calculateLevel(fake.tokens)
+			leaderboard = append(leaderboard, map[string]interface{}{
+				"name":  fake.name,
+				"score": fake.tokens,
+				"level": level,
+			})
+		}
+	}
+
+	if len(leaderboard) < 5 {
+		needed := 5 - len(leaderboard)
+		for i := 0; i < needed && i < len(fakeUsers); i++ {
+			level := calculateLevel(fakeUsers[i].tokens)
+			leaderboard = append(leaderboard, map[string]interface{}{
+				"name":  fakeUsers[i].name,
+				"score": fakeUsers[i].tokens,
+				"level": level,
+			})
+		}
+	}
+
+	sort.Slice(leaderboard, func(i, j int) bool {
+		return leaderboard[i]["score"].(int) > leaderboard[j]["score"].(int)
+	})
+
+	for i := range leaderboard {
+		leaderboard[i]["rank"] = i + 1
+	}
+
+	mw.JSON(w, http.StatusOK, leaderboard)
+}
+
+func calculateLevel(tokens int) string {
+	switch {
+	case tokens >= 1000000:
+		return "传奇"
+	case tokens >= 500000:
+		return "王者"
+	case tokens >= 200000:
+		return "钻石"
+	case tokens >= 100000:
+		return "铂金"
+	case tokens >= 50000:
+		return "黄金"
+	case tokens >= 20000:
+		return "白银"
+	case tokens >= 5000:
+		return "青铜"
+	default:
+		return "入门"
+	}
+}
+
 func (h *CreditsHandler) RegisterRoutes(r chi.Router) {
 	r.Post("/signin", h.SignIn)
 	r.Get("/credits", h.GetCredits)
+	r.Get("/leaderboard", h.GetLeaderboard)
 	r.Get("/invite-code", h.GetInviteCode)
 	r.Post("/invite-code", h.UseInviteCode)
 	r.Post("/consume", h.ConsumeCredits)

@@ -316,59 +316,74 @@
     </button>
   </template>
 
-      <!-- API设置 -->
-      <template v-if="activeTab === 'api'">
-        <div class="api-settings-section">
-          <div v-if="apiSettingsLoading" class="loading-state">
-            <div class="spinner"></div>
-            <p>加载API设置...</p>
-          </div>
-          <template v-else>
-            <!-- 超级管理员可以看到全局设置 -->
-            <div v-if="authStore.isSuperAdmin && apiSettings?.global" class="settings-card">
-              <div class="card-header">
-                <h3>全局API设置</h3>
-                <span class="badge">全局</span>
-              </div>
-              <div class="card-body">
-                <div class="input-group">
-                  <label>API Key</label>
-                  <input v-model="apiForm.globalApiKey" type="password" placeholder="留空则使用用户个人设置" class="setting-input" />
-                </div>
-                <div class="input-group">
-                  <label>API URL</label>
-                  <input v-model="apiForm.globalApiUrl" placeholder="https://api.openai.com/v1/chat/completions" class="setting-input" />
-                </div>
-                <div class="input-group">
-                  <label>默认模型</label>
-                  <input v-model="apiForm.globalModel" placeholder="gpt-4o-mini" class="setting-input" />
-                </div>
-              </div>
-            </div>
+<!-- API设置 -->
+<template v-if="activeTab === 'api'">
+<div class="api-settings-section">
+  <div v-if="apiSettingsLoading" class="loading-state">
+    <div class="spinner"></div>
+    <p>加载API设置...</p>
+  </div>
+  <template v-else>
+    <!-- 全局API设置 -->
+    <div class="settings-card">
+      <div class="card-header">
+        <h3>全局API设置</h3>
+        <span class="badge">全局</span>
+      </div>
+      <div class="card-body">
+        <div class="input-group">
+          <label>API Key <span class="input-tip">全局用户共用</span></label>
+          <input v-model="apiForm.globalApiKey" type="password" placeholder="留空则强制用户填写个人API" class="setting-input" />
+        </div>
+        <div class="input-group">
+          <label>API 地址</label>
+          <select v-model="apiForm.globalApiUrl" class="setting-input">
+            <option value="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions">Gemini AI Studio</option>
+            <option value="https://api.openai.com/v1/chat/completions">OpenAI</option>
+            <option value="https://openrouter.ai/api/v1/chat/completions">OpenRouter (Claude)</option>
+            <option value="https://api.deepseek.com/chat/completions">DeepSeek</option>
+            <option value="custom">自定义地址</option>
+          </select>
+        </div>
+        <div v-if="apiForm.globalApiUrl === 'custom'" class="input-group">
+          <label>自定义API地址</label>
+          <input v-model="apiForm.globalCustomUrl" placeholder="https://api.example.com/v1/chat/completions" class="setting-input" />
+        </div>
+        <div class="input-group">
+          <label>默认模型 <span class="input-tip">用户未选择时的默认</span></label>
+          <input v-model="apiForm.globalModel" placeholder="gpt-4o-mini" class="setting-input" />
+        </div>
+        <div class="input-group">
+          <label>可用模型列表 <span class="input-tip">供用户选择，用英文逗号分隔</span></label>
+          <input v-model="apiForm.globalModelList" placeholder="gpt-4o,gpt-4o-mini,claude-3-5-sonnet" class="setting-input" />
+          <span class="input-desc">设置后全局用户可在这些模型中选择使用</span>
+        </div>
+      </div>
+    </div>
 
-            <!-- 个人API设置 (所有用户) -->
-            <div class="settings-card">
-              <div class="card-header">
-                <h3>个人API设置</h3>
-                <span class="badge">个人</span>
-              </div>
-              <div class="card-body">
-                <div class="input-group">
-                  <label>API Key</label>
-                  <input v-model="apiForm.personalApiKey" type="password" placeholder="请输入您的API Key" class="setting-input" />
-                </div>
-                <div class="input-group">
-                  <label>API URL</label>
-                  <input v-model="apiForm.personalApiUrl" placeholder="https://api.openai.com/v1/chat/completions" class="setting-input" />
-                </div>
-                <div class="input-group">
-                  <label>默认模型</label>
-                  <input v-model="apiForm.personalModel" placeholder="gpt-4o-mini" class="setting-input" />
-                </div>
-              </div>
-            </div>
+    <!-- 社交内容全局API -->
+    <div class="settings-card">
+      <div class="card-header">
+        <h3>社交内容全局API</h3>
+        <span class="badge">全局</span>
+      </div>
+      <div class="card-body">
+        <div class="input-group">
+          <label>社交内容 API Key <span class="input-tip">用于微博、邮箱等社交内容生成</span></label>
+          <input v-model="apiForm.globalSocialApiKey" type="password" placeholder="留空则使用主API" class="setting-input" />
+        </div>
+        <div class="input-group">
+          <label>社交内容 API 地址</label>
+          <input v-model="apiForm.globalSocialApiUrl" placeholder="留空则使用主API地址" class="setting-input" />
+        </div>
+        <div class="input-group">
+          <label>社交内容默认模型</label>
+          <input v-model="apiForm.globalSocialModel" placeholder="gpt-4o-mini" class="setting-input" />
+</div>
+</div>
+</div>
 
-            <button class="save-btn" @click="saveApiSettings" :disabled="apiSaving">
+<button class="save-btn" @click="saveApiSettings" :disabled="apiSaving">
               <template v-if="apiSaving">
                 <div class="btn-spinner"></div>
                 保存中...
@@ -477,10 +492,12 @@ const apiSettings = ref<Record<string, any> | null>(null)
 const apiForm = ref({
   globalApiKey: '',
   globalApiUrl: '',
+  globalCustomUrl: '',
   globalModel: '',
-  personalApiKey: '',
-  personalApiUrl: '',
-  personalModel: '',
+  globalModelList: '',
+  globalSocialApiKey: '',
+  globalSocialApiUrl: '',
+  globalSocialModel: '',
 })
 
 function showToast(message: string, type: 'success' | 'error' = 'success') {
@@ -600,12 +617,12 @@ async function fetchApiSettings() {
     if (authStore.isSuperAdmin && res.global) {
       apiForm.value.globalApiKey = res.global.api_key || ''
       apiForm.value.globalApiUrl = res.global.api_url || ''
+      apiForm.value.globalCustomUrl = res.global.custom_url || ''
       apiForm.value.globalModel = res.global.model || ''
-    }
-    if (res.personal) {
-      apiForm.value.personalApiKey = res.personal.api_key || ''
-      apiForm.value.personalApiUrl = res.personal.api_url || ''
-      apiForm.value.personalModel = res.personal.model || ''
+      apiForm.value.globalModelList = res.global.model_list || ''
+      apiForm.value.globalSocialApiKey = res.global.social_api_key || ''
+      apiForm.value.globalSocialApiUrl = res.global.social_api_url || ''
+      apiForm.value.globalSocialModel = res.global.social_model || ''
     }
   } catch (err: any) {
     showToast('加载API设置失败', 'error')
@@ -621,16 +638,15 @@ async function saveApiSettings() {
       await apiClient.put('/api/settings/api', {
         api_key: apiForm.value.globalApiKey,
         api_url: apiForm.value.globalApiUrl,
+        custom_url: apiForm.value.globalCustomUrl,
         model: apiForm.value.globalModel,
+        model_list: apiForm.value.globalModelList,
+        social_api_key: apiForm.value.globalSocialApiKey,
+        social_api_url: apiForm.value.globalSocialApiUrl,
+        social_model: apiForm.value.globalSocialModel,
         is_global: true,
       })
     }
-    await apiClient.put('/api/settings/api', {
-      api_key: apiForm.value.personalApiKey,
-      api_url: apiForm.value.personalApiUrl,
-      model: apiForm.value.personalModel,
-      is_global: false,
-    })
     showToast('API设置已保存')
   } catch (err: any) {
     showToast('保存API设置失败: ' + (err.message || '未知错误'), 'error')
@@ -1004,5 +1020,21 @@ onMounted(() => {
 .input-group label {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.input-tip {
+  font-size: 11px;
+  color: rgba(91, 110, 245, 0.8);
+  margin-left: 6px;
+}
+
+.input-desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 4px;
+  display: block;
 }
 </style>
