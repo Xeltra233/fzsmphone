@@ -5,204 +5,322 @@
     <div class="page-content" v-if="authStore.isSuperAdmin || authStore.isAdmin">
       <!-- 标签切换 -->
       <div class="settings-tabs">
-        <button 
-          class="tab-btn" 
-          :class="{ active: isSystemTab }" 
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'credits' }"
+          @click="activeTab = 'credits'"
+        >
+          额度设置
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'system' }"
           @click="activeTab = 'system'"
         >
           系统配置
         </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: isApiTab }" 
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'api' }"
           @click="activeTab = 'api'"
         >
           API设置
         </button>
       </div>
 
-<!-- 系统配置 -->
-<template v-if="isSystemTab">
+      <!-- 额度设置 -->
+      <template v-if="activeTab === 'credits'">
+        <div v-if="!authStore.isSuperAdmin" class="permission-notice">
+          <span class="notice-icon">ℹ️</span>
+          您的账户为管理员，只能查看额度设置。如需修改，请联系超级管理员。
+        </div>
+
+        <div v-if="loading" class="loading-state">
+          <div class="spinner"></div>
+          <p>加载中...</p>
+        </div>
+
+        <template v-else>
+          <div class="settings-section">
+            <div class="section-header">
+              <h3>签到设置</h3>
+            </div>
+            <div class="settings-list">
+              <div class="setting-item">
+                <div class="setting-label">
+                  <span class="label-text">每日签到奖励</span>
+                  <span class="label-desc">用户每日签到可获得的额度</span>
+                </div>
+                <div class="setting-input-wrap">
+                  <input
+                    type="number"
+                    v-model.number="creditSettings.signin_daily_credits"
+                    class="setting-input"
+                    :disabled="!authStore.isSuperAdmin"
+                    min="0"
+                  />
+                  <span class="input-suffix">额度</span>
+                </div>
+              </div>
+
+              <div class="setting-item">
+                <div class="setting-label">
+                  <span class="label-text">连续签到加成</span>
+                  <span class="label-desc">连续签到时每日额外增加的额度</span>
+                </div>
+                <div class="setting-input-wrap">
+                  <input
+                    type="number"
+                    v-model.number="creditSettings.signin_streak_bonus"
+                    class="setting-input"
+                    :disabled="!authStore.isSuperAdmin"
+                    min="0"
+                  />
+                  <span class="input-suffix">额度/天</span>
+                </div>
+              </div>
+
+              <div class="setting-item">
+                <div class="setting-label">
+                  <span class="label-text">签到功能</span>
+                  <span class="label-desc">是否启用每日签到功能</span>
+                </div>
+                <label class="toggle">
+                  <input
+                    type="checkbox"
+                    v-model="creditSettings.signin_enabled"
+                    :disabled="!authStore.isSuperAdmin"
+                  />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-header">
+              <h3>邀请设置</h3>
+            </div>
+            <div class="settings-list">
+              <div class="setting-item">
+                <div class="setting-label">
+                  <span class="label-text">邀请奖励额度</span>
+                  <span class="label-desc">成功邀请好友后奖励的额度</span>
+                </div>
+                <div class="setting-input-wrap">
+                  <input
+                    type="number"
+                    v-model.number="creditSettings.invite_reward_credits"
+                    class="setting-input"
+                    :disabled="!authStore.isSuperAdmin"
+                    min="0"
+                  />
+                  <span class="input-suffix">额度</span>
+                </div>
+              </div>
+
+              <div class="setting-item">
+                <div class="setting-label">
+                  <span class="label-text">邀请功能</span>
+                  <span class="label-desc">是否启用邀请好友功能</span>
+                </div>
+                <label class="toggle">
+                  <input
+                    type="checkbox"
+                    v-model="creditSettings.invite_enabled"
+                    :disabled="!authStore.isSuperAdmin"
+                  />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <div class="section-header">
+              <h3>新用户设置</h3>
+            </div>
+            <div class="settings-list">
+              <div class="setting-item">
+                <div class="setting-label">
+                  <span class="label-text">新用户初始额度</span>
+                  <span class="label-desc">新注册用户自动获得的额度</span>
+                </div>
+                <div class="setting-input-wrap">
+                  <input
+                    type="number"
+                    v-model.number="creditSettings.default_credits"
+                    class="setting-input"
+                    :disabled="!authStore.isSuperAdmin"
+                    min="0"
+                  />
+                  <span class="input-suffix">额度</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            class="save-btn"
+            @click="saveCreditSettings"
+            :disabled="saving || !authStore.isSuperAdmin"
+          >
+            <template v-if="saving">
+              <div class="btn-spinner"></div>
+              保存中...
+            </template>
+            <template v-else>
+              ▣ 保存设置
+            </template>
+          </button>
+        </template>
+      </template>
+
+      <!-- 系统配置 -->
+      <template v-if="activeTab === 'system'">
         <div v-if="!authStore.isSuperAdmin" class="permission-notice">
           <span class="notice-icon">ℹ️</span>
           您的账户为管理员，只能查看系统配置。如需修改，请联系超级管理员。
         </div>
 
-        <!-- 加载状态 -->
-        <div v-if="loading" class="loading-state">
-          <div class="spinner"></div>
-          <p>加载设置中...</p>
-        </div>
-
-        <template v-else>
-          <!-- 设置列表 -->
-          <div class="settings-section" v-if="settingsList.length > 0">
-            <div class="section-header">
-              <h3>配置项 ({{ settingsList.length }})</h3>
-            </div>
-            <div class="settings-list">
-              <div
-                class="setting-card"
-                v-for="(item, index) in settingsList"
-                :key="index"
-              >
-                <div class="setting-header">
-                  <input
-                    class="setting-key"
-                    v-model="item.key"
-                    placeholder="键名 (key)"
-                    :disabled="item.isExisting || !authStore.isSuperAdmin"
-                  />
-                  <button v-if="authStore.isSuperAdmin" class="delete-btn" @click="removeSetting(index)" title="删除">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                <div class="setting-value-wrap">
-                  <textarea
-                    class="setting-value"
-                    v-model="item.valueStr"
-                    placeholder='值 (JSON格式，如 "hello" 或 {"a":1})'
-                    rows="3"
-                    @input="validateJson(item)"
-                    :disabled="!authStore.isSuperAdmin"
-                  ></textarea>
-                  <span class="json-hint" :class="{ error: item.jsonError }">
-                    {{ item.jsonError || 'JSON 格式正确' }}
-                  </span>
-                </div>
+        <div class="settings-section">
+          <div class="section-header">
+            <h3>应用名称</h3>
+          </div>
+          <div class="settings-list">
+            <div class="setting-item">
+              <div class="setting-label">
+                <span class="label-text">应用名称</span>
+                <span class="label-desc">显示在应用标题和状态栏</span>
               </div>
+              <input
+                v-model="systemSettings.app_name"
+                class="setting-input full-width"
+                :disabled="!authStore.isSuperAdmin"
+                placeholder="贩子死妈小手机"
+              />
             </div>
           </div>
-
-        <div v-else class="empty-state">
-          <span class="empty-icon">⚙️</span>
-          <p>暂无系统设置</p>
         </div>
 
-        <!-- 操作按钮 -->
-        <div class="actions">
-          <button class="add-btn" @click="addSetting">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            添加配置项
-          </button>
-          <button class="save-btn" @click="saveSettings" :disabled="saving || hasJsonErrors">
-            <template v-if="saving">
-              <div class="btn-spinner"></div>
-              保存中...
-            </template>
-<template v-else>
-          ▣ 保存所有设置
-        </template>
+        <button
+          class="save-btn"
+          @click="saveSystemSettings"
+          :disabled="saving || !authStore.isSuperAdmin"
+        >
+          <template v-if="saving">
+            <div class="btn-spinner"></div>
+            保存中...
+          </template>
+          <template v-else>
+            ▣ 保存设置
+          </template>
         </button>
-        </div>
-        </template>
-
-<!-- API设置 -->
-<template v-if="isApiTab">
-          <div class="api-settings-section">
-            <div v-if="apiSettingsLoading" class="loading-state">
-              <div class="spinner"></div>
-              <p>加载API设置...</p>
-            </div>
-            <template v-else>
-              <!-- 超级管理员可以看到全局设置 -->
-              <div v-if="authStore.isSuperAdmin && apiSettings?.global" class="settings-card">
-                <div class="card-header">
-                  <h3>全局API设置</h3>
-                  <span class="badge">全局</span>
-                </div>
-                <div class="card-body">
-                  <div class="input-group">
-                    <label>API Key</label>
-                    <input v-model="apiForm.globalApiKey" type="password" placeholder="留空则使用用户个人设置" class="setting-input" />
-                  </div>
-                  <div class="input-group">
-                    <label>API URL</label>
-                    <input v-model="apiForm.globalApiUrl" placeholder="https://api.openai.com/v1/chat/completions" class="setting-input" />
-                  </div>
-                  <div class="input-group">
-                    <label>默认模型</label>
-                    <input v-model="apiForm.globalModel" placeholder="gpt-4o-mini" class="setting-input" />
-                  </div>
-                </div>
-              </div>
-
-              <!-- 个人API设置 (所有用户) -->
-              <div class="settings-card">
-                <div class="card-header">
-                  <h3>个人API设置</h3>
-                  <span class="badge">个人</span>
-                </div>
-                <div class="card-body">
-                  <div class="input-group">
-                    <label>API Key</label>
-                    <input v-model="apiForm.personalApiKey" type="password" placeholder="请输入您的API Key" class="setting-input" />
-                  </div>
-                  <div class="input-group">
-                    <label>API URL</label>
-                    <input v-model="apiForm.personalApiUrl" placeholder="https://api.openai.com/v1/chat/completions" class="setting-input" />
-                  </div>
-                  <div class="input-group">
-                    <label>默认模型</label>
-                    <input v-model="apiForm.personalModel" placeholder="gpt-4o-mini" class="setting-input" />
-                  </div>
-                </div>
-              </div>
-
-              <button class="save-btn" @click="saveApiSettings" :disabled="apiSaving">
-                <template v-if="apiSaving">
-                  <div class="btn-spinner"></div>
-                  保存中...
-                </template>
-                <template v-else>
-                  ▣ 保存API设置
-                </template>
-              </button>
-            </template>
-          </div>
-        </template>
       </template>
 
-      <!-- 提示信息 -->
-      <div class="toast" v-if="toast.show" :class="toast.type">
-        {{ toast.message }}
-      </div>
+      <!-- API设置 -->
+      <template v-if="activeTab === 'api'">
+        <div class="api-settings-section">
+          <div v-if="apiSettingsLoading" class="loading-state">
+            <div class="spinner"></div>
+            <p>加载API设置...</p>
+          </div>
+          <template v-else>
+            <!-- 超级管理员可以看到全局设置 -->
+            <div v-if="authStore.isSuperAdmin && apiSettings?.global" class="settings-card">
+              <div class="card-header">
+                <h3>全局API设置</h3>
+                <span class="badge">全局</span>
+              </div>
+              <div class="card-body">
+                <div class="input-group">
+                  <label>API Key</label>
+                  <input v-model="apiForm.globalApiKey" type="password" placeholder="留空则使用用户个人设置" class="setting-input" />
+                </div>
+                <div class="input-group">
+                  <label>API URL</label>
+                  <input v-model="apiForm.globalApiUrl" placeholder="https://api.openai.com/v1/chat/completions" class="setting-input" />
+                </div>
+                <div class="input-group">
+                  <label>默认模型</label>
+                  <input v-model="apiForm.globalModel" placeholder="gpt-4o-mini" class="setting-input" />
+                </div>
+              </div>
+            </div>
+
+            <!-- 个人API设置 (所有用户) -->
+            <div class="settings-card">
+              <div class="card-header">
+                <h3>个人API设置</h3>
+                <span class="badge">个人</span>
+              </div>
+              <div class="card-body">
+                <div class="input-group">
+                  <label>API Key</label>
+                  <input v-model="apiForm.personalApiKey" type="password" placeholder="请输入您的API Key" class="setting-input" />
+                </div>
+                <div class="input-group">
+                  <label>API URL</label>
+                  <input v-model="apiForm.personalApiUrl" placeholder="https://api.openai.com/v1/chat/completions" class="setting-input" />
+                </div>
+                <div class="input-group">
+                  <label>默认模型</label>
+                  <input v-model="apiForm.personalModel" placeholder="gpt-4o-mini" class="setting-input" />
+                </div>
+              </div>
+            </div>
+
+            <button class="save-btn" @click="saveApiSettings" :disabled="apiSaving">
+              <template v-if="apiSaving">
+                <div class="btn-spinner"></div>
+                保存中...
+              </template>
+              <template v-else>
+                ▣ 保存API设置
+              </template>
+            </button>
+          </template>
+        </div>
+      </template>
     </div>
 
     <div v-else class="no-access">
       <p>⛔ 无权限访问</p>
     </div>
+
+    <!-- 提示信息 -->
+    <div class="toast" v-if="toast.show" :class="toast.type">
+      {{ toast.message }}
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import apiClient from '@/api/client'
 import NavBar from '@/components/common/NavBar.vue'
 
 const authStore = useAuthStore()
 
-interface SettingItem {
-  key: string
-  valueStr: string
-  jsonError: string
-  isExisting: boolean
-}
-
 const loading = ref(true)
 const saving = ref(false)
-const settingsList = ref<SettingItem[]>([])
 const toast = ref({ show: false, message: '', type: 'success' as 'success' | 'error' })
 
-const activeTab = ref<'system' | 'api'>('system')
+const activeTab = ref<'credits' | 'system' | 'api'>('credits')
 
-const isApiTab = computed(() => activeTab.value === 'api')
-const isSystemTab = computed(() => activeTab.value === 'system')
+const creditSettings = reactive({
+  default_credits: 1000,
+  signin_daily_credits: 10,
+  signin_streak_bonus: 5,
+  invite_reward_credits: 100,
+  signin_enabled: true,
+  invite_enabled: true,
+})
+
+const systemSettings = reactive({
+  app_name: '',
+})
 
 const apiSettingsLoading = ref(false)
 const apiSaving = ref(false)
@@ -216,36 +334,6 @@ const apiForm = ref({
   personalModel: '',
 })
 
-const hasJsonErrors = computed(() => {
-  return settingsList.value.some(item => item.jsonError !== '' || item.key.trim() === '')
-})
-
-function validateJson(item: SettingItem) {
-  if (!item.valueStr.trim()) {
-    item.jsonError = '值不能为空'
-    return
-  }
-  try {
-    JSON.parse(item.valueStr)
-    item.jsonError = ''
-  } catch {
-    item.jsonError = 'JSON 格式错误'
-  }
-}
-
-function addSetting() {
-  settingsList.value.push({
-    key: '',
-    valueStr: '""',
-    jsonError: '',
-    isExisting: false,
-  })
-}
-
-function removeSetting(index: number) {
-  settingsList.value.splice(index, 1)
-}
-
 function showToast(message: string, type: 'success' | 'error' = 'success') {
   toast.value = { show: true, message, type }
   setTimeout(() => {
@@ -253,20 +341,18 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
   }, 3000)
 }
 
-async function fetchSettings() {
+async function fetchCreditSettings() {
   loading.value = true
   try {
     const res: any = await apiClient.get('/api/settings')
     const data = res.data || res || {}
-    settingsList.value = []
-    for (const [key, value] of Object.entries(data)) {
-      settingsList.value.push({
-        key,
-        valueStr: JSON.stringify(value, null, 2),
-        jsonError: '',
-        isExisting: true,
-      })
-    }
+    
+    if (data.default_credits !== undefined) creditSettings.default_credits = Number(data.default_credits)
+    if (data.signin_daily_credits !== undefined) creditSettings.signin_daily_credits = Number(data.signin_daily_credits)
+    if (data.signin_streak_bonus !== undefined) creditSettings.signin_streak_bonus = Number(data.signin_streak_bonus)
+    if (data.invite_reward_credits !== undefined) creditSettings.invite_reward_credits = Number(data.invite_reward_credits)
+    if (data.signin_enabled !== undefined) creditSettings.signin_enabled = data.signin_enabled === true || data.signin_enabled === 'true'
+    if (data.invite_enabled !== undefined) creditSettings.invite_enabled = data.invite_enabled === true || data.invite_enabled === 'true'
   } catch (err: any) {
     showToast('加载设置失败: ' + (err.message || '未知错误'), 'error')
   } finally {
@@ -274,36 +360,42 @@ async function fetchSettings() {
   }
 }
 
-async function saveSettings() {
-  if (hasJsonErrors.value) {
-    showToast('请先修复 JSON 格式错误', 'error')
-    return
+async function fetchSystemSettings() {
+  try {
+    const res: any = await apiClient.get('/api/settings')
+    const data = res.data || res || {}
+    systemSettings.app_name = data.app_name || ''
+  } catch (err: any) {
+    console.error('Failed to load system settings:', err)
   }
+}
 
-  // Check for duplicate keys
-  const keys = settingsList.value.map(i => i.key.trim())
-  const uniqueKeys = new Set(keys)
-  if (keys.some(k => k === '')) {
-    showToast('键名不能为空', 'error')
-    return
-  }
-  if (uniqueKeys.size !== keys.length) {
-    showToast('存在重复的键名', 'error')
-    return
-  }
-
+async function saveCreditSettings() {
   saving.value = true
   try {
-    const payload: Record<string, any> = {}
-    for (const item of settingsList.value) {
-      payload[item.key.trim()] = JSON.parse(item.valueStr)
-    }
-    await apiClient.put('/api/settings', payload)
-    showToast('设置已保存')
-    // Mark all as existing
-    settingsList.value.forEach(item => {
-      item.isExisting = true
+    await apiClient.put('/api/settings', {
+      default_credits: creditSettings.default_credits,
+      signin_daily_credits: creditSettings.signin_daily_credits,
+      signin_streak_bonus: creditSettings.signin_streak_bonus,
+      invite_reward_credits: creditSettings.invite_reward_credits,
+      signin_enabled: creditSettings.signin_enabled,
+      invite_enabled: creditSettings.invite_enabled,
     })
+    showToast('额度设置已保存')
+  } catch (err: any) {
+    showToast('保存失败: ' + (err.message || '未知错误'), 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function saveSystemSettings() {
+  saving.value = true
+  try {
+    await apiClient.put('/api/settings', {
+      app_name: systemSettings.app_name,
+    })
+    showToast('系统设置已保存')
   } catch (err: any) {
     showToast('保存失败: ' + (err.message || '未知错误'), 'error')
   } finally {
@@ -360,7 +452,8 @@ async function saveApiSettings() {
 
 onMounted(() => {
   if (authStore.isAdmin) {
-    fetchSettings()
+    fetchCreditSettings()
+    fetchSystemSettings()
     fetchApiSettings()
   }
 })
@@ -410,28 +503,9 @@ onMounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* 空状态 */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 0;
-  gap: 12px;
-}
-
-.empty-icon {
-  font-size: 48px;
-}
-
-.empty-state p {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 15px;
-}
-
 /* Section */
 .settings-section {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .section-header {
@@ -450,149 +524,132 @@ onMounted(() => {
   margin: 0;
 }
 
-/* 设置卡片 */
+/* 设置项 */
 .settings-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.setting-card {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  padding: 14px;
+  overflow: hidden;
 }
 
-.setting-header {
+.setting-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.setting-key {
+.setting-item:last-child {
+  border-bottom: none;
+}
+
+.setting-label {
   flex: 1;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #5B6EF5;
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  outline: none;
-}
-
-.setting-key:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.setting-key:focus {
-  border-color: #5B6EF5;
-}
-
-.delete-btn {
-  width: 32px;
-  height: 32px;
-  background: rgba(255, 59, 48, 0.15);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: background 0.2s;
-}
-
-.delete-btn svg {
-  width: 16px;
-  height: 16px;
-  color: #FF3B30;
-}
-
-.delete-btn:hover {
-  background: rgba(255, 59, 48, 0.3);
-}
-
-.setting-value-wrap {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.setting-value {
-  width: 100%;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-size: 13px;
+.label-text {
+  font-size: 15px;
   color: #fff;
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  resize: vertical;
-  outline: none;
-  min-height: 60px;
-  box-sizing: border-box;
 }
 
-.setting-value:focus {
+.label-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.setting-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setting-input {
+  width: 80px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  text-align: right;
+  outline: none;
+}
+
+.setting-input:focus {
   border-color: #5B6EF5;
 }
 
-.json-hint {
-  font-size: 11px;
-  color: rgba(52, 199, 89, 0.8);
-  padding-left: 4px;
+.setting-input.full-width {
+  width: 100%;
+  text-align: left;
 }
 
-.json-hint.error {
-  color: #FF3B30;
+.setting-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input-suffix {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Toggle */
+.toggle {
+  position: relative;
+  width: 51px;
+  height: 31px;
+  cursor: pointer;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-quaternary, rgba(255, 255, 255, 0.1));
+  border-radius: 31px;
+  transition: background 0.3s;
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 27px;
+  height: 27px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.3s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle input:checked + .toggle-slider {
+  background: #34C759;
+}
+
+.toggle input:checked + .toggle-slider::after {
+  transform: translateX(20px);
 }
 
 /* 操作按钮 */
-.actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 16px;
-  padding-bottom: 32px;
-}
-
-.add-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 15px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.add-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-.add-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
-  color: #fff;
-}
-
 .save-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 14px;
+  width: 100%;
   background: linear-gradient(135deg, #5B6EF5, #8B5CF6);
   border: none;
   border-radius: 12px;
@@ -601,6 +658,7 @@ onMounted(() => {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  margin-top: 20px;
 }
 
 .save-btn:disabled {
@@ -646,14 +704,8 @@ onMounted(() => {
 }
 
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* 无权限 */
@@ -671,10 +723,11 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
 .tab-btn {
-  padding: 8px 20px;
+  padding: 8px 16px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 20px;
@@ -761,24 +814,5 @@ onMounted(() => {
 .input-group label {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.6);
-}
-
-.setting-input {
-  padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: #fff;
-  font-size: 14px;
-  outline: none;
-}
-
-.setting-input:focus {
-  border-color: #5B6EF5;
-}
-
-.setting-input:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 </style>

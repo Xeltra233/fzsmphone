@@ -19,11 +19,12 @@ type UserHandler struct {
 // GET /api/users
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.DB.Pool.Query(r.Context(), `
-		SELECT id, discord_id, username, display_name, COALESCE(avatar_url, ''), role,
-		       is_banned, ban_reason, banned_at,
-		       created_at, updated_at
-		FROM users
-		ORDER BY created_at DESC
+	SELECT id, discord_id, username, display_name, COALESCE(avatar_url, ''), role,
+	is_banned, COALESCE(ban_reason, ''), banned_at,
+	COALESCE(credits, 0), COALESCE(total_tokens, 0), COALESCE(signin_streak, 0), COALESCE(invite_code, ''),
+	created_at, updated_at
+	FROM users
+	ORDER BY created_at DESC
 	`)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to query users")
@@ -32,25 +33,27 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type userResp struct {
-		ID          int64      `json:"id"`
-		DiscordID   string     `json:"discord_id"`
-		Username    string     `json:"username"`
-		DisplayName string     `json:"display_name"`
-		AvatarURL   string     `json:"avatar_url"`
-		Role        string     `json:"role"`
-		IsBanned    bool       `json:"is_banned"`
-		BanReason   string     `json:"ban_reason"`
-		BannedAt    *time.Time `json:"banned_at"`
-		CreatedAt   time.Time  `json:"created_at"`
-		UpdatedAt   time.Time  `json:"updated_at"`
+		ID           int64      `json:"id"`
+		DiscordID    string     `json:"discord_id"`
+		Username     string     `json:"username"`
+		DisplayName  string     `json:"display_name"`
+		AvatarURL    string     `json:"avatar_url"`
+		Role         string     `json:"role"`
+		IsBanned     bool       `json:"is_banned"`
+		BanReason    string     `json:"ban_reason"`
+		BannedAt     *time.Time `json:"banned_at"`
+		Credits      int        `json:"credits"`
+		TotalTokens  int        `json:"total_tokens"`
+		SigninStreak int        `json:"signin_streak"`
+		InviteCode   string     `json:"invite_code"`
+		CreatedAt    time.Time  `json:"created_at"`
+		UpdatedAt    time.Time  `json:"updated_at"`
 	}
 
 	var users []userResp
 	for rows.Next() {
 		var u userResp
-		if err := rows.Scan(&u.ID, &u.DiscordID, &u.Username, &u.DisplayName,
-			&u.AvatarURL, &u.Role, &u.IsBanned, &u.BanReason, &u.BannedAt,
-			&u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.DiscordID, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Role, &u.IsBanned, &u.BanReason, &u.BannedAt, &u.Credits, &u.TotalTokens, &u.SigninStreak, &u.InviteCode, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			mw.Error(w, http.StatusInternalServerError, "failed to scan user")
 			return
 		}
@@ -86,13 +89,10 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = h.DB.Pool.QueryRow(r.Context(), `
-		SELECT id, discord_id, username, display_name, COALESCE(avatar_url, ''), role,
-		       is_banned, ban_reason, banned_at,
-		       created_at, updated_at
-		FROM users WHERE id = $1
-	`, id).Scan(&u.ID, &u.DiscordID, &u.Username, &u.DisplayName,
-		&u.AvatarURL, &u.Role, &u.IsBanned, &u.BanReason, &u.BannedAt,
-		&u.CreatedAt, &u.UpdatedAt)
+	SELECT id, discord_id, username, display_name, COALESCE(avatar_url, ''), role,
+	is_banned, COALESCE(ban_reason, ''), banned_at,
+	created_at, updated_at WHERE id = $1
+	`, id).Scan(&u.ID, &u.DiscordID, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Role, &u.IsBanned, &u.BanReason, &u.BannedAt, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		mw.Error(w, http.StatusNotFound, "user not found")
 		return
@@ -230,8 +230,8 @@ func (h *UserHandler) Ban(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&body)
 
 	result, err := h.DB.Pool.Exec(r.Context(), `
-		UPDATE users SET is_banned = true, ban_reason = $1, banned_at = NOW(), updated_at = NOW()
-		WHERE id = $2
+	UPDATE users SET is_banned = true, ban_reason = $1, banned_at = NOW(), updated_at = NOW()
+	WHERE id = $2
 	`, body.Reason, id)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to ban user")
@@ -263,8 +263,8 @@ func (h *UserHandler) Unban(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := h.DB.Pool.Exec(r.Context(), `
-		UPDATE users SET is_banned = false, ban_reason = '', banned_at = NULL, updated_at = NOW()
-		WHERE id = $1
+	UPDATE users SET is_banned = false, ban_reason = '', banned_at = NULL, updated_at = NOW()
+	WHERE id = $1
 	`, id)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to unban user")
@@ -276,4 +276,41 @@ func (h *UserHandler) Unban(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mw.JSON(w, http.StatusOK, map[string]string{"message": "user unbanned"})
+}
+
+// PATCH /api/users/{id}/credits
+func (h *UserHandler) UpdateCredits(w http.ResponseWriter, r *http.Request) {
+	isSuperAdmin, _ := mw.GetIsSuperAdmin(r.Context())
+	if !isSuperAdmin {
+		mw.Error(w, http.StatusForbidden, "需要超级管理员权限")
+		return
+	}
+
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		mw.Error(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	var body struct {
+		Credits int `json:"credits"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		mw.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	result, err := h.DB.Pool.Exec(r.Context(), `
+	UPDATE users SET credits = $1, updated_at = NOW() WHERE id = $2
+	`, body.Credits, id)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to update credits")
+		return
+	}
+	if result.RowsAffected() == 0 {
+		mw.Error(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]string{"message": "credits updated"})
 }
