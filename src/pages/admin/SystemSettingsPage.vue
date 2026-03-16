@@ -33,6 +33,13 @@
 >
   OAuth配置
 </button>
+<button
+  class="tab-btn"
+  :class="{ active: activeTab === 'contact' }"
+  @click="activeTab = 'contact'"
+>
+  联系方式
+</button>
 </div>
 
       <!-- 额度设置 -->
@@ -434,14 +441,31 @@
     ▣ 保存OAuth设置
   </template>
 </button>
-    </div>
+</div>
 
-    <div v-else class="no-access">
-      <p>⛔ 无权限访问</p>
+<!-- 联系方式 -->
+<div v-show="activeTab === 'contact'" class="settings-section">
+  <div class="section-header">
+    <h3>官方群聊</h3>
+  </div>
+  <div class="settings-list">
+    <div class="setting-item vertical">
+      <div class="qrcode-display">
+        <img :src="'/qun_qrcode.jpg'" alt="官方群二维码" class="qrcode-image" @error="qrcodeError = true" />
+        <div v-if="qrcodeError" class="qrcode-placeholder">群二维码加载失败</div>
+      </div>
     </div>
+<div class="setting-item vertical">
+      <div class="setting-label">
+        <span class="label-text">进群密码</span>
+      </div>
+      <div class="password-display">贩子死妈</div>
+    </div>
+  </div>
+</div>
 
-    <!-- 提示信息 -->
-    <div class="toast" v-if="toast.show" :class="toast.type">
+<!-- 提示信息 -->
+<div class="toast" v-if="toast.show" :class="toast.type">
       {{ toast.message }}
     </div>
   </div>
@@ -457,9 +481,10 @@ const authStore = useAuthStore()
 
 const loading = ref(true)
 const saving = ref(false)
+const qrcodeError = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' as 'success' | 'error' })
 
-const activeTab = ref<'credits' | 'system' | 'api' | 'oauth'>('credits')
+const activeTab = ref<'credits' | 'system' | 'api' | 'oauth' | 'contact'>('credits')
 
 const creditSettings = reactive({
   default_credits: 1000,
@@ -1036,5 +1061,36 @@ onMounted(() => {
   color: rgba(255, 255, 255, 0.4);
   margin-top: 4px;
   display: block;
+}
+
+.qrcode-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  width: 100%;
+}
+
+.qrcode-image {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.qrcode-placeholder {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 14px;
+  padding: 20px;
+}
+
+.password-display {
+  font-size: 18px;
+  font-weight: 600;
+  color: #5B6EF5;
+  padding: 12px 20px;
+  background: rgba(91, 110, 245, 0.1);
+  border-radius: 8px;
+  letter-spacing: 2px;
 }
 </style>
