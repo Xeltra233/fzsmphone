@@ -19,14 +19,21 @@
         >
           系统配置
         </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'api' }"
-          @click="activeTab = 'api'"
-        >
-          API设置
-        </button>
-      </div>
+<button
+  class="tab-btn"
+  :class="{ active: activeTab === 'api' }"
+  @click="activeTab = 'api'"
+>
+  API设置
+</button>
+<button
+  class="tab-btn"
+  :class="{ active: activeTab === 'oauth' }"
+  @click="activeTab = 'oauth'"
+>
+  OAuth配置
+</button>
+</div>
 
       <!-- 额度设置 -->
       <template v-if="activeTab === 'credits'">
@@ -369,10 +376,49 @@
               <template v-else>
                 ▣ 保存API设置
               </template>
-            </button>
-          </template>
-        </div>
-      </template>
+</button>
+</template>
+</div>
+</template>
+
+<!-- OAuth配置 -->
+<div v-show="activeTab === 'oauth'" class="settings-section">
+  <div class="section-header">
+    <h3>Discord OAuth设置</h3>
+  </div>
+  <div class="settings-list">
+    <div class="setting-item vertical">
+      <div class="setting-label">
+        <span class="label-text">Client ID</span>
+        <span class="label-desc">Discord应用程序的Client ID</span>
+      </div>
+      <input v-model="oauthSettings.discord_client_id" class="setting-input full-width" :disabled="!authStore.isSuperAdmin" placeholder="your-discord-client-id" />
+    </div>
+    <div class="setting-item vertical">
+      <div class="setting-label">
+        <span class="label-text">Client Secret</span>
+        <span class="label-desc">Discord应用程序的Client Secret</span>
+      </div>
+      <input v-model="oauthSettings.discord_client_secret" type="password" class="setting-input full-width" :disabled="!authStore.isSuperAdmin" placeholder="your-discord-client-secret" />
+    </div>
+    <div class="setting-item vertical">
+      <div class="setting-label">
+        <span class="label-text">Redirect URI</span>
+        <span class="label-desc">OAuth回调地址，需在Discord开发者门户配置</span>
+      </div>
+      <input v-model="oauthSettings.discord_redirect_uri" class="setting-input full-width" :disabled="!authStore.isSuperAdmin" placeholder="https://yourdomain.com/api/auth/discord/callback" />
+    </div>
+  </div>
+</div>
+<button v-show="activeTab === 'oauth'" class="save-btn" @click="saveOauthSettings" :disabled="saving || !authStore.isSuperAdmin">
+  <template v-if="saving">
+    <div class="btn-spinner"></div>
+    保存中...
+  </template>
+  <template v-else>
+    ▣ 保存OAuth设置
+  </template>
+</button>
     </div>
 
     <div v-else class="no-access">
@@ -398,7 +444,7 @@ const loading = ref(true)
 const saving = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' as 'success' | 'error' })
 
-const activeTab = ref<'credits' | 'system' | 'api'>('credits')
+const activeTab = ref<'credits' | 'system' | 'api' | 'oauth'>('credits')
 
 const creditSettings = reactive({
   default_credits: 1000,
@@ -417,6 +463,12 @@ const systemSettings = reactive({
   disclaimer: '',
   qun_qrcode: '',
   favicon: '/icon.png',
+})
+
+const oauthSettings = reactive({
+  discord_client_id: '',
+  discord_client_secret: '',
+  discord_redirect_uri: '',
 })
 
 const apiSettingsLoading = ref(false)
@@ -512,6 +564,34 @@ async function saveSystemSettings() {
   }
 }
 
+async function fetchOauthSettings() {
+  try {
+    const res: any = await apiClient.get('/api/settings')
+    const data = res.data || res || {}
+    oauthSettings.discord_client_id = data.discord_client_id || ''
+    oauthSettings.discord_client_secret = data.discord_client_secret || ''
+    oauthSettings.discord_redirect_uri = data.discord_redirect_uri || ''
+  } catch (err: any) {
+    console.error('Failed to load OAuth settings:', err)
+  }
+}
+
+async function saveOauthSettings() {
+  saving.value = true
+  try {
+    await apiClient.put('/api/settings', {
+      discord_client_id: oauthSettings.discord_client_id,
+      discord_client_secret: oauthSettings.discord_client_secret,
+      discord_redirect_uri: oauthSettings.discord_redirect_uri,
+    })
+    showToast('OAuth设置已保存')
+  } catch (err: any) {
+    showToast('保存失败: ' + (err.message || '未知错误'), 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
 async function fetchApiSettings() {
   apiSettingsLoading.value = true
   try {
@@ -564,6 +644,7 @@ onMounted(() => {
     fetchCreditSettings()
     fetchSystemSettings()
     fetchApiSettings()
+    fetchOauthSettings()
   }
 })
 </script>
