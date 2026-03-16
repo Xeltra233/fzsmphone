@@ -86,12 +86,18 @@
               <span class="label-desc">{{ s.timeout }}秒</span>
             </div>
           </div>
-          <div class="slider-row">
-            <span class="slider-min">10</span>
-            <input type="range" min="10" max="300" v-model.number="s.timeout" class="slider" />
-            <span class="slider-max">300</span>
-          </div>
-        </div>
+<div class="slider-row">
+  <span class="slider-min">10</span>
+  <input type="range" min="10" max="300" v-model.number="s.timeout" class="slider" />
+  <span class="slider-max">300</span>
+</div>
+
+<!-- 每日提示 -->
+<div v-if="dailyTips" class="tips-box">
+  <div class="tips-label">💡 每日提示</div>
+  <div class="tips-content">{{ dailyTips }}</div>
+</div>
+</div>
 
         <div class="section">
           <div class="section-header">■ 社交内容 API（可选）</div>
@@ -655,6 +661,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { usePhoneStore } from '@/stores/phone'
 import { loadImageGenConfig, saveImageGenConfig, IMAGE_ASPECT_RATIO_OPTIONS, type ImageGenConfig } from '@/utils/imageGenConfig'
 import { isChatAutoImageGenEnabled, setChatAutoImageGenEnabled, isSocialAutoImageGenEnabled, setSocialAutoImageGenEnabled } from '@/utils/imageGenService'
+import api from '@/api/client'
 
 const settingsStore = useSettingsStore()
 const phoneStore = usePhoneStore()
@@ -691,6 +698,19 @@ const showClearConfirm = ref(false)
 const modelList = ref<string[]>([])
 const fetchingModels = ref(false)
 const fetchError = ref('')
+const dailyTips = ref('')
+
+async function fetchDailyTips() {
+  try {
+    const res = await api.get<any>('/api/settings')
+    const data = res.data || res || {}
+    if (data.tips) {
+      dailyTips.value = data.tips
+    }
+  } catch (e) {}
+}
+
+fetchDailyTips()
 
 const tabs = [
   { key: 'api', icon: '■', label: 'API' },
@@ -1007,6 +1027,26 @@ function handleWallpaperUpload(e: Event) {
   padding: 0 16px 8px;
   font-size: 12px;
   color: #ff3b30;
+}
+
+.tips-box {
+  margin: 12px 16px;
+  padding: 12px;
+  background: rgba(91, 110, 245, 0.12);
+  border: 1px solid rgba(91, 110, 245, 0.25);
+  border-radius: 10px;
+}
+
+.tips-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 4px;
+}
+
+.tips-content {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.5;
 }
 
 /* Token input */
