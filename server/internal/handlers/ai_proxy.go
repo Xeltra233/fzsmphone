@@ -16,7 +16,8 @@ import (
 )
 
 type AIProxyHandler struct {
-	DB *database.DB
+	DB     *database.DB
+	Logger *LoggerHandler
 }
 
 type aiChatRequest struct {
@@ -391,4 +392,3 @@ func (h *AIProxyHandler) ImageProxy(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[AIProxy] image stream completed for user=%d, bytes=%d", userID, n)
 	}
 }
-

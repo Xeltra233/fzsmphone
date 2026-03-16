@@ -176,47 +176,126 @@
         </template>
       </template>
 
-      <!-- 系统配置 -->
-      <template v-if="activeTab === 'system'">
-        <div v-if="!authStore.isSuperAdmin" class="permission-notice">
-          <span class="notice-icon">ℹ️</span>
-          您的账户为管理员，只能查看系统配置。如需修改，请联系超级管理员。
-        </div>
+<!-- 系统配置 -->
+  <template v-if="activeTab === 'system'">
+    <div v-if="!authStore.isSuperAdmin" class="permission-notice">
+      <span class="notice-icon">ℹ️</span>
+      您的账户为管理员，只能查看系统配置。如需修改，请联系超级管理员。
+    </div>
 
-        <div class="settings-section">
-          <div class="section-header">
-            <h3>应用名称</h3>
+    <div class="settings-section">
+      <div class="section-header">
+        <h3>基础设置</h3>
+      </div>
+      <div class="settings-list">
+        <div class="setting-item vertical">
+          <div class="setting-label">
+            <span class="label-text">应用名称</span>
+            <span class="label-desc">显示在登录页和状态栏</span>
           </div>
-          <div class="settings-list">
-            <div class="setting-item">
-              <div class="setting-label">
-                <span class="label-text">应用名称</span>
-                <span class="label-desc">显示在应用标题和状态栏</span>
-              </div>
-              <input
-                v-model="systemSettings.app_name"
-                class="setting-input full-width"
-                :disabled="!authStore.isSuperAdmin"
-                placeholder="贩子死妈小手机"
-              />
-            </div>
-          </div>
+          <input
+            v-model="systemSettings.app_name"
+            class="setting-input full-width"
+            :disabled="!authStore.isSuperAdmin"
+            placeholder="贩子死妈小手机"
+          />
         </div>
+        <div class="setting-item vertical">
+          <div class="setting-label">
+            <span class="label-text">网页标题</span>
+            <span class="label-desc">浏览器标签页显示的标题</span>
+          </div>
+          <input
+            v-model="systemSettings.app_title"
+            class="setting-input full-width"
+            :disabled="!authStore.isSuperAdmin"
+            placeholder="贩子死妈小手机"
+          />
+        </div>
+      </div>
+    </div>
 
-        <button
-          class="save-btn"
-          @click="saveSystemSettings"
-          :disabled="saving || !authStore.isSuperAdmin"
-        >
-          <template v-if="saving">
-            <div class="btn-spinner"></div>
-            保存中...
-          </template>
-          <template v-else>
-            ▣ 保存设置
-          </template>
-        </button>
+    <div class="settings-section">
+      <div class="section-header">
+        <h3>公告提示</h3>
+      </div>
+      <div class="settings-list">
+        <div class="setting-item vertical">
+          <div class="setting-label">
+            <span class="label-text">公告内容</span>
+            <span class="label-desc">显示在登录页顶部，支持换行</span>
+          </div>
+          <textarea
+            v-model="systemSettings.announcement"
+            class="setting-input full-width"
+            :disabled="!authStore.isSuperAdmin"
+            placeholder="欢迎使用..."
+            rows="3"
+          />
+        </div>
+        <div class="setting-item vertical">
+          <div class="setting-label">
+            <span class="label-text">每日提示</span>
+            <span class="label-desc">显示在额度页面的小技巧</span>
+          </div>
+          <textarea
+            v-model="systemSettings.tips"
+            class="setting-input full-width"
+            :disabled="!authStore.isSuperAdmin"
+            placeholder="每日签到可获得额外额度..."
+            rows="2"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-section">
+      <div class="section-header">
+        <h3>版权声明</h3>
+      </div>
+      <div class="settings-list">
+        <div class="setting-item vertical">
+          <div class="setting-label">
+            <span class="label-text">免责声明</span>
+            <span class="label-desc">显示在页面底部，禁止商业声明</span>
+          </div>
+          <textarea
+            v-model="systemSettings.disclaimer"
+            class="setting-input full-width"
+            :disabled="!authStore.isSuperAdmin"
+            placeholder="贩子死妈保留所有权益..."
+            rows="3"
+          />
+        </div>
+        <div class="setting-item vertical">
+          <div class="setting-label">
+            <span class="label-text">群二维码路径</span>
+            <span class="label-desc">放在public目录下，如 qun_qrcode.jpg</span>
+          </div>
+          <input
+            v-model="systemSettings.qun_qrcode"
+            class="setting-input full-width"
+            :disabled="!authStore.isSuperAdmin"
+            placeholder="qun_qrcode.jpg"
+          />
+        </div>
+      </div>
+    </div>
+
+    <button
+      class="save-btn"
+      @click="saveSystemSettings"
+      :disabled="saving || !authStore.isSuperAdmin"
+    >
+      <template v-if="saving">
+        <div class="btn-spinner"></div>
+        保存中...
       </template>
+      <template v-else>
+        ▣ 保存设置
+      </template>
+    </button>
+  </template>
 
       <!-- API设置 -->
       <template v-if="activeTab === 'api'">
@@ -320,6 +399,11 @@ const creditSettings = reactive({
 
 const systemSettings = reactive({
   app_name: '',
+  app_title: '',
+  announcement: '',
+  tips: '',
+  disclaimer: '',
+  qun_qrcode: '',
 })
 
 const apiSettingsLoading = ref(false)
@@ -365,6 +449,11 @@ async function fetchSystemSettings() {
     const res: any = await apiClient.get('/api/settings')
     const data = res.data || res || {}
     systemSettings.app_name = data.app_name || ''
+    systemSettings.app_title = data.app_title || ''
+    systemSettings.announcement = data.announcement || ''
+    systemSettings.tips = data.tips || ''
+    systemSettings.disclaimer = data.disclaimer || ''
+    systemSettings.qun_qrcode = data.qun_qrcode || ''
   } catch (err: any) {
     console.error('Failed to load system settings:', err)
   }
@@ -394,6 +483,11 @@ async function saveSystemSettings() {
   try {
     await apiClient.put('/api/settings', {
       app_name: systemSettings.app_name,
+      app_title: systemSettings.app_title,
+      announcement: systemSettings.announcement,
+      tips: systemSettings.tips,
+      disclaimer: systemSettings.disclaimer,
+      qun_qrcode: systemSettings.qun_qrcode,
     })
     showToast('系统设置已保存')
   } catch (err: any) {

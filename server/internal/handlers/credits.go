@@ -171,8 +171,8 @@ func (h *CreditsHandler) GetUserSettings(w http.ResponseWriter, r *http.Request)
 	var inviteCode, modelDisplayNames string
 
 	err := h.DB.Pool.QueryRow(r.Context(), `
-		SELECT credits, total_tokens, signin_streak, last_signin_at, COALESCE(invite_code, ''), COALESCE(model_display_names::text, '{}'), COALESCE(invite_rewards_claimed, 0)
-		FROM users WHERE id = $1
+	SELECT credits, total_tokens, signin_streak, last_signin_at, COALESCE(invite_code, ''), COALESCE(model_display_names::text, '{}'), COALESCE(invite_rewards_claimed, 0)
+	FROM users WHERE id = $1
 	`, userID).Scan(&credits, &totalTokens, &streak, &lastSignin, &inviteCode, &modelDisplayNames, &inviteRewards)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to get settings")
@@ -181,15 +181,18 @@ func (h *CreditsHandler) GetUserSettings(w http.ResponseWriter, r *http.Request)
 
 	var defaultCredits, signinCredits, streakBonus, inviteCredits int
 	var signinEnabled, inviteEnabled bool
+	var announcement, tips string
 	h.DB.Pool.QueryRow(r.Context(), `
-		SELECT 
-			COALESCE((SELECT value::int FROM app_settings WHERE key = 'default_credits'), 1000),
-			COALESCE((SELECT value::int FROM app_settings WHERE key = 'signin_daily_credits'), 10),
-			COALESCE((SELECT value::int FROM app_settings WHERE key = 'signin_streak_bonus'), 5),
-			COALESCE((SELECT value::int FROM app_settings WHERE key = 'invite_reward_credits'), 100),
-			COALESCE((SELECT value::bool FROM app_settings WHERE key = 'signin_enabled'), true),
-			COALESCE((SELECT value::bool FROM app_settings WHERE key = 'invite_enabled'), true)
-	`).Scan(&defaultCredits, &signinCredits, &streakBonus, &inviteCredits, &signinEnabled, &inviteEnabled)
+	SELECT
+	COALESCE((SELECT value::int FROM app_settings WHERE key = 'default_credits'), 1000),
+	COALESCE((SELECT value::int FROM app_settings WHERE key = 'signin_daily_credits'), 10),
+	COALESCE((SELECT value::int FROM app_settings WHERE key = 'signin_streak_bonus'), 5),
+	COALESCE((SELECT value::int FROM app_settings WHERE key = 'invite_reward_credits'), 100),
+	COALESCE((SELECT value::bool FROM app_settings WHERE key = 'signin_enabled'), true),
+	COALESCE((SELECT value::bool FROM app_settings WHERE key = 'invite_enabled'), true),
+	COALESCE((SELECT value FROM app_settings WHERE key = 'announcement'), ''),
+	COALESCE((SELECT value FROM app_settings WHERE key = 'tips'), '')
+	`).Scan(&defaultCredits, &signinCredits, &streakBonus, &inviteCredits, &signinEnabled, &inviteEnabled, &announcement, &tips)
 
 	canSignIn := true
 	if lastSignin != nil {
@@ -211,6 +214,8 @@ func (h *CreditsHandler) GetUserSettings(w http.ResponseWriter, r *http.Request)
 		"invite_code":     inviteCode,
 		"invite_count":    0,
 		"rewards_claimed": inviteRewards,
+		"announcement": announcement,
+		"tips": tips,
 		"settings": map[string]interface{}{
 			"default_credits":       defaultCredits,
 			"signin_daily_credits":  signinCredits,
