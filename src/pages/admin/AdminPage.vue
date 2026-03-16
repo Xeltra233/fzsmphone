@@ -34,11 +34,17 @@
           <div class="card-desc">查看运营数据</div>
         </div>
 
-        <div class="admin-card" @click="router.push('/admin/settings')">
-          <div class="card-icon" style="background: linear-gradient(135deg, #636E72, #95A5A6)">⚙</div>
-          <div class="card-title">系统设置</div>
-          <div class="card-desc">全局配置和API</div>
-        </div>
+<div class="admin-card" @click="router.push('/admin/settings')">
+  <div class="card-icon" style="background: linear-gradient(135deg, #636E72, #95A5A6)">⚙</div>
+  <div class="card-title">系统设置</div>
+  <div class="card-desc">全局配置和API</div>
+</div>
+
+<div class="admin-card" @click="router.push('/admin/logs')">
+  <div class="card-icon" style="background: linear-gradient(135deg, #9B59B6, #8E44AD)">📋</div>
+  <div class="card-title">系统日志</div>
+  <div class="card-desc">查看操作记录</div>
+</div>
       </div>
 
       <!-- 快速操作 -->

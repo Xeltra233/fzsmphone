@@ -14,7 +14,8 @@ import (
 )
 
 type CreditsHandler struct {
-	DB *database.DB
+	DB     *database.DB
+	Logger *LoggerHandler
 }
 
 type SigninResponse struct {
@@ -30,7 +31,7 @@ func (h *CreditsHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 	var lastSignin *time.Time
 	var streak int
 	err := h.DB.Pool.QueryRow(r.Context(), `
-		SELECT last_signin_at, signin_streak FROM users WHERE id = $1
+	SELECT last_signin_at, signin_streak FROM users WHERE id = $1
 	`, userID).Scan(&lastSignin, &streak)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to check signin")
@@ -57,8 +58,8 @@ func (h *CreditsHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 
 	var dailyCredits, streakBonus int
 	h.DB.Pool.QueryRow(r.Context(), `
-		SELECT COALESCE(value, '10')::int, COALESCE((SELECT value FROM app_settings WHERE key = 'signin_streak_bonus'), '5')::int
-		FROM app_settings WHERE key = 'signin_daily_credits'
+	SELECT COALESCE(value, '10')::int, COALESCE((SELECT value FROM app_settings WHERE key = 'signin_streak_bonus'), '5')::int
+	FROM app_settings WHERE key = 'signin_daily_credits'
 	`).Scan(&dailyCredits, &streakBonus)
 
 	creditsEarned := dailyCredits
@@ -67,11 +68,11 @@ func (h *CreditsHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = h.DB.Pool.Exec(r.Context(), `
-		UPDATE users SET 
-			credits = credits + $1,
-			last_signin_at = NOW(),
-			signin_streak = $2
-		WHERE id = $3
+	UPDATE users SET
+	credits = credits + $1,
+	last_signin_at = NOW(),
+	signin_streak = $2
+	WHERE id = $3
 	`, creditsEarned, streak, userID)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "签到失败")
@@ -79,12 +80,21 @@ func (h *CreditsHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.DB.Pool.Exec(r.Context(), `
-		INSERT INTO signin_records (user_id, credits_earned, streak_bonus)
-		VALUES ($1, $2, $3)
+	INSERT INTO signin_records (user_id, credits_earned, streak_bonus)
+	VALUES ($1, $2, $3)
 	`, userID, dailyCredits, creditsEarned-dailyCredits)
 
 	var totalCredits int
 	h.DB.Pool.QueryRow(r.Context(), `SELECT credits FROM users WHERE id = $1`, userID).Scan(&totalCredits)
+
+	if h.Logger != nil {
+		var username string
+		h.DB.Pool.QueryRow(r.Context(), `SELECT username FROM users WHERE id = $1`, userID).Scan(&username)
+		h.Logger.Log("INFO", "user_signin", &userID, &username, map[string]interface{}{
+			"credits_earned": creditsEarned,
+			"streak":         streak,
+		}, r.RemoteAddr)
+	}
 
 	mw.JSON(w, http.StatusOK, SigninResponse{
 		CreditsEarned: creditsEarned,

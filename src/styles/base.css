@@ -179,8 +179,42 @@ button {
 
 /* ===== 响应式 ===== */
 @media (max-width: 768px) {
-  body,
-  #app {
+  body, #app {
     padding: 0;
   }
+}
+
+/* ===== Toast ===== */
+.global-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  z-index: 9999;
+  animation: toast-in 0.2s ease;
+}
+
+.global-toast.success {
+  background: rgba(52, 199, 89, 0.9);
+}
+
+.global-toast.error {
+  background: rgba(255, 59, 48, 0.9);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
 }

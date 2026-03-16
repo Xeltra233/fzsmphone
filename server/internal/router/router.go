@@ -51,8 +51,8 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 	walletH := &handlers.WalletHandler{DB: db}
 	gameH := &handlers.GameHandler{DB: db}
 	aiProxyH := &handlers.AIProxyHandler{DB: db}
-	creditsH := &handlers.CreditsHandler{DB: db}
 	loggerH := &handlers.LoggerHandler{DB: db}
+	creditsH := &handlers.CreditsHandler{DB: db, Logger: loggerH}
 
 	// Public routes
 	r.Route("/api", func(r chi.Router) {
@@ -298,7 +298,6 @@ func placeholderDelete(resource string) http.HandlerFunc {
 
 func fileServer(r chi.Router, root string) {
 	fs := http.FileServer(http.Dir(root))
-
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
 		// Try to serve the file directly
 		if _, err := http.Dir(root).Open(r.URL.Path); err != nil {

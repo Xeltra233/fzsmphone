@@ -166,6 +166,7 @@ const menuItems: MenuItem[] = [
   { icon: '⚡', label: '预设管理', color: 'linear-gradient(135deg, #FDCB6E, #F39C12)', route: '/preset' },
   { icon: '✧', label: '主题定制', color: 'linear-gradient(135deg, #636E72, #B2BEC3)', route: '/customize' },
   { icon: '¤', label: '我的钱包', color: 'linear-gradient(135deg, #00B894, #55EFC4)', route: '/wallet' },
+  { icon: '◈', label: '我的额度', color: 'linear-gradient(135deg, #667eea, #764ba2)', route: '/credits' },
 ]
 
 const adminItems: MenuItem[] = [

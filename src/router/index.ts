@@ -270,6 +270,17 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/pages/admin/SystemSettingsPage.vue'),
     meta: { admin: true },
   },
+  {
+    path: '/admin/logs',
+    name: 'AdminLogs',
+    component: () => import('@/pages/admin/SystemLogsPage.vue'),
+    meta: { admin: true },
+  },
+  {
+    path: '/credits',
+    name: 'Credits',
+    component: () => import('@/pages/CreditsPage.vue'),
+  },
 ]
 
 const router = createRouter({
