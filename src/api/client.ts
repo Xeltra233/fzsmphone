@@ -186,10 +186,18 @@ class ApiClient {
     return this.request<T>(path, { method: 'GET', params })
   }
 
-  async post<T>(path: string, body?: unknown): Promise<T> {
+  async post<T>(path: string, body?: unknown, isFormData = false): Promise<T> {
     return this.request<T>(path, {
       method: 'POST',
-      body: body ? JSON.stringify(body) : undefined,
+      body: isFormData ? body as BodyInit : (body ? JSON.stringify(body) : undefined),
+      headers: isFormData ? {} : undefined,
+    })
+  }
+
+  async upload<T>(path: string, formData: FormData): Promise<T> {
+    return this.request<T>(path, {
+      method: 'POST',
+      body: formData,
     })
   }
 

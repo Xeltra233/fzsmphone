@@ -2,7 +2,12 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"time"
 
 	"fzsmphone/internal/database"
 	mw "fzsmphone/internal/middleware"
@@ -198,4 +203,46 @@ func (h *SettingsHandler) UpdateUserApiSettings(w http.ResponseWriter, r *http.R
 	}
 
 	mw.JSON(w, http.StatusOK, map[string]string{"message": "API settings updated"})
+}
+
+func (h *SettingsHandler) Upload(w http.ResponseWriter, r *http.Request) {
+	userID, _ := mw.GetUserID(r.Context())
+	if userID == 0 {
+		mw.Error(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	err := r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		mw.Error(w, http.StatusBadRequest, "failed to parse form")
+		return
+	}
+
+	file, handler, err := r.FormFile("file")
+	if err != nil {
+		mw.Error(w, http.StatusBadRequest, "failed to get file")
+		return
+	}
+	defer file.Close()
+
+	ext := filepath.Ext(handler.Filename)
+	newFilename := fmt.Sprintf("%d_%d%s", userID, time.Now().Unix(), ext)
+	uploadPath := filepath.Join(".", "public", newFilename)
+
+	out, err := os.Create(uploadPath)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to create file")
+		return
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, file)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to save file")
+		return
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]string{
+		"path": "/" + newFilename,
+	})
 }

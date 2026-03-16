@@ -290,23 +290,37 @@
             v-model="systemSettings.qun_qrcode"
             class="setting-input full-width"
             :disabled="!authStore.isSuperAdmin"
-            placeholder="qun_qrcode.jpg"
-          />
-        </div>
-        <div class="setting-item vertical">
-          <div class="setting-label">
-            <span class="label-text">网站图标路径</span>
-            <span class="label-desc">浏览器标签页图标，放在public目录下</span>
-          </div>
-          <input
-            v-model="systemSettings.favicon"
-            class="setting-input full-width"
-            :disabled="!authStore.isSuperAdmin"
-            placeholder="/icon.png"
-          />
-        </div>
+placeholder="qun_qrcode.jpg"
+      />
+      <div class="file-upload-area" v-if="authStore.isSuperAdmin">
+        <input type="file" id="qrcode-upload" accept="image/*" @change="handleQrcodeUpload" hidden />
+        <label for="qrcode-upload" class="upload-btn">上传二维码图片</label>
+        <span v-if="uploadingQrcode" class="upload-status">上传中...</span>
       </div>
     </div>
+    <div class="setting-item vertical">
+      <div class="setting-label">
+        <span class="label-text">网站图标</span>
+        <span class="label-desc">浏览器标签页图标，显示在浏览器标签上</span>
+      </div>
+      <div class="favicon-preview">
+        <img v-if="systemSettings.favicon" :src="systemSettings.favicon" alt="favicon" class="favicon-img" @error="faviconError = true" />
+        <span v-else class="favicon-placeholder">未设置</span>
+      </div>
+      <div class="file-upload-area" v-if="authStore.isSuperAdmin">
+        <input type="file" id="favicon-upload" accept="image/*,.ico" @change="handleFaviconUpload" hidden />
+        <label for="favicon-upload" class="upload-btn">上传图标</label>
+        <span v-if="uploadingFavicon" class="upload-status">上传中...</span>
+      </div>
+      <input
+        v-model="systemSettings.favicon"
+        class="setting-input full-width"
+        :disabled="!authStore.isSuperAdmin"
+        placeholder="/icon.png"
+      />
+    </div>
+  </div>
+</div>
 
     <button
       class="save-btn"
@@ -482,6 +496,9 @@ const authStore = useAuthStore()
 const loading = ref(true)
 const saving = ref(false)
 const qrcodeError = ref(false)
+const faviconError = ref(false)
+const uploadingQrcode = ref(false)
+const uploadingFavicon = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' as 'success' | 'error' })
 
 const activeTab = ref<'credits' | 'system' | 'api' | 'oauth' | 'contact'>('credits')
@@ -583,6 +600,43 @@ async function saveCreditSettings() {
     showToast('保存失败: ' + (err.message || '未知错误'), 'error')
   } finally {
     saving.value = false
+  }
+}
+
+async function handleQrcodeUpload(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+
+  uploadingQrcode.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res: any = await apiClient.upload('/api/settings/upload', formData)
+    systemSettings.qun_qrcode = res.path
+    showToast('二维码上传成功')
+  } catch (err: any) {
+    showToast('上传失败: ' + (err.message || '未知错误'), 'error')
+  } finally {
+    uploadingQrcode.value = false
+  }
+}
+
+async function handleFaviconUpload(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+  if (!file) return
+
+  uploadingFavicon.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res: any = await apiClient.upload('/api/settings/upload', formData)
+    systemSettings.favicon = res.path
+    faviconError.value = false
+    showToast('图标上传成功')
+  } catch (err: any) {
+    showToast('上传失败: ' + (err.message || '未知错误'), 'error')
+  } finally {
+    uploadingFavicon.value = false
   }
 }
 
@@ -1092,5 +1146,54 @@ onMounted(() => {
   background: rgba(91, 110, 245, 0.1);
   border-radius: 8px;
   letter-spacing: 2px;
+}
+
+.file-upload-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.upload-btn {
+  display: inline-block;
+  padding: 8px 16px;
+  background: rgba(91, 110, 245, 0.2);
+  border: 1px solid rgba(91, 110, 245, 0.4);
+  border-radius: 6px;
+  color: #5B6EF5;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.upload-btn:hover {
+  background: rgba(91, 110, 245, 0.3);
+  border-color: #5B6EF5;
+}
+
+.upload-status {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.favicon-preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.favicon-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.favicon-placeholder {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
 }
 </style>

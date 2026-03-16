@@ -210,6 +210,7 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 				r.Put("/", settingsH.Update)
 				r.Get("/api", settingsH.GetUserApiSettings)
 				r.Put("/api", settingsH.UpdateUserApiSettings)
+				r.Post("/upload", settingsH.Upload)
 			})
 
 			// === Feature Flags ===
