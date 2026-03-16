@@ -72,9 +72,7 @@
 
 ## 环境变量
 
-### Zeabur 部署必需变量
-
-在 Zeabur 控制台的 **Environment Variables** 中必须设置以下变量：
+### 必需变量
 
 | 变量名 | 说明 | 示例 |
 |--------|------|------|
@@ -87,22 +85,30 @@
 
 ```env
 # 基础配置 (必需)
-PORT=8080
-DATABASE_URL=postgres://user:pass@host:5432/db?sslmode=disable
-JWT_SECRET=your-secret-key
-FRONTEND_URL=http://localhost:3000
-ENVIRONMENT=development
+PORT=8080                  # 服务器端口
+DATABASE_URL=postgres://user:pass@host:5432/db?sslmode=disable  # 数据库连接
+JWT_SECRET=your-secret-key # JWT 签名密钥
+FRONTEND_URL=http://localhost:3000  # 前端地址
+ENVIRONMENT=development    # 环境：development 或 production
 
-# Discord OAuth2 (可选)
-DISCORD_CLIENT_ID=your-client-id
-DISCORD_CLIENT_SECRET=your-client-secret
+# Discord OAuth2 登录 (可选)
+DISCORD_CLIENT_ID=你的Discord应用Client ID
+DISCORD_CLIENT_SECRET=你的Discord应用Client Secret
 DISCORD_REDIRECT_URI=http://localhost:3000/auth/callback
-DISCORD_GUILD_ID=your-guild-id
-DISCORD_BOT_TOKEN=your-bot-token
-DISCORD_REQUIRED_ROLE_IDS=role1,role2
-DISCORD_ROLE_MATCH=all
+DISCORD_GUILD_ID=你的Discord服务器ID
+DISCORD_BOT_TOKEN=你的Discord Bot Token
+DISCORD_REQUIRED_ROLE_IDS=必需角色ID1,必需角色ID2
+DISCORD_ROLE_MATCH=all    # 角色匹配模式：all=需全部拥有，any=拥有任一即可
 DISCORD_AUTH_FAIL_MESSAGE=请先加入指定服务器并完成身份组验证
-DISCORD_ADMIN_IDS=admin-discord-id1,admin-discord-id2
+DISCORD_ADMIN_IDS=管理员Discord ID1,管理员Discord ID2
+```
+
+### 前端 (Vite) 配置
+
+```env
+VITE_API_URL=http://localhost:8080           # 后端API地址
+VITE_DISCORD_CLIENT_ID=你的Discord Client ID # Discord登录用
+VITE_DISCORD_REDIRECT_URI=http://localhost:3000/auth/callback
 ```
 
 ### 前端 (Vite)
@@ -113,7 +119,7 @@ VITE_DISCORD_CLIENT_ID=your-client-id
 VITE_DISCORD_REDIRECT_URI=http://localhost:3000/auth/callback
 ```
 
-### Zeabur 部署 (单端口)
+### Docker 部署 (单端口)
 
 本项目支持**单端口部署**，后端服务同时提供 API 和前端静态页面。
 
@@ -137,9 +143,9 @@ openssl rand -base64 32
 或使用在线随机字符串生成器。
 
 #### DATABASE_URL
-如果使用 Zeabur 内置的 PostgreSQL 数据库，在 Zeabur 控制台的 **Variables** 中可以找到 `POSTGRES_URL`，格式为：
+如果使用 Docker Compose 部署，数据库连接字符串为：
 ```
-postgres://username:password@host:5432/databasename?sslmode=disable
+postgres://fzsmphone:fzsmphone_dev_123@postgres:5432/fzsmphone?sslmode=disable
 ```
 
 ## 快速开始
