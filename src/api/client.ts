@@ -2,7 +2,36 @@ import router from '@/router'
 
 const BASE_URL = import.meta.env.VITE_API_URL || ''
 
-// ========== 统一错误类型 ==========
+const CSRF_TOKEN_KEY = 'csrf_token'
+const REQUEST_ID_KEY = 'request_id'
+
+export function getCsrfToken(): string | null {
+  return localStorage.getItem(CSRF_TOKEN_KEY)
+}
+
+export function setCsrfToken(token: string) {
+  localStorage.setItem(CSRF_TOKEN_KEY, token)
+}
+
+export function clearCsrfToken() {
+  localStorage.removeItem(CSRF_TOKEN_KEY)
+}
+
+function generateRequestId(): string {
+  const ts = Date.now().toString()
+  const rand = Math.random().toString(36).substring(2, 11)
+  return ts + '-' + rand
+}
+
+function getRequestId(): string {
+  let id = sessionStorage.getItem(REQUEST_ID_KEY)
+  if (!id) {
+    id = generateRequestId()
+    sessionStorage.setItem(REQUEST_ID_KEY, id)
+  }
+  return id
+}
+
 export class ApiError extends Error {
   status: number
   data: Record<string, unknown>
@@ -14,12 +43,10 @@ export class ApiError extends Error {
     this.data = data
   }
 
-  /** 是否为认证失败 */
   get isUnauthorized(): boolean {
     return this.status === 401
   }
 
-  /** 是否为封禁 */
   get isBanned(): boolean {
     return this.status === 403 && !!this.data.banned
   }
@@ -27,11 +54,9 @@ export class ApiError extends Error {
 
 interface RequestOptions extends RequestInit {
   params?: Record<string, string>
-  /** 请求超时（秒），默认 30 */
   timeout?: number
 }
 
-// 401 跳转防抖锁：避免并发请求重复跳转
 let redirectingTo401 = false
 
 class ApiClient {
@@ -48,7 +73,7 @@ class ApiClient {
   }
 
   private buildUrl(path: string, params?: Record<string, string>): string {
-    const url = new URL(`${this.baseUrl}${path}`, window.location.origin)
+    const url = new URL(this.baseUrl + path, window.location.origin)
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         url.searchParams.set(key, value)
@@ -64,15 +89,27 @@ class ApiClient {
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...(fetchOptions.headers as Record<string, string> || {}),
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-Request-ID': getRequestId(),
+    }
+
+    const csrfToken = getCsrfToken()
+    if (csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken
     }
 
     const token = this.getToken()
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`
+      headers['Authorization'] = 'Bearer ' + token
     }
 
-    // AbortController 超时机制
+    if (fetchOptions.headers) {
+      const extraHeaders = fetchOptions.headers as Record<string, string>
+      Object.keys(extraHeaders).forEach(key => {
+        headers[key] = extraHeaders[key]
+      })
+    }
+
     const controller = new AbortController()
     let didTimeout = false
     const existingSignal = fetchOptions.signal
@@ -101,7 +138,6 @@ class ApiClient {
         existingSignal.removeEventListener('abort', onAbort)
       }
 
-      // 错误 body 只读取一次，避免 403 分支与通用错误分支重复消费 body
       let parsedErrorData: Record<string, unknown> | null = null
       const getErrorData = async (): Promise<Record<string, unknown>> => {
         if (parsedErrorData) return parsedErrorData
@@ -121,7 +157,6 @@ class ApiClient {
         return parsedErrorData
       }
 
-      // 401 未认证 → 通过 router 跳转，保持 SPA 状态
       if (response.status === 401) {
         localStorage.removeItem('token')
         localStorage.removeItem('user')
@@ -130,14 +165,12 @@ class ApiClient {
           try {
             await router.replace('/login')
           } finally {
-            // 重置锁，延迟一小段避免竞态
             setTimeout(() => { redirectingTo401 = false }, 500)
           }
         }
         throw new ApiError('Unauthorized', 401)
       }
 
-      // 403 封禁
       if (response.status === 403) {
         const data = await getErrorData()
         if (data.banned) {
@@ -147,7 +180,7 @@ class ApiClient {
           if (!redirectingTo401) {
             redirectingTo401 = true
             try {
-              await router.replace(`/login?banned=1&reason=${reason}`)
+              await router.replace('/login?banned=1&reason=' + reason)
             } finally {
               setTimeout(() => { redirectingTo401 = false }, 500)
             }
@@ -159,14 +192,14 @@ class ApiClient {
       if (!response.ok) {
         const errorData = await getErrorData()
         throw new ApiError(
-          (errorData.error as string) || `HTTP ${response.status}`,
+          (errorData.error as string) || 'HTTP ' + response.status,
           response.status,
           errorData,
         )
       }
 
       return response.json()
-  } catch (err: any) {
+    } catch (err: any) {
       clearTimeout(timeoutId)
       if (existingSignal) {
         existingSignal.removeEventListener('abort', onAbort)
@@ -174,7 +207,7 @@ class ApiClient {
       if (err instanceof ApiError) throw err
       if (err.name === 'AbortError') {
         if (didTimeout) {
-          throw new ApiError(`请求超时（${timeout ?? this.defaultTimeout}秒）`, 0, { timeout: true })
+          throw new ApiError('请求超时（' + (timeout ?? this.defaultTimeout) + '秒）', 0, { timeout: true })
         }
         throw new ApiError('请求已取消', 0, { aborted: true })
       }

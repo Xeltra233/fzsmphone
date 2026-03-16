@@ -250,6 +250,11 @@ func (h *SettingsHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := os.MkdirAll(filepath.Dir(uploadPath), 0755); err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to create directory")
+		return
+	}
+
 	out, err := os.Create(uploadPath)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to create file")

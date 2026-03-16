@@ -187,24 +187,54 @@ button {
 /* ===== Toast ===== */
 .global-toast {
   position: fixed;
-  top: 20px;
+  top: 60px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 14px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-size: 15px;
   font-weight: 500;
   color: #fff;
   z-index: 9999;
-  animation: toast-in 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+}
+
+.toast-icon {
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .global-toast.success {
-  background: rgba(52, 199, 89, 0.9);
+  background: linear-gradient(135deg, #34c759 0%, #30d158 100%);
 }
 
 .global-toast.error {
-  background: rgba(255, 59, 48, 0.9);
+  background: linear-gradient(135deg, #ff3b30 0%, #ff453a 100%);
+}
+
+.global-toast.warning {
+  background: linear-gradient(135deg, #ff9500 0%, #ffcc00 100%);
+}
+
+.global-toast.info {
+  background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-20px);
 }
 
 @keyframes toast-in {

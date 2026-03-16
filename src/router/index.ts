@@ -2,6 +2,47 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { buildRouteFeatureMap } from '@/utils/appRegistry'
 import { useFeaturesStore } from '@/stores/features'
 
+const API_URL = import.meta.env.VITE_API_URL || ''
+
+// ========== Security: Debug Mode Detection ==========
+const isDevMode = import.meta.env.DEV
+const isDebugEnabled = localStorage.getItem('debug_mode') === '1'
+
+function logSecurityEvent(event: string, details?: Record<string, unknown>) {
+  if (isDevMode || isDebugEnabled) {
+    console.warn(`[SECURITY] ${event}`, details || '')
+  }
+}
+
+// ========== Security: Origin Validation ==========
+function validateOrigin(): boolean {
+  const allowedOrigins = (import.meta.env.VITE_ALLOWED_ORIGINS || '').split(',').filter(Boolean)
+  const currentOrigin = window.location.origin
+
+  if (allowedOrigins.length > 0) {
+    if (!allowedOrigins.includes(currentOrigin)) {
+      logSecurityEvent('Origin blocked', { origin: currentOrigin, allowed: allowedOrigins })
+      return false
+    }
+  }
+  return true
+}
+
+// ========== Security: Request Source Validation ==========
+function validateRequestSource(): boolean {
+  if (isDevMode) return true
+  const allowedHosts = (import.meta.env.VITE_ALLOWED_HOSTS || '').split(',').filter(Boolean)
+  const currentHost = window.location.hostname
+
+  if (allowedHosts.length > 0) {
+    if (!allowedHosts.includes(currentHost)) {
+      logSecurityEvent('Host blocked', { host: currentHost, allowed: allowedHosts })
+      return false
+    }
+  }
+  return true
+}
+
 // 从统一注册表自动生成 route -> featureId 映射
 const routeFeatureMap = buildRouteFeatureMap()
 
@@ -288,8 +329,6 @@ const router = createRouter({
   routes,
 })
 
-const API_URL = import.meta.env.VITE_API_URL || ''
-
 // Token validation cache to avoid blocking navigation with network requests
 let tokenValidCache: { token: string; validUntil: number } | null = null
 const TOKEN_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
@@ -328,6 +367,23 @@ async function validateToken(token: string): Promise<boolean> {
 }
 
 router.beforeEach(async (to, _from, next) => {
+  // Security: Validate origin before any navigation
+  if (!validateOrigin()) {
+    logSecurityEvent('Navigation blocked: invalid origin', { path: to.path })
+    return next('/')
+  }
+
+  // Security: Validate request source/host
+  if (!validateRequestSource()) {
+    logSecurityEvent('Navigation blocked: invalid host', { path: to.path })
+    return next('/')
+  }
+
+  // Security: Debug mode warning in production
+  if (!isDevMode && isDebugEnabled) {
+    logSecurityEvent('Debug mode is enabled in production', { path: to.path })
+  }
+
   const isPublic = to.meta.public === true
   const token = localStorage.getItem('token')
 

@@ -21,10 +21,21 @@ export default defineConfig({
         ws: true,
       },
     },
+    cors: {
+      origin: process.env.VITE_ALLOWED_ORIGINS?.split(',') || true,
+      credentials: true,
+    },
   },
   build: {
     outDir: 'dist',
     sourcemap: false,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks: {
@@ -38,5 +49,10 @@ export default defineConfig({
         },
       },
     },
+  },
+  define: {
+    __VUE_OPTIONS_API__: true,
+    __VUE_PROD_DEVTOOLS__: false,
+    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: false,
   },
 })
