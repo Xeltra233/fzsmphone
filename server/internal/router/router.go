@@ -61,6 +61,7 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 		r.Post("/auth/login", authH.Login)
 		r.Get("/auth/setup-needed", authH.SetupNeeded)
 		r.Post("/auth/discord", authH.DiscordCallback)
+		r.Get("/auth/oauth-config", authH.GetOAuthConfig)
 
 		// Protected routes
 		r.Group(func(r chi.Router) {

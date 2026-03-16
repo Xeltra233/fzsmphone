@@ -54,13 +54,33 @@ func (h *AuthHandler) DiscordCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get Discord config from database first, fall back to env
+	discordClientID := h.Cfg.DiscordClientID
+	discordClientSecret := h.Cfg.DiscordSecret
+	discordRedirect := h.Cfg.DiscordRedirect
+
+	var dbClientID, dbClientSecret, dbRedirect string
+	h.DB.Pool.QueryRow(r.Context(), `SELECT value FROM app_settings WHERE key = 'discord_client_id'`).Scan(&dbClientID)
+	h.DB.Pool.QueryRow(r.Context(), `SELECT value FROM app_settings WHERE key = 'discord_client_secret'`).Scan(&dbClientSecret)
+	h.DB.Pool.QueryRow(r.Context(), `SELECT value FROM app_settings WHERE key = 'discord_redirect_uri'`).Scan(&dbRedirect)
+
+	if dbClientID != "" {
+		discordClientID = dbClientID
+	}
+	if dbClientSecret != "" {
+		discordClientSecret = dbClientSecret
+	}
+	if dbRedirect != "" {
+		discordRedirect = dbRedirect
+	}
+
 	// Exchange code for token
 	data := url.Values{
-		"client_id":     {h.Cfg.DiscordClientID},
-		"client_secret": {h.Cfg.DiscordSecret},
+		"client_id":     {discordClientID},
+		"client_secret": {discordClientSecret},
 		"grant_type":    {"authorization_code"},
 		"code":          {body.Code},
-		"redirect_uri":  {h.Cfg.DiscordRedirect},
+		"redirect_uri":  {discordRedirect},
 	}
 
 	resp, err := http.Post(
@@ -68,10 +88,6 @@ func (h *AuthHandler) DiscordCallback(w http.ResponseWriter, r *http.Request) {
 		"application/x-www-form-urlencoded",
 		strings.NewReader(data.Encode()),
 	)
-	if err != nil {
-		mw.Error(w, http.StatusBadGateway, "failed to contact Discord")
-		return
-	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
@@ -590,6 +606,38 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 			"avatar_url":     user.AvatarURL,
 			"role":           user.Role,
 			"is_super_admin": user.IsSuperAdmin,
+		},
+	})
+}
+
+// GET /api/auth/oauth-config
+// Returns OAuth provider configuration (client IDs, etc.)
+func (h *AuthHandler) GetOAuthConfig(w http.ResponseWriter, r *http.Request) {
+	discordClientID := h.Cfg.DiscordClientID
+	discordRedirect := h.Cfg.DiscordRedirect
+	discordEnabled := false
+
+	// Try to get from database (database takes priority)
+	var dbClientID, dbRedirect string
+	h.DB.Pool.QueryRow(r.Context(), `SELECT value FROM app_settings WHERE key = 'discord_client_id'`).Scan(&dbClientID)
+	h.DB.Pool.QueryRow(r.Context(), `SELECT value FROM app_settings WHERE key = 'discord_redirect_uri'`).Scan(&dbRedirect)
+
+	if dbClientID != "" {
+		discordClientID = dbClientID
+		discordEnabled = true
+	}
+	if dbRedirect != "" {
+		discordRedirect = dbRedirect
+	}
+	if discordClientID != "" {
+		discordEnabled = true
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]interface{}{
+		"discord": map[string]interface{}{
+			"enabled":      discordEnabled,
+			"client_id":    discordClientID,
+			"redirect_uri": discordRedirect,
 		},
 	})
 }
