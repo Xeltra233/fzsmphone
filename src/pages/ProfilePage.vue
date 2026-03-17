@@ -16,7 +16,7 @@
   <div class="user-card">
     <div class="avatar-section" @click="triggerAvatarUpload">
       <div class="avatar">
-        <img v-if="user?.avatar" :src="user.avatar" alt="avatar" />
+        <img v-if="userAvatar" :src="userAvatar" alt="avatar" />
         <span v-else class="avatar-placeholder">{{ user?.username?.[0] || '?' }}</span>
       </div>
       <div class="avatar-edit-badge">
@@ -28,9 +28,9 @@
       <div class="online-dot"></div>
     </div>
     <div class="user-info" @click="showEditProfile = true">
-      <h2 class="display-name">{{ displayName || user?.username || '未登录' }}</h2>
+      <h2 class="display-name">{{ user?.displayName || user?.username || '未登录' }}</h2>
+      <p v-if="showAccountName" class="account-name">账户名：{{ user?.username }}</p>
       <p class="user-id">ID: {{ user?.id || '—' }}</p>
-      <p class="user-bio">{{ bio || '这个人很懒，什么都没写~' }}</p>
     </div>
     <input type="file" ref="avatarInput" accept="image/*" style="display: none" @change="handleAvatarChange" />
   </div>
@@ -164,12 +164,51 @@
         <button class="modal-close" @click="showContactModal = false">&times;</button>
       </div>
       <div class="modal-body contact-body">
-        <img :src="'/qun_qrcode.jpg'" alt="官方群二维码" class="contact-qrcode-img" @error="qrcodeLoadError = true" />
+        <img :src="qrcodeUrl" alt="官方群二维码" class="contact-qrcode-img" @error="qrcodeLoadError = true" />
         <div v-if="qrcodeLoadError" class="contact-qrcode-placeholder">群二维码加载失败</div>
         <div class="contact-info" v-if="!qrcodeLoadError">
           <span class="contact-label">进群密码：</span>
           <span class="contact-value">贩子死妈</span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 我的邀请弹窗 -->
+  <div v-if="showInviteModal" class="modal-overlay" @click="showInviteModal = false">
+    <div class="modal-content" @click.stop>
+      <div class="modal-header">
+        <h3>我的邀请</h3>
+        <button class="modal-close" @click="showInviteModal = false">&times;</button>
+      </div>
+      <div class="modal-body invite-body" v-if="!loadingInvite">
+        <div class="invite-code-section">
+          <span class="invite-code-label">我的邀请码</span>
+          <div class="invite-code-value">{{ inviteData.code || '加载中...' }}</div>
+        </div>
+        <div class="invite-stats">
+          <div class="invite-stat">
+            <span class="stat-num">{{ inviteData.invitees?.length || 0 }}</span>
+            <span class="stat-text">已邀请</span>
+          </div>
+          <div class="invite-stat">
+            <span class="stat-num">{{ inviteData.totalRewards || 0 }}</span>
+            <span class="stat-text">累计获得额度</span>
+          </div>
+        </div>
+        <div class="invite-list" v-if="inviteData.invitees?.length > 0">
+          <div class="invite-list-title">邀请记录</div>
+          <div class="invite-item" v-for="invitee in inviteData.invitees" :key="invitee.id">
+            <span class="invitee-name">{{ invitee.username }}</span>
+            <span class="invitee-reward">+{{ invitee.reward }}</span>
+          </div>
+        </div>
+        <div class="invite-tip">
+          好友每次签到，您将获得其获得额度的15%作为返利
+        </div>
+      </div>
+      <div class="modal-body invite-body loading" v-else>
+        <div class="loading-spinner"></div>
       </div>
     </div>
   </div>
@@ -189,16 +228,38 @@ const authStore = useAuthStore()
 const phoneStore = usePhoneStore()
 const settingsStore = useSettingsStore()
 
+const API_BASE = import.meta.env.VITE_API_URL || ''
+
 const bio = ref('')
-const displayName = ref('')
 const showEditProfile = ref(false)
 const showContactModal = ref(false)
+const showInviteModal = ref(false)
 const qrcodeLoadError = ref(false)
 const editDisplayName = ref('')
 const saving = ref(false)
 const avatarInput = ref<HTMLInputElement | null>(null)
+const inviteData = ref<{ code: string; invitees: any[]; totalRewards: number }>({
+  code: '',
+  invitees: [],
+  totalRewards: 0
+})
+const loadingInvite = ref(false)
 
 const user = computed(() => authStore.user)
+const userAvatar = computed(() => {
+  const avatar = user.value?.avatar
+  if (!avatar) return ''
+  if (avatar.startsWith('http')) return avatar
+  return API_BASE + avatar
+})
+const qrcodeUrl = computed(() => {
+  const path = '/qun_qrcode.jpg'
+  if (path.startsWith('http')) return path
+  return API_BASE + path
+})
+const showAccountName = computed(() => {
+  return user.value?.displayName && user.value?.displayName !== user.value?.username
+})
 
 interface StatItem {
   label: string
@@ -230,6 +291,7 @@ const menuItems: MenuItem[] = [
   { icon: '¤', label: '我的钱包', color: 'linear-gradient(135deg, #00B894, #55EFC4)', route: '/wallet' },
   { icon: '◈', label: '我的额度', color: 'linear-gradient(135deg, #667eea, #764ba2)', route: '/credits' },
   { icon: '💬', label: '官方群聊', color: 'linear-gradient(135deg, #74B9FF, #0984E3)', action: 'showContact' },
+  { icon: '∞', label: '我的邀请', color: 'linear-gradient(135deg, #FD79A8, #E84393)', action: 'showInvite' },
 ]
 
 const adminItems: MenuItem[] = [
@@ -243,11 +305,31 @@ function handleMenuItem(item: MenuItem) {
   if (item.route) {
     router.push(item.route)
   } else if (item.action === 'editProfile') {
-    editDisplayName.value = displayName.value || user.value?.username || ''
+    editDisplayName.value = user.value?.displayName || user.value?.username || ''
     showEditProfile.value = true
   } else if (item.action === 'showContact') {
     qrcodeLoadError.value = false
     showContactModal.value = true
+  } else if (item.action === 'showInvite') {
+    loadInviteData()
+    showInviteModal.value = true
+  }
+}
+
+async function loadInviteData() {
+  if (!user.value) return
+  loadingInvite.value = true
+  try {
+    const response = await fetch(`${API_BASE}/api/credits/invite-info`, {
+      headers: { 'Authorization': `Bearer ${authStore.token}` }
+    })
+    if (response.ok) {
+      inviteData.value = await response.json()
+    }
+  } catch (err) {
+    console.error('Failed to load invite data:', err)
+  } finally {
+    loadingInvite.value = false
   }
 }
 
@@ -293,7 +375,7 @@ async function handleAvatarChange(event: Event) {
 }
 
 function openEditProfile() {
-  editDisplayName.value = displayName.value || user.value?.username || ''
+  editDisplayName.value = user.value?.displayName || user.value?.username || ''
   showEditProfile.value = true
 }
 
@@ -310,7 +392,8 @@ async function saveProfile() {
       body: JSON.stringify({ display_name: editDisplayName.value })
     })
     if (response.ok) {
-      displayName.value = editDisplayName.value
+      authStore.user!.displayName = editDisplayName.value
+      localStorage.setItem('user', JSON.stringify(authStore.user))
       showEditProfile.value = false
     }
   } catch (err) {
@@ -443,6 +526,12 @@ onMounted(() => {
   font-size: 13px;
   color: var(--text-tertiary);
   margin: 2px 0 6px;
+}
+
+.account-name {
+  font-size: 12px;
+  color: var(--text-quaternary);
+  margin: 0;
 }
 
 .user-bio {
@@ -815,5 +904,111 @@ onMounted(() => {
 .contact-value {
   color: var(--color-primary, #5B6EF5);
   font-weight: 600;
+}
+
+.invite-body {
+  padding: 20px;
+}
+
+.invite-body.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+.invite-code-section {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.invite-code-label {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.invite-code-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--color-primary, #5B6EF5);
+  letter-spacing: 2px;
+}
+
+.invite-stats {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.invite-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-num {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stat-text {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.invite-list {
+  margin-bottom: 16px;
+}
+
+.invite-list-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.invite-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+}
+
+.invitee-name {
+  color: var(--text-primary);
+}
+
+.invitee-reward {
+  color: var(--color-green);
+  font-weight: 600;
+}
+
+.invite-tip {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-quaternary);
+  padding: 12px;
+}
+
+.loading-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--separator);
+  border-top-color: var(--color-primary, #5B6EF5);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>

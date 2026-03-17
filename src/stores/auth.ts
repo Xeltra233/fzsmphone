@@ -6,6 +6,7 @@ export interface User {
   id: string
   discordId: string
   username: string
+  displayName: string
   email: string
   avatar: string
   role: string
@@ -45,6 +46,7 @@ export const useAuthStore = defineStore('auth', () => {
         id: String(data.id),
         discordId: data.discord_id || '',
         username: data.username,
+        displayName: data.display_name || '',
         email: data.email || '',
         avatar: data.avatar_url || '',
         role: data.role || 'user',

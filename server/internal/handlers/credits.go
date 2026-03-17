@@ -80,6 +80,18 @@ func (h *CreditsHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Give 15% sign-in rebate to inviter if exists
+	var inviterID int64
+	err = h.DB.Pool.QueryRow(r.Context(), `SELECT COALESCE(invited_by, 0) FROM users WHERE id = $1`, userID).Scan(&inviterID)
+	if err == nil && inviterID > 0 {
+		rebate := float64(creditsEarned) * 0.15
+		if rebate >= 1 {
+			rebateCredits := int(rebate)
+			h.DB.Pool.Exec(r.Context(), `UPDATE users SET credits = credits + $1 WHERE id = $2`, rebateCredits, inviterID)
+			h.DB.Pool.Exec(r.Context(), `INSERT INTO invite_rewards (inviter_id, invited_id, reward_credits, reward_type) VALUES ($1, $2, $3, 'signin_rebate')`, inviterID, userID, rebateCredits)
+		}
+	}
+
 	h.DB.Pool.Exec(r.Context(), `
 	INSERT INTO signin_records (user_id, credits_earned, streak_bonus)
 	VALUES ($1, $2, $3)
@@ -373,6 +385,48 @@ func (h *CreditsHandler) UseInviteCode(w http.ResponseWriter, r *http.Request) {
 	mw.JSON(w, http.StatusOK, map[string]interface{}{
 		"message":        "绑定成功",
 		"credits_earned": rewardCredits,
+	})
+}
+
+func (h *CreditsHandler) GetInviteInfo(w http.ResponseWriter, r *http.Request) {
+	userID, _ := mw.GetUserID(r.Context())
+
+	type invitee struct {
+		ID       int64  `json:"id"`
+		Username string `json:"username"`
+		Reward   int    `json:"reward"`
+	}
+
+	var code string
+	var totalRewards int
+	var invitees []invitee
+
+	h.DB.Pool.QueryRow(r.Context(), `SELECT COALESCE(invite_code, '') FROM users WHERE id = $1`, userID).Scan(&code)
+	h.DB.Pool.QueryRow(r.Context(), `SELECT COALESCE(SUM(reward_credits), 0) FROM invite_rewards WHERE inviter_id = $1`, userID).Scan(&totalRewards)
+
+	rows, _ := h.DB.Pool.Query(r.Context(), `
+		SELECT u.id, u.username, COALESCE(SUM(r.reward_credits), 0) as total_reward
+		FROM users u
+		LEFT JOIN invite_rewards r ON r.invited_id = u.id
+		WHERE u.invited_by = $1
+		GROUP BY u.id, u.username
+		ORDER BY u.created_at DESC
+	`, userID)
+	defer rows.Close()
+
+	for rows.Next() {
+		var inv invitee
+		rows.Scan(&inv.ID, &inv.Username, &inv.Reward)
+		invitees = append(invitees, inv)
+	}
+	if invitees == nil {
+		invitees = []invitee{}
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]interface{}{
+		"code":         code,
+		"invitees":     invitees,
+		"totalRewards": totalRewards,
 	})
 }
 
@@ -702,6 +756,7 @@ func (h *CreditsHandler) RegisterRoutes(r chi.Router) {
 	r.Get("/leaderboard", h.GetLeaderboard)
 	r.Get("/invite-code", h.GetInviteCode)
 	r.Post("/invite-code", h.UseInviteCode)
+	r.Get("/invite-info", h.GetInviteInfo)
 	r.Post("/consume", h.ConsumeCredits)
 	r.Get("/settings", h.GetUserSettings)
 	r.Put("/model-display-name", h.UpdateModelDisplayName)
