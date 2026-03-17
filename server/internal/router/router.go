@@ -301,40 +301,13 @@ func placeholderDelete(resource string) http.HandlerFunc {
 }
 
 func fileServer(r chi.Router, root string) {
-	fs := http.Dir(root)
-	notFound := http.FileServer(fs)
-
+	fs := http.FileServer(http.Dir(root))
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-		path := r.URL.Path
-
-		// Try dist folder
-		if f, err := fs.Open(path); err == nil {
-			f.Close()
-			if info, err := f.Stat(); err == nil && !info.IsDir() {
-				notFound.ServeHTTP(w, r)
-				return
-			}
+		// Try to serve the file directly
+		if _, err := http.Dir(root).Open(r.URL.Path); err != nil {
+			// Fall back to index.html for SPA routing
+			r.URL.Path = "/"
 		}
-
-		// Try public folder
-		publicFs := http.Dir("./public")
-		if pf, err := publicFs.Open(path); err == nil {
-			pf.Close()
-			if info, err := pf.Stat(); err == nil && !info.IsDir() {
-				http.FileServer(publicFs).ServeHTTP(w, r)
-				return
-			}
-		}
-
-		// SPA fallback to index.html
-		r.URL.Path = "/"
-		indexFile, err := fs.Open("/index.html")
-		if err == nil {
-			indexFile.Close()
-			http.ServeFile(w, r, root+"/index.html")
-		} else {
-			w.WriteHeader(404)
-			w.Write([]byte("index.html not found"))
-		}
+		fs.ServeHTTP(w, r)
 	})
 }
