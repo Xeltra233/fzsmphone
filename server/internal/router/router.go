@@ -224,8 +224,8 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/", userH.List)
 				r.Get("/{id}", userH.Get)
-		r.Patch("/{id}/avatar", userH.UpdateAvatar)
-		r.Patch("/{id}/profile", userH.UpdateProfile)
+				r.Patch("/{id}/avatar", userH.UpdateAvatar)
+				r.Patch("/{id}/profile", userH.UpdateProfile)
 				r.Patch("/{id}/role", userH.UpdateRole)
 				r.Patch("/{id}/super-admin", userH.SetSuperAdmin)
 				r.Post("/{id}/ban", userH.Ban)
@@ -301,13 +301,31 @@ func placeholderDelete(resource string) http.HandlerFunc {
 }
 
 func fileServer(r chi.Router, root string) {
-	fs := http.FileServer(http.Dir(root))
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-		// Try to serve the file directly
-		if _, err := http.Dir(root).Open(r.URL.Path); err != nil {
-			// Fall back to index.html for SPA routing
-			r.URL.Path = "/"
+		path := r.URL.Path
+
+		// Check if file exists in dist folder first
+		distDir := http.Dir(root)
+		if f, err := distDir.Open(path); err == nil {
+			f.Close()
+			if info, err := f.Stat(); err == nil && !info.IsDir() {
+				http.ServeFile(w, r, root+path)
+				return
+			}
 		}
-		fs.ServeHTTP(w, r)
+
+		// Try public folder for uploaded/static files
+		publicDir := http.Dir("./public")
+		if pf, err := publicDir.Open(path); err == nil {
+			pf.Close()
+			if info, err := pf.Stat(); err == nil && !info.IsDir() {
+				http.ServeFile(w, r, "./public"+path)
+				return
+			}
+		}
+
+		// Fall back to index.html for SPA routing
+		r.URL.Path = "/"
+		http.ServeFile(w, r, root+"/index.html")
 	})
 }
