@@ -300,6 +300,7 @@ const menuItems: MenuItem[] = [
   { icon: '✧', label: '主题定制', color: 'linear-gradient(135deg, #636E72, #B2BEC3)', route: '/customize' },
   { icon: '¤', label: '我的钱包', color: 'linear-gradient(135deg, #00B894, #55EFC4)', route: '/wallet' },
   { icon: '◈', label: '我的额度', color: 'linear-gradient(135deg, #667eea, #764ba2)', route: '/credits' },
+  { icon: '🏆', label: '综合排行榜', color: 'linear-gradient(135deg, #FFD700, #FFA500)', route: '/leaderboard' },
   { icon: '💬', label: '官方群聊', color: 'linear-gradient(135deg, #74B9FF, #0984E3)', action: 'showContact' },
   { icon: '∞', label: '我的邀请', color: 'linear-gradient(135deg, #FD79A8, #E84393)', action: 'showInvite' },
 ]

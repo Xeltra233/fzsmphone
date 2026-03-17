@@ -72,6 +72,50 @@ ORDER BY created_at DESC
 	mw.JSON(w, http.StatusOK, map[string]interface{}{"data": users})
 }
 
+// GET /api/leaderboard
+func (h *UserHandler) Leaderboard(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.DB.Pool.Query(r.Context(), `
+SELECT id, username, display_name, COALESCE(avatar_url, ''), 
+COALESCE(total_tokens, 0) as total_tokens,
+COALESCE(last_active_at, created_at) as last_active_at,
+created_at
+FROM users
+WHERE is_banned = false
+ORDER BY total_tokens DESC
+LIMIT 50
+	`)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to query leaderboard")
+		return
+	}
+	defer rows.Close()
+
+	type leaderboardUser struct {
+		ID           int64     `json:"id"`
+		Username     string    `json:"username"`
+		DisplayName  string    `json:"display_name"`
+		AvatarURL    string    `json:"avatar_url"`
+		TotalTokens  int       `json:"total_tokens"`
+		LastActiveAt time.Time `json:"last_active_at"`
+		CreatedAt    time.Time `json:"created_at"`
+	}
+
+	var users []leaderboardUser
+	for rows.Next() {
+		var u leaderboardUser
+		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.AvatarURL, &u.TotalTokens, &u.LastActiveAt, &u.CreatedAt); err != nil {
+			mw.Error(w, http.StatusInternalServerError, "failed to scan user")
+			return
+		}
+		users = append(users, u)
+	}
+	if users == nil {
+		users = []leaderboardUser{}
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]interface{}{"data": users})
+}
+
 // GET /api/users/{id}
 func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
