@@ -374,13 +374,51 @@ placeholder="qun_qrcode.jpg"
           <label>默认模型 <span class="input-tip">用户未选择时的默认</span></label>
           <input v-model="apiForm.globalModel" placeholder="gpt-4o-mini" class="setting-input" />
         </div>
-        <div class="input-group">
-          <label>可用模型列表 <span class="input-tip">供用户选择，用英文逗号分隔</span></label>
-          <input v-model="apiForm.globalModelList" placeholder="gpt-4o,gpt-4o-mini,claude-3-5-sonnet" class="setting-input" />
-          <span class="input-desc">设置后全局用户可在这些模型中选择使用</span>
+<div class="input-group">
+            <label>可用模型列表 <span class="input-tip">供用户选择，用英文逗号分隔</span></label>
+            <input v-model="apiForm.globalModelList" placeholder="gpt-4o,gpt-4o-mini,claude-3-5-sonnet" class="setting-input" />
+            <span class="input-desc">设置后全局用户可在这些模型中选择使用</span>
+          </div>
+          <div class="input-row">
+            <div class="input-group">
+              <label>Temperature <span class="input-tip">创造性</span></label>
+              <input v-model.number="apiForm.globalTemperature" type="number" step="0.1" min="0" max="2" class="setting-input" />
+            </div>
+            <div class="input-group">
+              <label>Max Length <span class="input-tip">最大回复长度</span></label>
+              <input v-model.number="apiForm.globalMaxLength" type="number" min="100" max="32000" class="setting-input" />
+            </div>
+          </div>
+          <div class="input-row">
+            <div class="input-group">
+              <label>Context Size <span class="input-tip">历史消息数</span></label>
+              <input v-model.number="apiForm.globalContextSize" type="number" min="1" max="100" class="setting-input" />
+            </div>
+            <div class="input-group">
+              <label>Timeout <span class="input-tip">超时秒数</span></label>
+              <input v-model.number="apiForm.globalTimeout" type="number" min="10" max="300" class="setting-input" />
+            </div>
+          </div>
+          <div class="input-group">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="apiForm.globalStreamEnabled" />
+              <span>启用流式输出</span>
+            </label>
+          </div>
+          <div class="input-group">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="apiForm.globalEnableSplit" />
+              <span>启用长消息分段</span>
+            </label>
+          </div>
+          <div class="input-group">
+            <label class="checkbox-label">
+              <input type="checkbox" v-model="apiForm.globalEnableYamlParsing" />
+              <span>启用YAML解析</span>
+            </label>
+          </div>
         </div>
       </div>
-    </div>
 
     <!-- 社交内容全局API -->
     <div class="settings-card">
@@ -533,6 +571,13 @@ const apiForm = ref({
   globalCustomUrl: '',
   globalModel: '',
   globalModelList: '',
+  globalTemperature: 0.9,
+  globalMaxLength: 4000,
+  globalContextSize: 20,
+  globalTimeout: 60,
+  globalStreamEnabled: true,
+  globalEnableSplit: true,
+  globalEnableYamlParsing: false,
   globalSocialApiKey: '',
   globalSocialApiUrl: '',
   globalSocialModel: '',
@@ -690,14 +735,21 @@ async function fetchApiSettings() {
     const res = await apiClient.get<Record<string, any>>('/api/settings/api') as Record<string, any>
     apiSettings.value = res
     if (authStore.isSuperAdmin && res.global) {
-      apiForm.value.globalApiKey = res.global.api_key || ''
-      apiForm.value.globalApiUrl = res.global.api_url || ''
-      apiForm.value.globalCustomUrl = res.global.custom_url || ''
-      apiForm.value.globalModel = res.global.model || ''
-      apiForm.value.globalModelList = res.global.model_list || ''
-      apiForm.value.globalSocialApiKey = res.global.social_api_key || ''
-      apiForm.value.globalSocialApiUrl = res.global.social_api_url || ''
-      apiForm.value.globalSocialModel = res.global.social_model || ''
+apiForm.value.globalApiKey = res.global.api_key || ''
+          apiForm.value.globalApiUrl = res.global.api_url || ''
+          apiForm.value.globalCustomUrl = res.global.custom_url || ''
+          apiForm.value.globalModel = res.global.model || ''
+          apiForm.value.globalModelList = res.global.model_list || ''
+          apiForm.value.globalTemperature = res.global.temperature ?? 0.9
+          apiForm.value.globalMaxLength = res.global.max_length ?? 4000
+          apiForm.value.globalContextSize = res.global.context_size ?? 20
+          apiForm.value.globalTimeout = res.global.timeout ?? 60
+          apiForm.value.globalStreamEnabled = res.global.stream_enabled ?? true
+          apiForm.value.globalEnableSplit = res.global.enable_split ?? true
+          apiForm.value.globalEnableYamlParsing = res.global.enable_yaml_parsing ?? false
+          apiForm.value.globalSocialApiKey = res.global.social_api_key || ''
+          apiForm.value.globalSocialApiUrl = res.global.social_api_url || ''
+          apiForm.value.globalSocialModel = res.global.social_model || ''
     }
   } catch (err: any) {
     showToast('加载API设置失败', 'error')
@@ -710,17 +762,24 @@ async function saveApiSettings() {
   apiSaving.value = true
   try {
     if (authStore.isSuperAdmin) {
-      await apiClient.put('/api/settings/api', {
-        api_key: apiForm.value.globalApiKey,
-        api_url: apiForm.value.globalApiUrl,
-        custom_url: apiForm.value.globalCustomUrl,
-        model: apiForm.value.globalModel,
-        model_list: apiForm.value.globalModelList,
-        social_api_key: apiForm.value.globalSocialApiKey,
-        social_api_url: apiForm.value.globalSocialApiUrl,
-        social_model: apiForm.value.globalSocialModel,
-        is_global: true,
-      })
+await apiClient.put('/api/settings/api', {
+          api_key: apiForm.value.globalApiKey,
+          api_url: apiForm.value.globalApiUrl,
+          custom_url: apiForm.value.globalCustomUrl,
+          model: apiForm.value.globalModel,
+          model_list: apiForm.value.globalModelList,
+          temperature: apiForm.value.globalTemperature,
+          max_length: apiForm.value.globalMaxLength,
+          context_size: apiForm.value.globalContextSize,
+          timeout: apiForm.value.globalTimeout,
+          stream_enabled: apiForm.value.globalStreamEnabled,
+          enable_split: apiForm.value.globalEnableSplit,
+          enable_yaml_parsing: apiForm.value.globalEnableYamlParsing,
+          social_api_key: apiForm.value.globalSocialApiKey,
+          social_api_url: apiForm.value.globalSocialApiUrl,
+          social_model: apiForm.value.globalSocialModel,
+          is_global: true,
+        })
     }
     showToast('API设置已保存')
   } catch (err: any) {
@@ -1128,6 +1187,30 @@ onMounted(() => {
   color: rgba(255, 255, 255, 0.4);
   margin-top: 4px;
   display: block;
+}
+
+.input-row {
+  display: flex;
+  gap: 12px;
+}
+
+.input-row .input-group {
+  flex: 1;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 14px;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #5B6EF5;
 }
 
 .qrcode-display {
