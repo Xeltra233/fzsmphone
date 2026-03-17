@@ -14,7 +14,7 @@
     <div class="profile-content">
 <!-- 用户信息卡片 -->
   <div class="user-card">
-    <div class="avatar-section" @click="triggerAvatarUpload">
+    <div class="avatar-section" @click="openEditProfile">
       <div class="avatar">
         <img v-if="userAvatar" :src="userAvatar" alt="avatar" />
         <span v-else class="avatar-placeholder">{{ user?.username?.[0] || '?' }}</span>
