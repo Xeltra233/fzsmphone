@@ -165,9 +165,23 @@ func (h *UserHandler) SetSuperAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Cannot demote yourself
+	// Cannot modify yourself
 	if id == callerID {
 		mw.Error(w, http.StatusBadRequest, "cannot modify your own super_admin status")
+		return
+	}
+
+	// Get target user info to check privilege level
+	var targetIsAdmin, targetIsSuperAdmin bool
+	err = h.DB.Pool.QueryRow(r.Context(), `SELECT is_admin, is_super_admin FROM users WHERE id = $1`, id).Scan(&targetIsAdmin, &targetIsSuperAdmin)
+	if err != nil {
+		mw.Error(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	// Cannot modify users with same or higher privilege level
+	if targetIsSuperAdmin || targetIsAdmin {
+		mw.Error(w, http.StatusForbidden, "cannot modify users with same or higher privilege level")
 		return
 	}
 
