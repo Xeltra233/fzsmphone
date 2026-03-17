@@ -24,12 +24,12 @@ type UserHandler struct {
 // GET /api/users
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.DB.Pool.Query(r.Context(), `
-	SELECT id, discord_id, username, display_name, COALESCE(avatar_url, ''), role,
-	is_banned, COALESCE(ban_reason, ''), banned_at,
-	COALESCE(credits, 0), COALESCE(total_tokens, 0), COALESCE(signin_streak, 0), COALESCE(invite_code, ''),
-	created_at, updated_at
-	FROM users
-	ORDER BY created_at DESC
+SELECT id, discord_id, username, display_name, COALESCE(avatar_url, ''), role, is_super_admin,
+is_banned, COALESCE(ban_reason, ''), banned_at,
+COALESCE(credits, 0), COALESCE(total_tokens, 0), COALESCE(signin_streak, 0), COALESCE(invite_code, ''),
+created_at, updated_at
+FROM users
+ORDER BY created_at DESC
 	`)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to query users")
@@ -44,6 +44,7 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 		DisplayName  string     `json:"display_name"`
 		AvatarURL    string     `json:"avatar_url"`
 		Role         string     `json:"role"`
+		IsSuperAdmin bool       `json:"is_super_admin"`
 		IsBanned     bool       `json:"is_banned"`
 		BanReason    string     `json:"ban_reason"`
 		BannedAt     *time.Time `json:"banned_at"`
@@ -58,7 +59,7 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	var users []userResp
 	for rows.Next() {
 		var u userResp
-		if err := rows.Scan(&u.ID, &u.DiscordID, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Role, &u.IsBanned, &u.BanReason, &u.BannedAt, &u.Credits, &u.TotalTokens, &u.SigninStreak, &u.InviteCode, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.DiscordID, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Role, &u.IsSuperAdmin, &u.IsBanned, &u.BanReason, &u.BannedAt, &u.Credits, &u.TotalTokens, &u.SigninStreak, &u.InviteCode, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			mw.Error(w, http.StatusInternalServerError, "failed to scan user")
 			return
 		}

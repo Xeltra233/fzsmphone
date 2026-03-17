@@ -292,10 +292,16 @@
               <button class="icon-action" @click="showImageGenKey = !showImageGenKey">{{ showImageGenKey ? '◇' : '◉' }}</button>
             </div>
 
-            <div class="setting-item"><div class="setting-label"><span class="label-text">模型</span></div></div>
-            <input v-model="imgCfg.openai.model" class="setting-input" placeholder="gpt-4o / dall-e-3" @change="saveImgCfg" />
+<div class="setting-item"><div class="setting-label"><span class="label-text">模型</span></div></div>
+<input v-model="imgCfg.openai.model" class="setting-input" placeholder="dall-e-3 / grok-2-vision-1212 / flux" @change="saveImgCfg" />
 
-            <div class="setting-item"><div class="setting-label"><span class="label-text">宽高比</span></div></div>
+<div class="setting-item"><div class="setting-label"><span class="label-text">请求格式</span><span class="label-desc">chat: 兼容DALL-E/Grok; direct: 兼容Flux/自定义</span></div></div>
+<select v-model="imgCfg.openai.requestFormat" class="setting-select" @change="saveImgCfg">
+  <option value="chat">Chat Messages (DALL-E/Grok)</option>
+  <option value="direct">Direct Prompt (Flux/自定义)</option>
+</select>
+
+<div class="setting-item"><div class="setting-label"><span class="label-text">宽高比</span></div></div>
             <select v-model="imgCfg.openai.aspectRatio" class="setting-select" @change="saveImgCfg">
               <option v-for="ar in aspectRatios" :key="ar" :value="ar">{{ ar }}</option>
             </select>

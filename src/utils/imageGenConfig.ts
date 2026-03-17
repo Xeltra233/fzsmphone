@@ -46,12 +46,13 @@ export interface NovelAiProviderConfig {
 }
 
 export interface OpenAiProviderConfig {
-    url: string
-    key: string
-    model: string
-    promptPrefix: string
-    promptSuffix: string
-    aspectRatio: AspectRatio
+  url: string
+  key: string
+  model: string
+  promptPrefix: string
+  promptSuffix: string
+  aspectRatio: AspectRatio
+  requestFormat: 'chat' | 'direct'  // chat: OpenAI messages format, direct: simple prompt format
 }
 
 export interface GeminiProviderConfig {
@@ -77,40 +78,60 @@ export interface ImageGenConfig {
 const STORAGE_KEY = 'phone_novelai_config'
 
 const DEFAULT_NOVELAI: NovelAiProviderConfig = {
-    url: '',
-    key: '',
-    model: 'nai-diffusion-4-5-full',
-    promptPrefix: '',
-    promptSuffix: '',
-    negativePrompt: '',
-    width: 1024,
-    height: 1024,
-    steps: 28,
-    cfg: 5,
-    sampler: 'k_euler',
-    scheduler: 'karras',
-    seed: -1,
-    ucPreset: 0,
-    qualityToggle: true,
-    autoSmea: false,
-    decrisper: false,
-    sm: false,
-    smDyn: false,
-    cfgRescale: 0,
-    varietyBoost: false,
-    characterReferenceEnabled: false,
-    characterReferenceStyleAware: true,
-    characterReferenceFidelity: 0.8,
+  url: '',
+  key: '',
+  model: 'nai-diffusion-4-5-full',
+  promptPrefix: '',
+  promptSuffix: '',
+  negativePrompt: '',
+  width: 1024,
+  height: 1024,
+  steps: 28,
+  cfg: 5,
+  sampler: 'k_euler',
+  scheduler: 'karras',
+  seed: -1,
+  ucPreset: 0,
+  qualityToggle: true,
+  autoSmea: false,
+  decrisper: false,
+  sm: false,
+  smDyn: false,
+  cfgRescale: 0,
+  varietyBoost: false,
+  characterReferenceEnabled: false,
+  characterReferenceStyleAware: true,
+  characterReferenceFidelity: 0.8,
 }
 
 const DEFAULT_OPENAI: OpenAiProviderConfig = {
-    url: '',
-    key: '',
-    model: '',
-    promptPrefix: '',
-    promptSuffix: '',
-    aspectRatio: 'auto',
+  url: '',
+  key: '',
+  model: '',
+  promptPrefix: '',
+  promptSuffix: '',
+  aspectRatio: 'auto',
+  requestFormat: 'chat',
 }
+
+// Nano/Banano 模型列表（用于参考）
+export const NANO_BANANO_MODELS = [
+  'nano-banano',
+  'nano-banano-v2', 
+  'banano',
+  'banano-diffusion',
+  'nai-diffusion-4-5-full',
+  'nai-diffusion-4-standard',
+] as const
+
+// Grok 模型列表（用于参考）
+export const GROK_MODELS = [
+  'grok-2-vision-1212',
+  'grok-2-vision',
+  'grok-2',
+  'grok-beta',
+  'grok-vision-beta',
+] as const
 
 const DEFAULT_GEMINI: GeminiProviderConfig = {
     url: '',
@@ -212,15 +233,17 @@ function parseNovelAi(raw: Record<string, unknown> | undefined, base: NovelAiPro
 }
 
 function parseOpenAi(raw: Record<string, unknown> | undefined, base: OpenAiProviderConfig): OpenAiProviderConfig {
-    const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
-    return {
-        url: typeof o.url === 'string' ? o.url : base.url,
-        key: typeof o.key === 'string' ? o.key : base.key,
-        model: typeof o.model === 'string' ? o.model : base.model,
-        promptPrefix: typeof o.promptPrefix === 'string' ? o.promptPrefix : base.promptPrefix,
-        promptSuffix: typeof o.promptSuffix === 'string' ? o.promptSuffix : base.promptSuffix,
-        aspectRatio: toAspectRatio(o.aspectRatio, base.aspectRatio),
-    }
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const rf = String(o.requestFormat ?? '').trim()
+  return {
+    url: typeof o.url === 'string' ? o.url : base.url,
+    key: typeof o.key === 'string' ? o.key : base.key,
+    model: typeof o.model === 'string' ? o.model : base.model,
+    promptPrefix: typeof o.promptPrefix === 'string' ? o.promptPrefix : base.promptPrefix,
+    promptSuffix: typeof o.promptSuffix === 'string' ? o.promptSuffix : base.promptSuffix,
+    aspectRatio: toAspectRatio(o.aspectRatio, base.aspectRatio),
+    requestFormat: rf === 'direct' ? 'direct' : 'chat',
+  }
 }
 
 function parseGemini(raw: Record<string, unknown> | undefined, base: GeminiProviderConfig): GeminiProviderConfig {

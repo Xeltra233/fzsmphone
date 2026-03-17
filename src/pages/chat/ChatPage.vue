@@ -614,7 +614,9 @@ function formatDate(dateStr: string | number): string {
 function formatMsgTime(dateStr: string | number): string {
   if (!dateStr) return ''
   const d = new Date(dateStr)
-  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  const settingsStore = useSettingsStore()
+  const is12Hour = settingsStore.settings.timeFormat === '12h'
+  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: is12Hour })
 }
 
 function scrollToBottom(smooth = true) {

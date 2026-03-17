@@ -206,6 +206,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
 import { useChatStore } from '@/stores/chat'
+import { useSettingsStore } from '@/stores/settings'
 import type { Conversation } from '@/stores/chat'
 
 interface LocalCharacter {
@@ -249,9 +250,11 @@ function formatTime(dateStr: string): string {
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  const settingsStore = useSettingsStore()
+  const is12Hour = settingsStore.settings.timeFormat === '12h'
 
   if (diffDays === 0) {
-    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: is12Hour })
   } else if (diffDays === 1) {
     return '昨天'
   } else if (diffDays < 7) {

@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { callApi } from '@/api/services'
+import { useSettingsStore } from './settings'
 
 export interface CallRecord {
   id: string
@@ -61,19 +62,21 @@ export const usePhoneStore = defineStore('phone', () => {
   const currentDate = ref('')
   let clockTimer: ReturnType<typeof setInterval> | null = null
 
-  function updateClock() {
-    const now = new Date()
-    currentTime.value = now.toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-    currentDate.value = now.toLocaleDateString('zh-CN', {
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long',
-    })
-  }
+function updateClock() {
+  const settingsStore = useSettingsStore()
+  const now = new Date()
+  const is12Hour = settingsStore.settings.timeFormat === '12h'
+  currentTime.value = now.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: is12Hour,
+  })
+  currentDate.value = now.toLocaleDateString('zh-CN', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  })
+}
 
   function startClock() {
     stopClock()

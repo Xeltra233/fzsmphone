@@ -577,47 +577,74 @@ export async function generateNovelAiImage(
 // ==================== OpenAI 生图 ====================
 
 async function generateOpenAiImage(
-    promptText: string,
-    oai: OpenAiProviderConfig,
-    mode: string,
-    refImages: string[],
-    signal?: AbortSignal,
+  promptText: string,
+  oai: OpenAiProviderConfig,
+  mode: string,
+  refImages: string[],
+  signal?: AbortSignal,
 ): Promise<ImageGenResult> {
-    const url = String(oai.url || '').trim()
-    if (!url) throw new Error('未配置 OpenAI Base URL')
-    if (!oai.key) throw new Error('未配置 OpenAI Key')
-    const model = String(oai.model || '').trim()
-    if (!model) throw new Error('未配置 OpenAI 模型')
+  const url = String(oai.url || '').trim()
+  if (!url) throw new Error('未配置 OpenAI Base URL')
+  if (!oai.key) throw new Error('未配置 OpenAI Key')
+  const model = String(oai.model || '').trim()
+  if (!model) throw new Error('未配置 OpenAI 模型')
 
-    const chatUrl = buildOpenAiChatUrl(url)
-    const finalPrompt = mode === 'natural'
-        ? joinNewline(oai.promptPrefix, promptText, oai.promptSuffix)
-        : joinComma(oai.promptPrefix, promptText, oai.promptSuffix)
+  const finalPrompt = mode === 'natural'
+    ? joinNewline(oai.promptPrefix, promptText, oai.promptSuffix)
+    : joinComma(oai.promptPrefix, promptText, oai.promptSuffix)
 
-    const ar = oai.aspectRatio && oai.aspectRatio !== 'auto' ? oai.aspectRatio : null
+  const ar = oai.aspectRatio && oai.aspectRatio !== 'auto' ? oai.aspectRatio : null
 
+  let reqBody: Record<string, unknown>
+  let targetUrl: string
+
+  // Support both chat format and direct format
+  if (oai.requestFormat === 'direct') {
+    // Direct format: simple prompt-based request (for Flux, custom APIs)
+    targetUrl = url.endsWith('/v1/chat/completions') || url.endsWith('/chat/completions')
+      ? url.replace(/\/chat\/completions.*$/, '/images/generations')
+      : `${url.replace(/\/+$/, '')}/v1/images/generations`
+    
+    reqBody = {
+      model,
+      prompt: finalPrompt,
+    }
+    if (ar) {
+      // Parse aspect ratio to width/height
+      const [w, h] = ar.split(':').map(Number)
+      if (w && h) {
+        const base = 1024
+        reqBody.width = base
+        reqBody.height = Math.round(base * h / w)
+      }
+    }
+  } else {
+    // Chat format: OpenAI messages format (for DALL-E, Grok, etc.)
+    targetUrl = buildOpenAiChatUrl(url)
+    
     const messages: Record<string, unknown>[] = []
     if (ar) {
-        messages.push({ role: 'system', content: JSON.stringify({ imageConfig: { aspectRatio: ar } }) })
+      messages.push({ role: 'system', content: JSON.stringify({ imageConfig: { aspectRatio: ar } }) })
     }
 
     const contentParts: Record<string, unknown>[] = [{ type: 'text', text: String(finalPrompt || '') }]
     for (const ref of refImages) {
-        contentParts.push({ type: 'image_url', image_url: { url: ref } })
+      contentParts.push({ type: 'image_url', image_url: { url: ref } })
     }
     messages.push({ role: 'user', content: contentParts })
 
-    const reqBody: Record<string, unknown> = { model, stream: false, messages }
+    reqBody = { model, stream: false, messages }
     if (ar) reqBody.extra_body = { imageConfig: { aspectRatio: ar } }
+  }
 
-    console.info('[AI] image (openai)', { model, prompt: finalPrompt.slice(0, 100) })
+  console.info('[AI] image (openai)', { model, format: oai.requestFormat, prompt: finalPrompt.slice(0, 100) })
 
-    const resp = await proxyFetch(chatUrl, oai.key, {
-        'x-api-key': oai.key,
-        Accept: 'application/json, image/png, image/jpeg, application/zip',
-    }, reqBody, signal)
+  const resp = await proxyFetch(targetUrl, oai.key, {
+    'x-api-key': oai.key,
+    Accept: 'application/json, image/png, image/jpeg, application/zip',
+  }, reqBody, signal)
 
-    return handleResponse(resp)
+  return handleResponse(resp)
 }
 
 // ==================== Gemini 生图 ====================
