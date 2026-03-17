@@ -173,8 +173,11 @@ interface UserRecord {
   is_banned: boolean
   ban_reason: string
   banned_at: string | null
+  banned_until: string | null
   created_at: string
   updated_at: string
+  credits: number
+  total_tokens: number
 }
 
 const loading = ref(false)
