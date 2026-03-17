@@ -288,7 +288,9 @@ fzsmphone/
 
 | 头像 | 名称 | 角色 |
 |------|------|------|
-| <img src="https://avatars.githubusercontent.com/u/XXXXXX?v=4" width="40" height="40" style="border-radius: 50%;" /> | Xeltra233 | 项目创始人 |
+| <img src="https://avatars.githubusercontent.com/u/243946305?v=4" width="40" height="40" style="border-radius: 50%;" /> | Xeltra233 | 项目创始人 |
+
+添加合作者：在表格中按格式添加更多行
 
 ---
 
