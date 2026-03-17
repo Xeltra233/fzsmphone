@@ -2,8 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"fzsmphone/internal/database"
@@ -313,4 +318,110 @@ func (h *UserHandler) UpdateCredits(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mw.JSON(w, http.StatusOK, map[string]string{"message": "credits updated"})
+}
+
+// PATCH /api/users/{id}/avatar - Upload user avatar
+func (h *UserHandler) UpdateAvatar(w http.ResponseWriter, r *http.Request) {
+	callerID, _ := mw.GetUserID(r.Context())
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		mw.Error(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	if callerID != id {
+		mw.Error(w, http.StatusForbidden, "can only update your own avatar")
+		return
+	}
+
+	err = r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		mw.Error(w, http.StatusBadRequest, "failed to parse form")
+		return
+	}
+
+	file, handler, err := r.FormFile("avatar")
+	if err != nil {
+		mw.Error(w, http.StatusBadRequest, "failed to get file")
+		return
+	}
+	defer file.Close()
+
+	allowedExts := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true}
+	ext := filepath.Ext(handler.Filename)
+	if ext == "" {
+		ext = ".png"
+	}
+	ext = "." + strings.TrimPrefix(strings.ToLower(ext), ".")
+	if !allowedExts[ext] {
+		mw.Error(w, http.StatusBadRequest, "invalid file type")
+		return
+	}
+
+	newFilename := fmt.Sprintf("avatar_%d_%d%s", id, time.Now().Unix(), ext)
+	uploadPath := filepath.Join(".", "public", newFilename)
+
+	if !strings.HasPrefix(uploadPath, filepath.Join(".", "public")) {
+		mw.Error(w, http.StatusBadRequest, "invalid path")
+		return
+	}
+
+	if err := os.MkdirAll(filepath.Dir(uploadPath), 0755); err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to create directory")
+		return
+	}
+
+	out, err := os.Create(uploadPath)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to create file")
+		return
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, file)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to save file")
+		return
+	}
+
+	avatarPath := "/" + newFilename
+	_, err = h.DB.Pool.Exec(r.Context(), `UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2`, avatarPath, id)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to update avatar")
+		return
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]string{"avatar_url": avatarPath, "message": "avatar updated"})
+}
+
+// PATCH /api/users/{id}/profile - Update user profile (display_name)
+func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	callerID, _ := mw.GetUserID(r.Context())
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		mw.Error(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	if callerID != id {
+		mw.Error(w, http.StatusForbidden, "can only update your own profile")
+		return
+	}
+
+	var body struct {
+		DisplayName string `json:"display_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		mw.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if body.DisplayName != "" && len(body.DisplayName) > 50 {
+		mw.Error(w, http.StatusBadRequest, "display name too long (max 50 chars)")
+		return
+	}
+	_, err = h.DB.Pool.Exec(r.Context(), `UPDATE users SET display_name = COALESCE(NULLIF($1, ''), display_name), updated_at = NOW() WHERE id = $2`, body.DisplayName, id)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to update profile")
+		return
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]string{"message": "profile updated"})
 }

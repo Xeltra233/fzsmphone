@@ -12,21 +12,28 @@
     </NavBar>
 
     <div class="profile-content">
-      <!-- 用户信息卡片 -->
-      <div class="user-card">
-        <div class="avatar-section">
-          <div class="avatar">
-            <img v-if="user?.avatar" :src="user.avatar" alt="avatar" />
-            <span v-else class="avatar-placeholder">{{ user?.username?.[0] || '?' }}</span>
-          </div>
-          <div class="online-dot"></div>
-        </div>
-        <div class="user-info">
-          <h2 class="display-name">{{ user?.username || '未登录' }}</h2>
-          <p class="user-id">ID: {{ user?.id || '—' }}</p>
-          <p class="user-bio">{{ bio || '这个人很懒，什么都没写~' }}</p>
-        </div>
+<!-- 用户信息卡片 -->
+  <div class="user-card">
+    <div class="avatar-section" @click="triggerAvatarUpload">
+      <div class="avatar">
+        <img v-if="user?.avatar" :src="user.avatar" alt="avatar" />
+        <span v-else class="avatar-placeholder">{{ user?.username?.[0] || '?' }}</span>
       </div>
+      <div class="avatar-edit-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      </div>
+      <div class="online-dot"></div>
+    </div>
+    <div class="user-info" @click="showEditProfile = true">
+      <h2 class="display-name">{{ displayName || user?.username || '未登录' }}</h2>
+      <p class="user-id">ID: {{ user?.id || '—' }}</p>
+      <p class="user-bio">{{ bio || '这个人很懒，什么都没写~' }}</p>
+    </div>
+    <input type="file" ref="avatarInput" accept="image/*" style="display: none" @change="handleAvatarChange" />
+  </div>
 
       <!-- 数据统计 -->
       <div class="stats-row">
@@ -91,17 +98,27 @@
               <span class="toggle-slider"></span>
             </label>
           </div>
-          <div class="setting-item">
-            <div class="setting-left">
-              <span class="setting-icon">◉</span>
-              <span>消息音效</span>
-            </div>
-            <label class="toggle">
-              <input type="checkbox" :checked="settingsStore.settings.notificationSoundEnabled" @change="settingsStore.settings.notificationSoundEnabled = !settingsStore.settings.notificationSoundEnabled" />
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-          <div class="setting-item" @click="router.push('/customize')">
+<div class="setting-item">
+  <div class="setting-left">
+    <span class="setting-icon">◉</span>
+    <span>消息音效</span>
+  </div>
+  <label class="toggle">
+    <input type="checkbox" :checked="settingsStore.settings.notificationSoundEnabled" @change="settingsStore.settings.notificationSoundEnabled = !settingsStore.settings.notificationSoundEnabled" />
+    <span class="toggle-slider"></span>
+  </label>
+</div>
+<div class="setting-item">
+  <div class="setting-left">
+    <span class="setting-icon">🕐</span>
+    <span>时间格式</span>
+  </div>
+  <select class="time-format-select" v-model="settingsStore.settings.timeFormat" @change="settingsStore.settings.timeFormat = settingsStore.settings.timeFormat">
+    <option value="24h">24小时制</option>
+    <option value="12h">12小时制</option>
+  </select>
+</div>
+<div class="setting-item" @click="router.push('/customize')">
             <div class="setting-left">
               <span class="setting-icon">⚙️</span>
               <span>全部设置</span>
@@ -113,12 +130,50 @@
         </div>
       </div>
 
-      <!-- 退出登录 -->
-      <button class="logout-btn" @click="handleLogout">退出登录</button>
+<!-- 退出登录 -->
+  <button class="logout-btn" @click="handleLogout">退出登录</button>
 
-      <div class="version-info">贩子死妈小手机 v1.0.0</div>
+  <div class="version-info">贩子死妈小手机 v1.0.0</div>
+  </div>
+
+  <!-- 编辑资料弹窗 -->
+  <div v-if="showEditProfile" class="modal-overlay" @click="showEditProfile = false">
+    <div class="modal-content" @click.stop>
+      <div class="modal-header">
+        <h3>编辑资料</h3>
+        <button class="modal-close" @click="showEditProfile = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>显示名称</label>
+          <input type="text" v-model="editDisplayName" placeholder="输入显示名称" maxlength="50" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cancel" @click="showEditProfile = false">取消</button>
+        <button class="btn-confirm" @click="saveProfile" :disabled="saving">保存</button>
+      </div>
     </div>
   </div>
+
+  <!-- 联系方式弹窗 -->
+  <div v-if="showContactModal" class="modal-overlay" @click="showContactModal = false">
+    <div class="modal-content" @click.stop>
+      <div class="modal-header">
+        <h3>官方群聊</h3>
+        <button class="modal-close" @click="showContactModal = false">&times;</button>
+      </div>
+      <div class="modal-body contact-body">
+        <img :src="'/qun_qrcode.jpg'" alt="官方群二维码" class="contact-qrcode-img" @error="qrcodeLoadError = true" />
+        <div v-if="qrcodeLoadError" class="contact-qrcode-placeholder">群二维码加载失败</div>
+        <div class="contact-info" v-if="!qrcodeLoadError">
+          <span class="contact-label">进群密码：</span>
+          <span class="contact-value">贩子死妈</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 </template>
 
 <script setup lang="ts">
@@ -135,6 +190,13 @@ const phoneStore = usePhoneStore()
 const settingsStore = useSettingsStore()
 
 const bio = ref('')
+const displayName = ref('')
+const showEditProfile = ref(false)
+const showContactModal = ref(false)
+const qrcodeLoadError = ref(false)
+const editDisplayName = ref('')
+const saving = ref(false)
+const avatarInput = ref<HTMLInputElement | null>(null)
 
 const user = computed(() => authStore.user)
 
@@ -167,6 +229,7 @@ const menuItems: MenuItem[] = [
   { icon: '✧', label: '主题定制', color: 'linear-gradient(135deg, #636E72, #B2BEC3)', route: '/customize' },
   { icon: '¤', label: '我的钱包', color: 'linear-gradient(135deg, #00B894, #55EFC4)', route: '/wallet' },
   { icon: '◈', label: '我的额度', color: 'linear-gradient(135deg, #667eea, #764ba2)', route: '/credits' },
+  { icon: '💬', label: '官方群聊', color: 'linear-gradient(135deg, #74B9FF, #0984E3)', action: 'showContact' },
 ]
 
 const adminItems: MenuItem[] = [
@@ -179,9 +242,12 @@ const adminItems: MenuItem[] = [
 function handleMenuItem(item: MenuItem) {
   if (item.route) {
     router.push(item.route)
-  } else if (item.action) {
-    // Handle actions
-    console.log('Action:', item.action)
+  } else if (item.action === 'editProfile') {
+    editDisplayName.value = displayName.value || user.value?.username || ''
+    showEditProfile.value = true
+  } else if (item.action === 'showContact') {
+    qrcodeLoadError.value = false
+    showContactModal.value = true
   }
 }
 
@@ -193,6 +259,65 @@ function toggleDarkMode() {
 async function handleLogout() {
   authStore.logout()
   router.push('/login')
+}
+
+function triggerAvatarUpload() {
+  avatarInput.value?.click()
+}
+
+async function handleAvatarChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file || !user.value) return
+
+  const formData = new FormData()
+  formData.append('avatar', file)
+
+  try {
+    const response = await fetch(`/api/users/${user.value.id}/avatar`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`
+      },
+      body: formData
+    })
+    if (response.ok) {
+      const data = await response.json()
+      authStore.user!.avatar = data.avatar_url
+      localStorage.setItem('user', JSON.stringify(authStore.user))
+    }
+  } catch (err) {
+    console.error('Failed to upload avatar:', err)
+  }
+  target.value = ''
+}
+
+function openEditProfile() {
+  editDisplayName.value = displayName.value || user.value?.username || ''
+  showEditProfile.value = true
+}
+
+async function saveProfile() {
+  if (!user.value) return
+  saving.value = true
+  try {
+    const response = await fetch(`/api/users/${user.value.id}/profile`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ display_name: editDisplayName.value })
+    })
+    if (response.ok) {
+      displayName.value = editDisplayName.value
+      showEditProfile.value = false
+    }
+  } catch (err) {
+    console.error('Failed to save profile:', err)
+  } finally {
+    saving.value = false
+  }
 }
 
 onMounted(() => {
@@ -245,6 +370,27 @@ onMounted(() => {
 .avatar-section {
   position: relative;
   flex-shrink: 0;
+  cursor: pointer;
+}
+
+.avatar-edit-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  background: var(--color-primary, #5B6EF5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-primary);
+}
+
+.avatar-edit-badge svg {
+  width: 12px;
+  height: 12px;
+  color: #fff;
 }
 
 .avatar {
@@ -499,5 +645,175 @@ onMounted(() => {
 
 .toggle input:checked + .toggle-slider::after {
   transform: translateX(20px);
+}
+
+.time-format-select {
+  padding: 6px 12px;
+  border: 0.5px solid var(--separator);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.time-format-select:focus {
+  outline: none;
+  border-color: var(--color-primary, #5B6EF5);
+}
+
+/* Modal styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  width: 90%;
+  max-width: 400px;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 0.5px solid var(--separator);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-primary);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 0.5px solid var(--separator);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--color-primary, #5B6EF5);
+}
+
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 0.5px solid var(--separator);
+}
+
+.btn-cancel, .btn-confirm {
+  flex: 1;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-cancel {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.btn-confirm {
+  background: var(--color-primary, #5B6EF5);
+  color: #fff;
+}
+
+.btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.user-info {
+  cursor: pointer;
+}
+
+.contact-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+}
+
+.contact-qrcode-img {
+  width: 200px;
+  height: 200px;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid var(--separator);
+}
+
+.contact-qrcode-placeholder {
+  color: var(--text-tertiary);
+  font-size: 14px;
+  padding: 40px;
+}
+
+.contact-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 16px;
+}
+
+.contact-label {
+  color: var(--text-secondary);
+}
+
+.contact-value {
+  color: var(--color-primary, #5B6EF5);
+  font-weight: 600;
 }
 </style>

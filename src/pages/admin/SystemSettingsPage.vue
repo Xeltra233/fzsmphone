@@ -458,25 +458,21 @@ placeholder="qun_qrcode.jpg"
 </div>
 
 <!-- 联系方式 -->
-<div v-show="activeTab === 'contact'" class="settings-section">
-  <div class="section-header">
-    <h3>官方群聊</h3>
-  </div>
-  <div class="settings-list">
-    <div class="setting-item vertical">
-      <div class="qrcode-display">
+  <div v-show="activeTab === 'contact'" class="settings-section">
+    <div class="section-header">
+      <h3>官方群聊</h3>
+    </div>
+    <div class="settings-list">
+      <div class="contact-qrcode">
         <img :src="'/qun_qrcode.jpg'" alt="官方群二维码" class="qrcode-image" @error="qrcodeError = true" />
-        <div v-if="qrcodeError" class="qrcode-placeholder">群二维码加载失败</div>
+        <div v-if="qrcodeError" class="qrcode-placeholder">群二维码加载失败，请联系管理员</div>
+        <div class="contact-password">
+          <span class="password-label">进群密码：</span>
+          <span class="password-value">贩子死妈</span>
+        </div>
       </div>
-    </div>
-<div class="setting-item vertical">
-      <div class="setting-label">
-        <span class="label-text">进群密码</span>
-      </div>
-      <div class="password-display">贩子死妈</div>
     </div>
   </div>
-</div>
 
 <!-- 提示信息 -->
 <div class="toast" v-if="toast.show" :class="toast.type">
@@ -873,6 +869,23 @@ onMounted(() => {
   text-align: left;
 }
 
+.setting-item.vertical {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.setting-item.vertical .setting-label {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.setting-item.vertical .setting-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .setting-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -1123,6 +1136,30 @@ onMounted(() => {
   align-items: center;
   padding: 20px;
   width: 100%;
+}
+
+.contact-qrcode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  gap: 12px;
+}
+
+.contact-password {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.password-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.password-value {
+  color: #5B6EF5;
+  font-weight: 600;
 }
 
 .qrcode-image {

@@ -40,6 +40,8 @@ export interface ChatSettings {
   // 用户资料
   userName: string
   userAvatar: string
+  // 时间格式
+  timeFormat: '12h' | '24h'
 }
 
 const DEFAULT_SETTINGS: ChatSettings = {
@@ -73,6 +75,7 @@ const DEFAULT_SETTINGS: ChatSettings = {
   sendKeyBehavior: 'send',
   userName: '',
   userAvatar: '',
+  timeFormat: '24h',
 }
 
 const STORAGE_KEY = 'fzsm-settings'
