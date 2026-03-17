@@ -502,7 +502,7 @@ placeholder="qun_qrcode.jpg"
     </div>
     <div class="settings-list">
       <div class="contact-qrcode">
-        <img :src="'/qun_qrcode.jpg'" alt="官方群二维码" class="qrcode-image" @error="qrcodeError = true" />
+        <img :src="'https://raw.githubusercontent.com/Xeltra233/fzsmphone/master/public/qun_qrcode.jpg'" alt="官方群二维码" class="qrcode-image" @error="qrcodeError = true" />
         <div v-if="qrcodeError" class="qrcode-placeholder">群二维码加载失败，请联系管理员</div>
         <div class="contact-password">
           <span class="password-label">进群密码：</span>
