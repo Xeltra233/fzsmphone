@@ -1210,7 +1210,27 @@ onMounted(() => {
 .checkbox-label input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: #5B6EF5;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 2px solid var(--text-tertiary, #86868b);
+  border-radius: 4px;
+  background: var(--bg-tertiary, #e5e5ea);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.checkbox-label input[type="checkbox"]:checked {
+  background: #34c759;
+  border-color: #34c759;
+}
+
+.checkbox-label input[type="checkbox"]:checked::after {
+  content: '✓';
+  display: block;
+  text-align: center;
+  color: white;
+  font-size: 12px;
+  line-height: 14px;
 }
 
 .qrcode-display {
