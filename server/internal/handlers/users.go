@@ -443,7 +443,7 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		mw.Error(w, http.StatusBadRequest, "avatar URL too long (max 500 chars)")
 		return
 	}
-	_, err = h.DB.Pool.Exec(r.Context(), `UPDATE users SET display_name = COALESCE(NULLIF($1, ''), display_name), avatar = COALESCE(NULLIF($2, ''), avatar), updated_at = NOW() WHERE id = $3`, body.DisplayName, body.AvatarURL, id)
+	_, err = h.DB.Pool.Exec(r.Context(), `UPDATE users SET display_name = COALESCE(NULLIF($1, ''), display_name), avatar_url = COALESCE(NULLIF($2, ''), avatar_url), updated_at = NOW() WHERE id = $3`, body.DisplayName, body.AvatarURL, id)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to update profile")
 		return
