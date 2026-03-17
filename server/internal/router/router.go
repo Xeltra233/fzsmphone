@@ -301,31 +301,40 @@ func placeholderDelete(resource string) http.HandlerFunc {
 }
 
 func fileServer(r chi.Router, root string) {
+	fs := http.Dir(root)
+	notFound := http.FileServer(fs)
+
 	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 
-		// Check if file exists in dist folder first
-		distDir := http.Dir(root)
-		if f, err := distDir.Open(path); err == nil {
+		// Try dist folder
+		if f, err := fs.Open(path); err == nil {
 			f.Close()
 			if info, err := f.Stat(); err == nil && !info.IsDir() {
-				http.ServeFile(w, r, root+path)
+				notFound.ServeHTTP(w, r)
 				return
 			}
 		}
 
-		// Try public folder for uploaded/static files
-		publicDir := http.Dir("./public")
-		if pf, err := publicDir.Open(path); err == nil {
+		// Try public folder
+		publicFs := http.Dir("./public")
+		if pf, err := publicFs.Open(path); err == nil {
 			pf.Close()
 			if info, err := pf.Stat(); err == nil && !info.IsDir() {
-				http.ServeFile(w, r, "./public"+path)
+				http.FileServer(publicFs).ServeHTTP(w, r)
 				return
 			}
 		}
 
-		// Fall back to index.html for SPA routing
+		// SPA fallback to index.html
 		r.URL.Path = "/"
-		http.ServeFile(w, r, root+"/index.html")
+		indexFile, err := fs.Open("/index.html")
+		if err == nil {
+			indexFile.Close()
+			http.ServeFile(w, r, root+"/index.html")
+		} else {
+			w.WriteHeader(404)
+			w.Write([]byte("index.html not found"))
+		}
 	})
 }
