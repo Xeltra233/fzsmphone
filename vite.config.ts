@@ -20,6 +20,18 @@ export default defineConfig({
         target: 'ws://localhost:8080',
         ws: true,
       },
+      '/qun_qrcode.jpg': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/avatar_': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/icon': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
     cors: {
       origin: process.env.VITE_ALLOWED_ORIGINS?.split(',') || true,

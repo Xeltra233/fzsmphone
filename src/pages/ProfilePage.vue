@@ -255,12 +255,15 @@ const userAvatar = computed(() => {
   const avatar = user.value?.avatar
   if (!avatar) return ''
   if (avatar.startsWith('http')) return avatar
+  // 判断是否为本地静态资源（public目录下的文件）
+  if (avatar.startsWith('/avatar_') || avatar.startsWith('/icon') || avatar.startsWith('/qun_')) {
+    return avatar // 直接使用相对路径，开发和生产都能正确处理
+  }
   return API_BASE + avatar
 })
 const qrcodeUrl = computed(() => {
-  const path = '/qun_qrcode.jpg'
-  if (path.startsWith('http')) return path
-  return API_BASE + path
+  // public目录下的静态文件直接使用相对路径
+  return '/qun_qrcode.jpg'
 })
 const showAccountName = computed(() => {
   return user.value?.displayName && user.value?.displayName !== user.value?.username
