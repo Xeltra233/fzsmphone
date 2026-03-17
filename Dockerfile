@@ -48,9 +48,6 @@ COPY --from=backend-builder /app/server ./server
 # Copy frontend dist
 COPY --from=frontend-builder /app/dist ./dist
 
-# Copy public folder for static files (avatars, qr codes, etc)
-COPY --from=frontend-builder /app/public ./public
-
 EXPOSE 8080
 
 CMD ["./server"]
