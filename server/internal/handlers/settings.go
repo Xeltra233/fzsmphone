@@ -32,7 +32,7 @@ func (h *SettingsHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	settings := make(map[string]json.RawMessage)
+	settings := make(map[string]interface{})
 	for rows.Next() {
 		var key string
 		var value []byte
@@ -40,10 +40,16 @@ func (h *SettingsHandler) Get(w http.ResponseWriter, r *http.Request) {
 			mw.Error(w, http.StatusInternalServerError, "failed to scan setting")
 			return
 		}
-		settings[key] = json.RawMessage(value)
+		// Try to parse as JSON, if fails use as string
+		var parsed interface{}
+		if err := json.Unmarshal(value, &parsed); err == nil {
+			settings[key] = parsed
+		} else {
+			settings[key] = string(value)
+		}
 	}
 
-	mw.JSON(w, http.StatusOK, map[string]interface{}{"data": settings})
+	mw.JSON(w, http.StatusOK, settings)
 }
 
 // PUT /api/settings

@@ -97,7 +97,7 @@ func (h *UserHandler) Get(w http.ResponseWriter, r *http.Request) {
 	err = h.DB.Pool.QueryRow(r.Context(), `
 	SELECT id, discord_id, username, display_name, COALESCE(avatar_url, ''), role,
 	is_banned, COALESCE(ban_reason, ''), banned_at,
-	created_at, updated_at WHERE id = $1
+	created_at, updated_at FROM users WHERE id = $1
 	`, id).Scan(&u.ID, &u.DiscordID, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Role, &u.IsBanned, &u.BanReason, &u.BannedAt, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		mw.Error(w, http.StatusNotFound, "user not found")

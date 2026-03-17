@@ -395,32 +395,14 @@ placeholder="qun_qrcode.jpg"
               <input v-model.number="apiForm.globalContextSize" type="number" min="1" max="100" class="setting-input" />
             </div>
             <div class="input-group">
-              <label>Timeout <span class="input-tip">超时秒数</span></label>
-              <input v-model.number="apiForm.globalTimeout" type="number" min="10" max="300" class="setting-input" />
-            </div>
-          </div>
-          <div class="input-group">
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="apiForm.globalStreamEnabled" />
-              <span>启用流式输出</span>
-            </label>
-          </div>
-          <div class="input-group">
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="apiForm.globalEnableSplit" />
-              <span>启用长消息分段</span>
-            </label>
-          </div>
-          <div class="input-group">
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="apiForm.globalEnableYamlParsing" />
-              <span>启用YAML解析</span>
-            </label>
-          </div>
-        </div>
-      </div>
+<label>Timeout <span class="input-tip">超时秒数</span></label>
+<input v-model.number="apiForm.globalTimeout" type="number" min="10" max="300" class="setting-input" />
+</div>
+</div>
+</div>
+</div>
 
-    <!-- 社交内容全局API -->
+<!-- 社交内容全局API -->
     <div class="settings-card">
       <div class="card-header">
         <h3>社交内容全局API</h3>
@@ -435,10 +417,70 @@ placeholder="qun_qrcode.jpg"
           <label>社交内容 API 地址</label>
           <input v-model="apiForm.globalSocialApiUrl" placeholder="留空则使用主API地址" class="setting-input" />
         </div>
-        <div class="input-group">
-          <label>社交内容默认模型</label>
-          <input v-model="apiForm.globalSocialModel" placeholder="gpt-4o-mini" class="setting-input" />
+<div class="input-group">
+<label>社交内容默认模型</label>
+<input v-model="apiForm.globalSocialModel" placeholder="gpt-4o-mini" class="setting-input" />
 </div>
+</div>
+</div>
+
+<!-- 全局生图配置 -->
+<div class="settings-card">
+<div class="card-header">
+<h3>全局生图配置</h3>
+<span class="badge">全局</span>
+</div>
+<div class="card-body">
+<div class="input-group">
+<label>生图 API 格式</label>
+<select v-model="imgGenForm.apiFormat" class="setting-select">
+<option value="novelai">NovelAI</option>
+<option value="openai">OpenAI/自定义</option>
+<option value="gemini">Gemini</option>
+</select>
+</div>
+<template v-if="imgGenForm.apiFormat === 'openai'">
+<div class="input-group">
+<label>生图 Base URL</label>
+<input v-model="imgGenForm.openaiUrl" placeholder="https://api.openai.com" class="setting-input" />
+</div>
+<div class="input-group">
+<label>生图 API Key</label>
+<input v-model="imgGenForm.openaiKey" type="password" placeholder="sk-..." class="setting-input" />
+</div>
+<div class="input-group">
+<label>生图模型</label>
+<input v-model="imgGenForm.openaiModel" placeholder="dall-e-3 / flux" class="setting-input" />
+</div>
+</template>
+<template v-else-if="imgGenForm.apiFormat === 'novelai'">
+<div class="input-group">
+<label>NovelAI 地址</label>
+<input v-model="imgGenForm.novelaiUrl" placeholder="https://image.novelai.run" class="setting-input" />
+</div>
+<div class="input-group">
+<label>NovelAI Key</label>
+<input v-model="imgGenForm.novelaiKey" type="password" placeholder="user-key" class="setting-input" />
+</div>
+<div class="input-group">
+<label>模型</label>
+<input v-model="imgGenForm.novelaiModel" placeholder="nai-diffusion-4-5-full" class="setting-input" />
+</div>
+</template>
+<template v-else-if="imgGenForm.apiFormat === 'gemini'">
+<div class="input-group">
+<label>Gemini 地址</label>
+<input v-model="imgGenForm.geminiUrl" placeholder="https://generativelanguage.googleapis.com" class="setting-input" />
+</div>
+<div class="input-group">
+<label>Gemini Key</label>
+<input v-model="imgGenForm.geminiKey" type="password" placeholder="AIza..." class="setting-input" />
+</div>
+<div class="input-group">
+<label>模型</label>
+<input v-model="imgGenForm.geminiModel" placeholder="gemini-2.0-flash-exp" class="setting-input" />
+</div>
+</template>
 </div>
 </div>
 
@@ -566,21 +608,31 @@ const apiSettingsLoading = ref(false)
 const apiSaving = ref(false)
 const apiSettings = ref<Record<string, any> | null>(null)
 const apiForm = ref({
-  globalApiKey: '',
-  globalApiUrl: '',
-  globalCustomUrl: '',
-  globalModel: '',
-  globalModelList: '',
-  globalTemperature: 0.9,
-  globalMaxLength: 4000,
-  globalContextSize: 20,
-  globalTimeout: 60,
-  globalStreamEnabled: true,
-  globalEnableSplit: true,
-  globalEnableYamlParsing: false,
-  globalSocialApiKey: '',
-  globalSocialApiUrl: '',
-  globalSocialModel: '',
+globalApiKey: '',
+globalApiUrl: '',
+globalCustomUrl: '',
+globalModel: '',
+globalModelList: '',
+globalTemperature: 0.9,
+globalMaxLength: 4000,
+globalContextSize: 20,
+globalTimeout: 60,
+globalSocialApiKey: '',
+globalSocialApiUrl: '',
+globalSocialModel: '',
+})
+
+const imgGenForm = ref({
+apiFormat: 'openai',
+novelaiUrl: '',
+novelaiKey: '',
+novelaiModel: 'nai-diffusion-4-5-full',
+openaiUrl: '',
+openaiKey: '',
+openaiModel: '',
+geminiUrl: '',
+geminiKey: '',
+geminiModel: '',
 })
 
 function showToast(message: string, type: 'success' | 'error' = 'success') {
@@ -741,17 +793,38 @@ apiForm.value.globalApiKey = res.global.api_key || ''
           apiForm.value.globalModel = res.global.model || ''
           apiForm.value.globalModelList = res.global.model_list || ''
           apiForm.value.globalTemperature = res.global.temperature ?? 0.9
-          apiForm.value.globalMaxLength = res.global.max_length ?? 4000
-          apiForm.value.globalContextSize = res.global.context_size ?? 20
-          apiForm.value.globalTimeout = res.global.timeout ?? 60
-          apiForm.value.globalStreamEnabled = res.global.stream_enabled ?? true
-          apiForm.value.globalEnableSplit = res.global.enable_split ?? true
-          apiForm.value.globalEnableYamlParsing = res.global.enable_yaml_parsing ?? false
-          apiForm.value.globalSocialApiKey = res.global.social_api_key || ''
-          apiForm.value.globalSocialApiUrl = res.global.social_api_url || ''
-          apiForm.value.globalSocialModel = res.global.social_model || ''
-    }
-  } catch (err: any) {
+apiForm.value.globalMaxLength = res.global.max_length ?? 4000
+apiForm.value.globalContextSize = res.global.context_size ?? 20
+apiForm.value.globalTimeout = res.global.timeout ?? 60
+apiForm.value.globalSocialApiKey = res.global.social_api_key || ''
+apiForm.value.globalSocialApiUrl = res.global.social_api_url || ''
+apiForm.value.globalSocialModel = res.global.social_model || ''
+}
+// Load global image gen config
+try {
+const settingsRes = await apiClient.get<Record<string, any>>('/api/settings')
+const settingsData = settingsRes.data || {}
+if (settingsData.img_gen_config) {
+const imgCfg = JSON.parse(settingsData.img_gen_config)
+imgGenForm.value.apiFormat = imgCfg.apiFormat || 'openai'
+if (imgCfg.novelai) {
+imgGenForm.value.novelaiUrl = imgCfg.novelai.url || ''
+imgGenForm.value.novelaiKey = imgCfg.novelai.key || ''
+imgGenForm.value.novelaiModel = imgCfg.novelai.model || 'nai-diffusion-4-5-full'
+}
+if (imgCfg.openai) {
+imgGenForm.value.openaiUrl = imgCfg.openai.url || ''
+imgGenForm.value.openaiKey = imgCfg.openai.key || ''
+imgGenForm.value.openaiModel = imgCfg.openai.model || ''
+}
+if (imgCfg.gemini) {
+imgGenForm.value.geminiUrl = imgCfg.gemini.url || ''
+imgGenForm.value.geminiKey = imgCfg.gemini.key || ''
+imgGenForm.value.geminiModel = imgCfg.gemini.model || ''
+}
+}
+} catch (e) { console.error('Failed to load img gen config', e) }
+} catch (err: any) {
     showToast('加载API设置失败', 'error')
   } finally {
     apiSettingsLoading.value = false
@@ -763,24 +836,30 @@ async function saveApiSettings() {
   try {
     if (authStore.isSuperAdmin) {
 await apiClient.put('/api/settings/api', {
-          api_key: apiForm.value.globalApiKey,
-          api_url: apiForm.value.globalApiUrl,
-          custom_url: apiForm.value.globalCustomUrl,
-          model: apiForm.value.globalModel,
-          model_list: apiForm.value.globalModelList,
-          temperature: apiForm.value.globalTemperature,
-          max_length: apiForm.value.globalMaxLength,
-          context_size: apiForm.value.globalContextSize,
-          timeout: apiForm.value.globalTimeout,
-          stream_enabled: apiForm.value.globalStreamEnabled,
-          enable_split: apiForm.value.globalEnableSplit,
-          enable_yaml_parsing: apiForm.value.globalEnableYamlParsing,
-          social_api_key: apiForm.value.globalSocialApiKey,
-          social_api_url: apiForm.value.globalSocialApiUrl,
-          social_model: apiForm.value.globalSocialModel,
-          is_global: true,
-        })
-    }
+api_key: apiForm.value.globalApiKey,
+api_url: apiForm.value.globalApiUrl,
+custom_url: apiForm.value.globalCustomUrl,
+model: apiForm.value.globalModel,
+model_list: apiForm.value.globalModelList,
+temperature: apiForm.value.globalTemperature,
+max_length: apiForm.value.globalMaxLength,
+context_size: apiForm.value.globalContextSize,
+timeout: apiForm.value.globalTimeout,
+social_api_key: apiForm.value.globalSocialApiKey,
+social_api_url: apiForm.value.globalSocialApiUrl,
+social_model: apiForm.value.globalSocialModel,
+is_global: true,
+})
+// Save global image gen config
+await apiClient.put('/api/settings', {
+img_gen_config: JSON.stringify({
+apiFormat: imgGenForm.value.apiFormat,
+novelai: { url: imgGenForm.value.novelaiUrl, key: imgGenForm.value.novelaiKey, model: imgGenForm.value.novelaiModel },
+openai: { url: imgGenForm.value.openaiUrl, key: imgGenForm.value.openaiKey, model: imgGenForm.value.openaiModel },
+gemini: { url: imgGenForm.value.geminiUrl, key: imgGenForm.value.geminiKey, model: imgGenForm.value.geminiModel },
+})
+})
+}
     showToast('API设置已保存')
   } catch (err: any) {
     showToast('保存API设置失败: ' + (err.message || '未知错误'), 'error')

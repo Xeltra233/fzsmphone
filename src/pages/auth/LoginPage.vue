@@ -221,12 +221,12 @@ const announcement = ref('')
 async function fetchAppName() {
   try {
     const res = await apiClient.get<Record<string, any>>('/api/settings')
-    const data = res.data || res || {}
+    const data = res.data || {}
     if (data.app_name) {
-      appName.value = data.app_name
+      appName.value = String(data.app_name)
     }
     if (data.announcement) {
-      announcement.value = data.announcement
+      announcement.value = String(data.announcement)
     }
   } catch {
     // Use default
