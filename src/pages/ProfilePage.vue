@@ -260,7 +260,7 @@ const userAvatar = computed(() => {
   const avatar = user.value?.avatar
   if (!avatar) return ''
   if (avatar.startsWith('http')) return avatar
-  if (avatar.startsWith('/avatar_')) return avatar
+  if (avatar.startsWith('/avatar_') || avatar.startsWith('/icon')) return avatar
   return ''
 })
 const qrcodeUrl = computed(() => {
@@ -406,9 +406,10 @@ async function saveProfile() {
       })
     })
     if (response.ok) {
+      const data = await response.json()
       authStore.user!.displayName = editDisplayName.value
-      if (editAvatarUrl.value) {
-        authStore.user!.avatar = editAvatarUrl.value
+      if (data.avatar_url || editAvatarUrl.value) {
+        authStore.user!.avatar = data.avatar_url || editAvatarUrl.value
       }
       localStorage.setItem('user', JSON.stringify(authStore.user))
       showEditProfile.value = false
