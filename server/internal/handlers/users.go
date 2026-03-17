@@ -230,14 +230,21 @@ func (h *UserHandler) Ban(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		Reason string `json:"reason"`
+		Reason        string `json:"reason"`
+		DurationHours int    `json:"duration_hours"`
 	}
 	json.NewDecoder(r.Body).Decode(&body)
 
+	var bannedUntil *time.Time
+	if body.DurationHours > 0 {
+		until := time.Now().Add(time.Duration(body.DurationHours) * time.Hour)
+		bannedUntil = &until
+	}
+
 	result, err := h.DB.Pool.Exec(r.Context(), `
-	UPDATE users SET is_banned = true, ban_reason = $1, banned_at = NOW(), updated_at = NOW()
-	WHERE id = $2
-	`, body.Reason, id)
+		UPDATE users SET is_banned = true, ban_reason = $1, banned_at = NOW(), banned_until = $2, updated_at = NOW()
+		WHERE id = $3
+	`, body.Reason, bannedUntil, id)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to ban user")
 		return

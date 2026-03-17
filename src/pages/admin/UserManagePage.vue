@@ -68,14 +68,18 @@
     <span v-if="u.is_super_admin" class="role-badge badge-super">超级管理员</span>
     <span v-if="u.is_banned" class="ban-tag">已封禁</span>
   </div>
-              <div class="user-meta">
-                <span class="user-username">@{{ u.username }}</span>
-                <span class="user-date">{{ formatDate(u.created_at) }}</span>
-              </div>
-              <div v-if="u.is_banned && u.ban_reason" class="user-ban-reason">
-                原因：{{ u.ban_reason }}
-              </div>
-            </div>
+  <div class="user-meta">
+    <span class="user-username">@{{ u.username }}</span>
+    <span class="user-credits" @click="openCreditsModal(u)" title="点击修改额度">
+      额度: {{ u.credits || 0 }} | Token: {{ u.total_tokens || 0 }}
+    </span>
+    <span class="user-date">{{ formatDate(u.created_at) }}</span>
+  </div>
+  <div v-if="u.is_banned && u.ban_reason" class="user-ban-reason">
+    原因：{{ u.ban_reason }}
+    <span v-if="u.banned_until" class="banned-until"> 解除时间: {{ formatDate(u.banned_until) }}</span>
+  </div>
+</div>
 <div class="user-actions">
   <select
     :value="u.role"
@@ -141,6 +145,18 @@
               class="ban-reason-input"
             ></textarea>
           </div>
+          <div class="ban-modal-field">
+            <label>封禁时长</label>
+            <select v-model="banDuration" class="ban-duration-select">
+              <option value="0">永久封禁</option>
+              <option value="1">1小时</option>
+              <option value="3">3小时</option>
+              <option value="24">1天</option>
+              <option value="72">3天</option>
+              <option value="168">7天</option>
+              <option value="720">30天</option>
+            </select>
+          </div>
           <div class="ban-modal-warning">
             注意：封禁后该用户将无法登录和使用任何功能
           </div>
@@ -150,8 +166,51 @@
           </div>
         </div>
       </div>
-    </teleport>
+</teleport>
+
+<!-- 额度编辑弹窗 -->
+<teleport to="body">
+  <div v-if="showCreditsModal" class="modal-overlay" @click.self="showCreditsModal = false">
+    <div class="credits-modal">
+      <div class="credits-modal-header">
+        <h3>调整用户额度</h3>
+        <button class="modal-close" @click="showCreditsModal = false">&times;</button>
+      </div>
+      <div class="credits-modal-user">
+        <div class="credits-modal-avatar">
+          <img v-if="creditsTarget?.avatar_url" :src="creditsTarget?.avatar_url" alt="" />
+          <span v-else class="avatar-placeholder">{{ (creditsTarget?.display_name || creditsTarget?.username)?.[0] || '?' }}</span>
+        </div>
+        <div>
+          <div class="credits-modal-name">{{ creditsTarget?.display_name || creditsTarget?.username }}</div>
+          <div class="credits-modal-username">@{{ creditsTarget?.username }}</div>
+        </div>
+      </div>
+      <div class="credits-modal-current">
+        当前额度: <span class="credits-value">{{ creditsTarget?.credits || 0 }}</span>
+      </div>
+      <div class="credits-modal-field">
+        <label>调整额度</label>
+        <div class="credits-input-group">
+          <button class="credits-btn minus" @click="creditsAdjust -= 100">-100</button>
+          <button class="credits-btn minus" @click="creditsAdjust -= 10">-10</button>
+          <input v-model.number="creditsAdjust" type="number" class="credits-input" placeholder="正数增加，负数减少" />
+          <button class="credits-btn plus" @click="creditsAdjust += 10">+10</button>
+          <button class="credits-btn plus" @click="creditsAdjust += 100">+100</button>
+        </div>
+      </div>
+      <div class="credits-modal-field">
+        <label>或者直接设置额度</label>
+        <input v-model.number="creditsSet" type="number" class="credits-input" placeholder="直接设置额度" />
+      </div>
+      <div class="credits-modal-actions">
+        <button class="btn-cancel" @click="showCreditsModal = false">取消</button>
+        <button class="btn-confirm-credits" @click="confirmCreditsAdjust" :disabled="creditsAdjust === 0 && creditsSet === 0">确认调整</button>
+      </div>
+    </div>
   </div>
+</teleport>
+</div>
 </template>
 
 <script setup lang="ts">
@@ -189,6 +248,13 @@ const users = ref<UserRecord[]>([])
 const showBanModal = ref(false)
 const banTarget = ref<UserRecord | null>(null)
 const banReason = ref('')
+const banDuration = ref('0')
+
+// Credits modal state
+const showCreditsModal = ref(false)
+const creditsTarget = ref<UserRecord | null>(null)
+const creditsAdjust = ref(0)
+const creditsSet = ref(0)
 
 const roleCounts = computed(() => {
   const counts = { admin: 0, moderator: 0, user: 0 }
@@ -283,10 +349,19 @@ async function confirmBan() {
   if (!banTarget.value) return
   saving.value = true
   try {
-    await api.post(`/api/users/${banTarget.value.id}/ban`, { reason: banReason.value })
+    const durationHours = parseInt(banDuration.value)
+    await api.post(`/api/users/${banTarget.value.id}/ban`, { 
+      reason: banReason.value,
+      duration_hours: durationHours
+    })
     banTarget.value.is_banned = true
     banTarget.value.ban_reason = banReason.value
     banTarget.value.banned_at = new Date().toISOString()
+    if (durationHours > 0) {
+      const until = new Date()
+      until.setHours(until.getHours() + durationHours)
+      banTarget.value.banned_until = until.toISOString()
+    }
     showBanModal.value = false
   } catch (e: any) {
     console.error('Failed to ban user:', e)
@@ -304,9 +379,38 @@ async function unbanUser(user: UserRecord) {
     user.is_banned = false
     user.ban_reason = ''
     user.banned_at = null
+    user.banned_until = null
   } catch (e: any) {
     console.error('Failed to unban user:', e)
     alert('解除封禁失败: ' + (e.message || '未知错误'))
+  } finally {
+    saving.value = false
+  }
+}
+
+function openCreditsModal(user: UserRecord) {
+  creditsTarget.value = user
+  creditsAdjust.value = 0
+  creditsSet.value = 0
+  showCreditsModal.value = true
+}
+
+async function confirmCreditsAdjust() {
+  if (!creditsTarget.value) return
+  saving.value = true
+  try {
+    let newCredits: number
+    if (creditsSet.value !== 0) {
+      newCredits = creditsSet.value
+    } else {
+      newCredits = (creditsTarget.value.credits || 0) + creditsAdjust.value
+    }
+    await api.patch(`/api/users/${creditsTarget.value.id}/credits`, { credits: newCredits })
+    creditsTarget.value.credits = newCredits
+    showCreditsModal.value = false
+  } catch (e: any) {
+    console.error('Failed to adjust credits:', e)
+    alert('调整额度失败: ' + (e.message || '未知错误'))
   } finally {
     saving.value = false
   }
@@ -810,5 +914,176 @@ onMounted(() => {
 
 .btn-confirm-ban:hover {
   background: rgba(255, 59, 48, 1);
+}
+
+.ban-duration-select {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.credits-modal {
+  background: #1c1c1e;
+  border-radius: 16px;
+  padding: 20px;
+  width: 90%;
+  max-width: 400px;
+  color: #fff;
+}
+
+.credits-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.credits-modal-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.credits-modal-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+}
+
+.credits-modal-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.credits-modal-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.credits-modal-name {
+  font-weight: 600;
+}
+
+.credits-modal-username {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.credits-modal-current {
+  text-align: center;
+  padding: 12px;
+  background: rgba(91, 110, 245, 0.1);
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.credits-value {
+  color: #5B6EF5;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.credits-modal-field {
+  margin-bottom: 16px;
+}
+
+.credits-modal-field label {
+  display: block;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 8px;
+}
+
+.credits-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.credits-btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.credits-btn.minus {
+  background: rgba(255, 59, 48, 0.2);
+  color: #ff3b30;
+}
+
+.credits-btn.plus {
+  background: rgba(52, 199, 89, 0.2);
+  color: #34c759;
+}
+
+.credits-btn:hover {
+  opacity: 0.8;
+}
+
+.credits-input {
+  flex: 1;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+}
+
+.credits-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn-confirm-credits {
+  flex: 1;
+  padding: 10px;
+  background: rgba(91, 110, 245, 0.8);
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-confirm-credits:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.user-credits {
+  cursor: pointer;
+  color: #5B6EF5;
+  font-size: 12px;
+}
+
+.user-credits:hover {
+  text-decoration: underline;
+}
+
+.banned-until {
+  color: rgba(255, 149, 0, 0.8);
+  font-size: 11px;
 }
 </style>
