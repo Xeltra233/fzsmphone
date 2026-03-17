@@ -804,8 +804,8 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #0a0a0a;
-  color: #fff;
+  background: var(--bg-secondary, #f5f5f7);
+  color: var(--text-primary, #1d1d1f);
 }
 
 .page-content {
@@ -827,7 +827,7 @@ onMounted(() => {
   justify-content: center;
   padding: 80px 0;
   gap: 16px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-tertiary, #86868b);
 }
 
 .spinner {
@@ -858,7 +858,7 @@ onMounted(() => {
 .section-header h3 {
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-tertiary, 0.5);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin: 0;
@@ -866,8 +866,8 @@ onMounted(() => {
 
 /* 设置项 */
 .settings-list {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-tertiary, 0.06);
+  border: 1px solid var(--separator, 0.08);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -877,7 +877,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--separator, 0.06);
 }
 
 .setting-item:last-child {
@@ -893,12 +893,12 @@ onMounted(() => {
 
 .label-text {
   font-size: 15px;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .label-desc {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary, 0.4);
 }
 
 .setting-input-wrap {
@@ -910,10 +910,10 @@ onMounted(() => {
 .setting-input {
   width: 80px;
   padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--bg-secondary, 0.3);
+  border: 1px solid var(--separator, 0.15);
   border-radius: 8px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
   text-align: right;
   outline: none;
@@ -952,7 +952,7 @@ onMounted(() => {
 
 .input-suffix {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-tertiary, 0.5);
 }
 
 /* Toggle */
@@ -1010,7 +1010,7 @@ onMounted(() => {
   background: linear-gradient(135deg, #5B6EF5, #8B5CF6);
   border: none;
   border-radius: 12px;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -1031,7 +1031,7 @@ onMounted(() => {
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  border-top-color: var(--text-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -1052,12 +1052,12 @@ onMounted(() => {
 
 .toast.success {
   background: rgba(52, 199, 89, 0.9);
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .toast.error {
   background: rgba(255, 59, 48, 0.9);
-  color: #fff;
+  color: var(--text-primary);
 }
 
 @keyframes fadeInUp {
@@ -1071,7 +1071,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary, 0.4);
   font-size: 16px;
 }
 
@@ -1085,10 +1085,10 @@ onMounted(() => {
 
 .tab-btn {
   padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--bg-tertiary, 0.08);
+  border: 1px solid var(--separator, 0.15);
   border-radius: 20px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-tertiary, 0.6);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
@@ -1097,7 +1097,7 @@ onMounted(() => {
 .tab-btn.active {
   background: rgba(91, 110, 245, 0.3);
   border-color: #5B6EF5;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 /* 权限提示 */
@@ -1111,7 +1111,7 @@ onMounted(() => {
   border-radius: 12px;
   margin-bottom: 16px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-tertiary, 0.7);
 }
 
 .notice-icon {
@@ -1126,8 +1126,8 @@ onMounted(() => {
 }
 
 .settings-card {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-tertiary, 0.06);
+  border: 1px solid var(--separator, 0.08);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -1137,14 +1137,14 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--separator, 0.08);
 }
 
 .card-header h3 {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .badge {
@@ -1170,7 +1170,7 @@ onMounted(() => {
 
 .input-group label {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-tertiary, 0.6);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -1184,7 +1184,7 @@ onMounted(() => {
 
 .input-desc {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary, 0.4);
   margin-top: 4px;
   display: block;
 }
@@ -1203,7 +1203,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
@@ -1237,7 +1237,7 @@ onMounted(() => {
 }
 
 .password-label {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-tertiary, 0.6);
 }
 
 .password-value {
@@ -1253,7 +1253,7 @@ onMounted(() => {
 }
 
 .qrcode-placeholder {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary, 0.4);
   font-size: 14px;
   padding: 20px;
 }
@@ -1294,7 +1294,7 @@ onMounted(() => {
 
 .upload-status {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-tertiary, 0.5);
 }
 
 .favicon-preview {
@@ -1309,11 +1309,11 @@ onMounted(() => {
   height: 32px;
   border-radius: 6px;
   object-fit: contain;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary, 0.1);
 }
 
 .favicon-placeholder {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-tertiary, 0.4);
 }
 </style>

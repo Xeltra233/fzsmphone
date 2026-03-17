@@ -414,7 +414,7 @@ func (h *UserHandler) UpdateAvatar(w http.ResponseWriter, r *http.Request) {
 	mw.JSON(w, http.StatusOK, map[string]string{"avatar_url": avatarPath, "message": "avatar updated"})
 }
 
-// PATCH /api/users/{id}/profile - Update user profile (display_name)
+// PATCH /api/users/{id}/profile - Update user profile (display_name, avatar_url)
 func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	callerID, _ := mw.GetUserID(r.Context())
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
@@ -429,6 +429,7 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		DisplayName string `json:"display_name"`
+		AvatarURL   string `json:"avatar_url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		mw.Error(w, http.StatusBadRequest, "invalid request body")
@@ -438,11 +439,15 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		mw.Error(w, http.StatusBadRequest, "display name too long (max 50 chars)")
 		return
 	}
-	_, err = h.DB.Pool.Exec(r.Context(), `UPDATE users SET display_name = COALESCE(NULLIF($1, ''), display_name), updated_at = NOW() WHERE id = $2`, body.DisplayName, id)
+	if body.AvatarURL != "" && len(body.AvatarURL) > 500 {
+		mw.Error(w, http.StatusBadRequest, "avatar URL too long (max 500 chars)")
+		return
+	}
+	_, err = h.DB.Pool.Exec(r.Context(), `UPDATE users SET display_name = COALESCE(NULLIF($1, ''), display_name), avatar = COALESCE(NULLIF($2, ''), avatar), updated_at = NOW() WHERE id = $3`, body.DisplayName, body.AvatarURL, id)
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to update profile")
 		return
 	}
 
-	mw.JSON(w, http.StatusOK, map[string]string{"message": "profile updated"})
+	mw.JSON(w, http.StatusOK, map[string]string{"message": "profile updated", "avatar_url": body.AvatarURL})
 }

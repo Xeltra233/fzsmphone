@@ -147,12 +147,16 @@
         <h3>编辑资料</h3>
         <button class="modal-close" @click="showEditProfile = false">&times;</button>
       </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label>显示名称</label>
-          <input type="text" v-model="editDisplayName" placeholder="输入显示名称" maxlength="50" />
-        </div>
-      </div>
+<div class="modal-body">
+  <div class="form-group">
+    <label>显示名称</label>
+    <input type="text" v-model="editDisplayName" placeholder="输入显示名称" maxlength="50" />
+  </div>
+  <div class="form-group">
+    <label>头像链接</label>
+    <input type="text" v-model="editAvatarUrl" placeholder="输入图片URL，如 https://xxx.com/avatar.jpg" maxlength="500" />
+  </div>
+</div>
       <div class="modal-footer">
         <button class="btn-cancel" @click="showEditProfile = false">取消</button>
         <button class="btn-confirm" @click="saveProfile" :disabled="saving">保存</button>
@@ -240,6 +244,7 @@ const showContactModal = ref(false)
 const showInviteModal = ref(false)
 const qrcodeLoadError = ref(false)
 const editDisplayName = ref('')
+const editAvatarUrl = ref('')
 const saving = ref(false)
 const avatarInput = ref<HTMLInputElement | null>(null)
 const inviteData = ref<{ code: string; invitees: any[]; totalRewards: number }>({
@@ -381,6 +386,7 @@ async function handleAvatarChange(event: Event) {
 
 function openEditProfile() {
   editDisplayName.value = user.value?.displayName || user.value?.username || ''
+  editAvatarUrl.value = user.value?.avatar || ''
   showEditProfile.value = true
 }
 
@@ -394,12 +400,19 @@ async function saveProfile() {
         'Authorization': `Bearer ${authStore.token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ display_name: editDisplayName.value })
+      body: JSON.stringify({ 
+        display_name: editDisplayName.value,
+        avatar_url: editAvatarUrl.value
+      })
     })
     if (response.ok) {
       authStore.user!.displayName = editDisplayName.value
+      if (editAvatarUrl.value) {
+        authStore.user!.avatar = editAvatarUrl.value
+      }
       localStorage.setItem('user', JSON.stringify(authStore.user))
       showEditProfile.value = false
+      editAvatarUrl.value = ''
     }
   } catch (err) {
     console.error('Failed to save profile:', err)
