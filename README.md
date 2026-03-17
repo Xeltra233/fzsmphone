@@ -273,7 +273,25 @@ fzsmphone/
 ## 许可证
 
 本项目仅供个人学习交流使用，**禁止任何形式的商业用途**。
-
 你可以自由使用、修改、分发本项目，但不得用于商业目的。
-
 如需商用请联系作者获取授权。
+
+## 贡献者
+
+感谢以下 contributors 的贡献：
+
+<a href="https://github.com/Xeltra233/fzsmphone/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Xeltra233/fzsmphone&max=12" alt="contributors" />
+</a>
+
+## 合作者
+
+| 头像 | 名称 | 角色 |
+|------|------|------|
+| <img src="https://avatars.githubusercontent.com/u/XXXXXX?v=4" width="40" height="40" style="border-radius: 50%;" /> | Xeltra233 | 项目创始人 |
+
+---
+
+<p align="center">
+  贩子死妈小手机版权所有 © 2024
+</p>

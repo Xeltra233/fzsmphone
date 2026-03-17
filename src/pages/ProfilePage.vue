@@ -133,8 +133,12 @@
 <!-- 退出登录 -->
   <button class="logout-btn" @click="handleLogout">退出登录</button>
 
-  <div class="version-info">贩子死妈小手机 v1.0.0</div>
+  <div class="version-info">
+    <p class="copyright">贩子死妈小手机版权所有</p>
+    <p class="version">v1.0.0</p>
+    <p class="custom-disclaimer" v-if="customDisclaimer">{{ customDisclaimer }}</p>
   </div>
+</div>
 
   <!-- 编辑资料弹窗 -->
   <div v-if="showEditProfile" class="modal-overlay" @click="showEditProfile = false">
@@ -244,6 +248,7 @@ const inviteData = ref<{ code: string; invitees: any[]; totalRewards: number }>(
   totalRewards: 0
 })
 const loadingInvite = ref(false)
+const customDisclaimer = ref('')
 
 const user = computed(() => authStore.user)
 const userAvatar = computed(() => {
@@ -403,7 +408,7 @@ async function saveProfile() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   // Sync dark mode state
   if (settingsStore.settings.darkMode !== (phoneStore.theme === 'dark')) {
     document.documentElement.setAttribute('data-theme', settingsStore.settings.darkMode ? 'dark' : 'light')
@@ -417,6 +422,21 @@ onMounted(() => {
   } else {
     const days = Math.ceil((Date.now() - new Date(firstUse).getTime()) / 86400000)
     stats.value[3].value = days
+  }
+
+  // Load custom disclaimer from settings
+  try {
+    const response = await fetch(`${API_BASE}/api/settings/key?key=disclaimer`, {
+      headers: { 'Authorization': `Bearer ${authStore.token}` }
+    })
+    if (response.ok) {
+      const data = await response.json()
+      if (data.value) {
+        customDisclaimer.value = data.value
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load disclaimer:', err)
   }
 })
 </script>
@@ -659,6 +679,25 @@ onMounted(() => {
   font-size: 12px;
   color: var(--text-quaternary);
   padding-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.version-info .copyright {
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.version-info .version {
+  margin: 0;
+}
+
+.version-info .custom-disclaimer {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--text-quaternary);
 }
 
 /* 快捷设置项 */
