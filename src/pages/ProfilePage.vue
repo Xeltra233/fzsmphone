@@ -27,7 +27,7 @@
       </div>
       <div class="online-dot"></div>
     </div>
-    <div class="user-info" @click="showEditProfile = true">
+    <div class="user-info" @click="openEditProfile">
       <h2 class="display-name">{{ user?.displayName || user?.username || '未登录' }}</h2>
       <p v-if="showAccountName" class="account-name">账户名：{{ user?.username }}</p>
       <p class="user-id">ID: {{ user?.id || '—' }}</p>
@@ -314,9 +314,8 @@ const adminItems: MenuItem[] = [
 function handleMenuItem(item: MenuItem) {
   if (item.route) {
     router.push(item.route)
-  } else if (item.action === 'editProfile') {
-    editDisplayName.value = user.value?.displayName || user.value?.username || ''
-    showEditProfile.value = true
+} else if (item.action === 'editProfile') {
+  openEditProfile()
   } else if (item.action === 'showContact') {
     qrcodeLoadError.value = false
     showContactModal.value = true
