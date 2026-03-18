@@ -78,6 +78,8 @@ async function loadLeaderboard() {
     if (response.ok) {
       const data = await response.json()
       leaderboard.value = data.data || []
+    } else {
+      console.error('Failed to load leaderboard:', response.status)
     }
   } catch (error) {
     console.error('Failed to load leaderboard:', error)
@@ -97,6 +99,7 @@ function viewUserProfile(userId: number) {
 }
 
 function isUserOnline(lastActive: string): boolean {
+  if (!lastActive) return false
   const lastActiveTime = new Date(lastActive).getTime()
   const fiveMinutesAgo = Date.now() - 5 * 60 * 1000
   return lastActiveTime > fiveMinutesAgo
