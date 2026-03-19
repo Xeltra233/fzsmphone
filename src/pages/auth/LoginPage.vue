@@ -222,13 +222,18 @@ async function fetchAppName() {
   try {
     const res = await apiClient.get<Record<string, any>>('/api/settings')
     const data = res.data || {}
+    console.log('Settings data:', data) // 调试信息
     if (data.app_name) {
       appName.value = String(data.app_name)
+    } else if (data.appName) {
+      // 兼容不同命名格式
+      appName.value = String(data.appName)
     }
     if (data.announcement) {
       announcement.value = String(data.announcement)
     }
-  } catch {
+  } catch (error) {
+    console.error('Failed to fetch app name:', error)
     // Use default
   }
 }
@@ -312,7 +317,7 @@ onMounted(async () => {
       isBanned.value = true
       banReason.value = urlParams.get('reason') || ''
     }
-    fetchAppName()
+    await fetchAppName()
   }
 })
 
