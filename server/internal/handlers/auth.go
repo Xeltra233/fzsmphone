@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -16,6 +17,8 @@ import (
 	mw "fzsmphone/internal/middleware"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -410,39 +413,30 @@ func (h *AuthHandler) SetupNeeded(w http.ResponseWriter, r *http.Request) {
 // POST /api/auth/register - 用户注册
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Username string `json:"username"`
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Username   string `json:"username"`
+		Email      string `json:"email"`
+		Password   string `json:"password"`
+		InviteCode string `json:"invite_code"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		mw.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	if strings.TrimSpace(body.Username) == "" {
+	body.Username = strings.TrimSpace(body.Username)
+	body.Email = strings.TrimSpace(body.Email)
+	body.InviteCode = strings.ToUpper(strings.TrimSpace(body.InviteCode))
+
+	if body.Username == "" {
 		mw.Error(w, http.StatusBadRequest, "用户名不能为空")
 		return
 	}
-	if strings.TrimSpace(body.Email) == "" {
+	if body.Email == "" {
 		mw.Error(w, http.StatusBadRequest, "邮箱不能为空")
 		return
 	}
 	if len(body.Password) < 6 {
 		mw.Error(w, http.StatusBadRequest, "密码长度至少6位")
-		return
-	}
-
-	// Check if email or username already exists
-	var exists bool
-	err := h.DB.Pool.QueryRow(r.Context(), `
-		SELECT EXISTS(SELECT 1 FROM users WHERE email = $1 OR username = $2)
-	`, body.Email, body.Username).Scan(&exists)
-	if err != nil {
-		mw.Error(w, http.StatusInternalServerError, "failed to check user")
-		return
-	}
-	if exists {
-		mw.Error(w, http.StatusConflict, "用户名或邮箱已存在")
 		return
 	}
 
@@ -453,11 +447,20 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx, err := h.DB.Pool.Begin(r.Context())
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to start transaction")
+		return
+	}
+	defer tx.Rollback(r.Context())
+
 	// Check if this is the first user (make them super_admin)
 	var userCount int64
-	err = h.DB.Pool.QueryRow(r.Context(), `SELECT COUNT(*) FROM users`).Scan(&userCount)
+	err = tx.QueryRow(r.Context(), `SELECT COUNT(*) FROM users`).Scan(&userCount)
 	if err != nil {
 		log.Printf("[ERROR] Failed to count users: %v", err)
+		mw.Error(w, http.StatusInternalServerError, "failed to count users")
+		return
 	}
 	isFirstUser := userCount == 0
 
@@ -467,20 +470,86 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var isSuperAdmin bool
 	if isFirstUser {
 		// First user becomes super_admin
-		err = h.DB.Pool.QueryRow(r.Context(), `
+		err = tx.QueryRow(r.Context(), `
 			INSERT INTO users (username, email, password_hash, display_name, role, is_super_admin, discord_id)
 			VALUES ($1, $2, $3, $1, 'super_admin', true, NULL)
 			RETURNING id, role, is_super_admin
 		`, body.Username, body.Email, string(hashedPassword)).Scan(&userID, &role, &isSuperAdmin)
 	} else {
-		err = h.DB.Pool.QueryRow(r.Context(), `
+		err = tx.QueryRow(r.Context(), `
 			INSERT INTO users (username, email, password_hash, display_name, role, is_super_admin, discord_id)
 			VALUES ($1, $2, $3, $1, 'user', false, NULL)
 			RETURNING id, role, is_super_admin
 		`, body.Username, body.Email, string(hashedPassword)).Scan(&userID, &role, &isSuperAdmin)
 	}
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			mw.Error(w, http.StatusConflict, "用户名或邮箱已存在")
+			return
+		}
 		mw.Error(w, http.StatusInternalServerError, "failed to create user")
+		return
+	}
+
+	if body.InviteCode != "" && !isFirstUser {
+		var inviteEnabled bool
+		if err := tx.QueryRow(r.Context(), `
+			SELECT COALESCE((SELECT value::bool FROM app_settings WHERE key = 'invite_enabled'), true)
+		`).Scan(&inviteEnabled); err != nil {
+			mw.Error(w, http.StatusInternalServerError, "failed to check invite settings")
+			return
+		}
+		if !inviteEnabled {
+			mw.Error(w, http.StatusBadRequest, "邀请码功能未开启")
+			return
+		}
+
+		var inviterID int64
+		if err := tx.QueryRow(r.Context(), `
+			SELECT id FROM users WHERE invite_code = $1 AND id != $2
+		`, body.InviteCode, userID).Scan(&inviterID); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				mw.Error(w, http.StatusBadRequest, "邀请码无效")
+				return
+			}
+			mw.Error(w, http.StatusInternalServerError, "failed to verify invite code")
+			return
+		}
+
+		var rewardCredits int
+		if err := tx.QueryRow(r.Context(), `
+			SELECT COALESCE((SELECT value::int FROM app_settings WHERE key = 'invite_reward_credits'), 100)
+		`).Scan(&rewardCredits); err != nil {
+			mw.Error(w, http.StatusInternalServerError, "failed to load invite reward")
+			return
+		}
+
+		if _, err := tx.Exec(r.Context(), `
+			UPDATE users SET invited_by = $1, credits = credits + $2 WHERE id = $3
+		`, inviterID, rewardCredits, userID); err != nil {
+			mw.Error(w, http.StatusInternalServerError, "failed to bind invite code")
+			return
+		}
+
+		if _, err := tx.Exec(r.Context(), `
+			INSERT INTO invite_rewards (inviter_id, invited_id, reward_credits)
+			VALUES ($1, $2, $3)
+		`, inviterID, userID, rewardCredits); err != nil {
+			mw.Error(w, http.StatusInternalServerError, "failed to create invite reward")
+			return
+		}
+
+		if _, err := tx.Exec(r.Context(), `
+			UPDATE users SET credits = credits + $1, invite_rewards_claimed = invite_rewards_claimed + $1 WHERE id = $2
+		`, rewardCredits, inviterID); err != nil {
+			mw.Error(w, http.StatusInternalServerError, "failed to reward inviter")
+			return
+		}
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to commit register")
 		return
 	}
 

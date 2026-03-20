@@ -526,4 +526,13 @@ ON CONFLICT (key) DO NOTHING;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_until TIMESTAMPTZ;
 `,
 	},
+	{
+		Version: 28,
+		Name:    "add_user_unique_constraints",
+		SQL: `
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users (LOWER(username));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users (LOWER(email)) WHERE email <> '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_invite_code_unique ON users (invite_code) WHERE invite_code <> '';
+`,
+	},
 }

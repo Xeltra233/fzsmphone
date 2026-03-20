@@ -148,6 +148,10 @@
               <div class="input-group">
                 <input v-model="registerForm.password" type="password" placeholder="密码（至少6位）" class="login-input" @keyup.enter="handleRegister" />
               </div>
+              <div class="input-group">
+                <input v-model="registerForm.invite_code" type="text" placeholder="邀请码（选填）" class="login-input" @keyup.enter="handleRegister" />
+              </div>
+              <p class="register-tip">填写邀请码可在注册后自动完成绑定并领取奖励</p>
               <button class="login-btn pressable" @click="handleRegister" :disabled="registering">
                 <template v-if="registering">
                   <div class="btn-spinner"></div>
@@ -302,7 +306,8 @@ const password = ref('')
 const registerForm = ref({
   username: '',
   email: '',
-  password: ''
+  password: '',
+  invite_code: ''
 })
 
 const toast = ref({ show: false, message: '', type: 'success' as 'success' | 'error' })
@@ -375,14 +380,20 @@ async function handleRegister() {
   
   registering.value = true
   try {
-    const res = await apiClient.post<AuthResponse>('/api/auth/register', registerForm.value) as AuthResponse
+    const res = await apiClient.post<AuthResponse>('/api/auth/register', {
+      username: registerForm.value.username.trim(),
+      email: registerForm.value.email.trim(),
+      password: registerForm.value.password,
+      invite_code: registerForm.value.invite_code.trim().toUpperCase(),
+    }) as AuthResponse
 
     localStorage.setItem('token', res.token)
     localStorage.setItem('user', JSON.stringify(res.user))
+    registerForm.value = { username: '', email: '', password: '', invite_code: '' }
     showRegister.value = false
     window.location.href = '/'
   } catch (err: any) {
-    showToast(err.response?.data?.error || '注册失败', 'error')
+    showToast(err?.message || '注册失败', 'error')
   } finally {
     registering.value = false
   }
@@ -657,6 +668,13 @@ async function handleRegister() {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.register-tip {
+  margin: -4px 2px 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* Toast */
