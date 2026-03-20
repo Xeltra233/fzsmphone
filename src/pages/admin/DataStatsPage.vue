@@ -260,7 +260,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
+  background: var(--bg-secondary);
 }
 
 .page-content {
@@ -279,13 +279,13 @@ onMounted(async () => {
   justify-content: center;
   height: 200px;
   font-size: 16px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .loading {
   text-align: center;
   padding: 40px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 /* Overview Cards */
@@ -297,14 +297,14 @@ onMounted(async () => {
 }
 
 .overview-card {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 16px;
   display: flex;
   align-items: center;
   gap: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-sm);
 }
 
 .card-icon {
@@ -326,12 +326,12 @@ onMounted(async () => {
 .card-value {
   font-size: 24px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .card-label {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 /* Section */
@@ -350,17 +350,17 @@ onMounted(async () => {
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: #475569;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .section-card {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Role Distribution */
@@ -369,7 +369,7 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--separator);
 }
 
 .role-item:last-child {
@@ -392,19 +392,19 @@ onMounted(async () => {
 
 .role-name {
   font-size: 14px;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .role-count {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-secondary);
   margin-left: auto;
 }
 
 .role-bar-bg {
   flex: 1;
   height: 6px;
-  background: #e2e8f0;
+  background: var(--fill-secondary);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -417,7 +417,7 @@ onMounted(async () => {
 
 .role-percent {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-secondary);
   min-width: 45px;
   text-align: right;
 }
@@ -438,7 +438,7 @@ onMounted(async () => {
   flex-direction: column;
   justify-content: space-between;
   font-size: 10px;
-  color: #94a3b8;
+  color: var(--text-tertiary);
   padding-bottom: 18px;
   min-width: 20px;
   text-align: right;
@@ -449,7 +449,7 @@ onMounted(async () => {
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  border-bottom: 1px solid #dbe3ee;
+  border-bottom: 1px solid var(--separator);
   padding-bottom: 18px;
   position: relative;
 }
@@ -477,7 +477,7 @@ onMounted(async () => {
   position: absolute;
   bottom: -18px;
   font-size: 8px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-tertiary);
   white-space: nowrap;
   transform: rotate(-45deg);
   transform-origin: top center;
@@ -493,7 +493,7 @@ onMounted(async () => {
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--separator);
 }
 
 .recent-user-item:last-child {
@@ -534,7 +534,7 @@ onMounted(async () => {
 
 .recent-user-name {
   font-size: 14px;
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -543,7 +543,7 @@ onMounted(async () => {
 
 .recent-user-date {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-tertiary);
 }
 
 .recent-user-role {
@@ -572,7 +572,7 @@ onMounted(async () => {
 .empty-hint {
   text-align: center;
   padding: 24px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-tertiary);
   font-size: 14px;
 }
 </style>

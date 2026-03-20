@@ -95,8 +95,8 @@ const isSuperAdmin = computed(() => authStore.isSuperAdmin)
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
-  color: #1f2937;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .admin-content {
@@ -110,11 +110,11 @@ const isSuperAdmin = computed(() => authStore.isSuperAdmin)
   align-items: center;
   gap: 16px;
   padding: 20px;
-  background: linear-gradient(135deg, #ffffff, #f4f8fc);
+  background: var(--bg-primary);
   border-radius: 16px;
   margin-bottom: 20px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-md);
 }
 
 .admin-avatar {
@@ -137,7 +137,7 @@ const isSuperAdmin = computed(() => authStore.isSuperAdmin)
 
 .admin-role {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .admin-grid {
@@ -148,13 +148,13 @@ const isSuperAdmin = computed(() => authStore.isSuperAdmin)
 }
 
 .admin-card {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 16px;
   cursor: pointer;
   transition: all 0.2s;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-sm);
 }
 
 .admin-card:active {
@@ -180,20 +180,20 @@ const isSuperAdmin = computed(() => authStore.isSuperAdmin)
 
 .card-desc {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .quick-actions {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   padding: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-sm);
 }
 
 .action-title {
   font-size: 14px;
-  color: #64748b;
+  color: var(--text-secondary);
   margin-bottom: 12px;
 }
 
@@ -208,14 +208,14 @@ const isSuperAdmin = computed(() => authStore.isSuperAdmin)
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   border-radius: 10px;
   cursor: pointer;
-  border: 1px solid rgba(148, 163, 184, 0.14);
+  border: 1px solid var(--separator);
 }
 
 .action-item:active {
-  background: #eef4ff;
+  background: var(--fill-secondary);
 }
 
 .action-icon {
@@ -228,7 +228,7 @@ const isSuperAdmin = computed(() => authStore.isSuperAdmin)
 }
 
 .action-arrow {
-  color: #94a3b8;
+  color: var(--text-tertiary);
   font-size: 20px;
 }
 </style>

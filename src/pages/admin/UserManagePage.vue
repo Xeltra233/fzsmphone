@@ -428,7 +428,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
+  background: var(--bg-secondary);
 }
 
 .page-content {
@@ -447,19 +447,19 @@ onMounted(() => {
   justify-content: center;
   height: 200px;
   font-size: 16px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .loading {
   text-align: center;
   padding: 40px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: #94a3b8;
+  color: var(--text-tertiary);
   font-size: 14px;
 }
 
@@ -467,18 +467,18 @@ onMounted(() => {
 .search-bar {
   display: flex;
   align-items: center;
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 10px;
   padding: 0 12px;
   margin-bottom: 12px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-sm);
 }
 
 .search-icon {
   width: 18px;
   height: 18px;
-  color: #94a3b8;
+  color: var(--text-tertiary);
   flex-shrink: 0;
 }
 
@@ -487,13 +487,13 @@ onMounted(() => {
   background: none;
   border: none;
   outline: none;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 15px;
   padding: 10px 8px;
 }
 
 .search-input::placeholder {
-  color: #94a3b8;
+  color: var(--text-tertiary);
 }
 
 /* Stats bar */
@@ -505,26 +505,26 @@ onMounted(() => {
 
 .stat-chip {
   flex: 1;
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 10px;
   padding: 10px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-chip-label {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .stat-chip-value {
   font-size: 18px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .stat-chip-value.stat-banned {
@@ -533,11 +533,11 @@ onMounted(() => {
 
 /* User list */
 .user-list {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-sm);
 }
 
 .user-item {
@@ -545,7 +545,7 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--separator);
   transition: background 0.2s;
 }
 
@@ -580,7 +580,7 @@ onMounted(() => {
 .avatar-placeholder {
   font-size: 16px;
   font-weight: 700;
-  color: #fff;
+  color: var(--bg-primary);
 }
 
 .avatar-ban-badge {
@@ -588,7 +588,7 @@ onMounted(() => {
   bottom: -2px;
   right: -2px;
   font-size: 14px;
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 50%;
   width: 20px;
   height: 20px;
@@ -605,7 +605,7 @@ onMounted(() => {
 .user-name {
   font-size: 15px;
   font-weight: 500;
-  color: #0f172a;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -645,12 +645,12 @@ onMounted(() => {
 
 .user-username {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .user-date {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-tertiary);
 }
 
 .user-ban-reason {
@@ -673,10 +673,10 @@ onMounted(() => {
 .role-select {
   appearance: none;
   -webkit-appearance: none;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
+  background: var(--bg-primary);
+  border: 1px solid var(--separator);
   border-radius: 8px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 12px;
   padding: 6px 10px;
   cursor: pointer;
@@ -745,8 +745,8 @@ onMounted(() => {
   bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.85);
-  color: #fff;
+  background: var(--text-primary);
+  color: var(--bg-primary);
   padding: 8px 20px;
   border-radius: 20px;
   font-size: 13px;
@@ -772,8 +772,8 @@ onMounted(() => {
 }
 
 .ban-modal {
-  background: #ffffff;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: var(--bg-primary);
+  border: 1px solid var(--separator);
   border-radius: 20px;
   padding: 24px;
   width: 90%;
@@ -834,12 +834,12 @@ onMounted(() => {
 .ban-modal-name {
   font-size: 15px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .ban-modal-username {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .ban-modal-field {
@@ -849,16 +849,16 @@ onMounted(() => {
 .ban-modal-field label {
   display: block;
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-secondary);
   margin-bottom: 6px;
 }
 
 .ban-reason-input {
   width: 100%;
-  background: #f8fafc;
-  border: 1px solid #d7dee8;
+  background: var(--bg-secondary);
+  border: 1px solid var(--separator);
   border-radius: 10px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 14px;
   padding: 10px 12px;
   outline: none;
@@ -872,7 +872,7 @@ onMounted(() => {
 }
 
 .ban-reason-input::placeholder {
-  color: #94a3b8;
+  color: var(--text-tertiary);
 }
 
 .ban-modal-warning {
@@ -892,26 +892,25 @@ onMounted(() => {
 .btn-cancel {
   flex: 1;
   padding: 10px;
-  background: #f8fafc;
-  border: 1px solid #d7dee8;
+  background: var(--bg-secondary);
+  border: 1px solid var(--separator);
   border-radius: 10px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 14px;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .btn-cancel:hover {
-  background: #eef2f7;
+  background: var(--fill-secondary);
 }
 
 .btn-confirm-ban {
   flex: 1;
   padding: 10px;
   background: rgba(255, 59, 48, 0.8);
-  border: none;
   border-radius: 10px;
-  color: #fff;
+  color: var(--bg-primary);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -925,21 +924,21 @@ onMounted(() => {
 .ban-duration-select {
   width: 100%;
   padding: 10px 12px;
-  background: #f8fafc;
-  border: 1px solid #d7dee8;
+  background: var(--bg-secondary);
+  border: 1px solid var(--separator);
   border-radius: 8px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 14px;
   cursor: pointer;
 }
 
 .credits-modal {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 16px;
   padding: 20px;
   width: 90%;
   max-width: 400px;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .credits-modal-header {
@@ -960,7 +959,7 @@ onMounted(() => {
   gap: 12px;
   margin-bottom: 16px;
   padding: 12px;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   border-radius: 12px;
 }
 
@@ -969,7 +968,7 @@ onMounted(() => {
   height: 48px;
   border-radius: 50%;
   overflow: hidden;
-  background: #e2e8f0;
+  background: var(--fill-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -987,7 +986,7 @@ onMounted(() => {
 
 .credits-modal-username {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .credits-modal-current {
@@ -1011,7 +1010,7 @@ onMounted(() => {
 .credits-modal-field label {
   display: block;
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
@@ -1024,7 +1023,6 @@ onMounted(() => {
 
 .credits-btn {
   padding: 8px 12px;
-  border: none;
   border-radius: 8px;
   font-size: 12px;
   cursor: pointer;
@@ -1050,10 +1048,10 @@ onMounted(() => {
 .credits-input {
   flex: 1 1 100%;
   padding: 10px 12px;
-  background: #f8fafc;
-  border: 1px solid #d7dee8;
+  background: var(--bg-secondary);
+  border: 1px solid var(--separator);
   border-radius: 8px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 14px;
   text-align: center;
   min-width: 0;
@@ -1069,9 +1067,8 @@ onMounted(() => {
   flex: 1;
   padding: 10px;
   background: rgba(91, 110, 245, 0.8);
-  border: none;
   border-radius: 10px;
-  color: #fff;
+  color: var(--bg-primary);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;

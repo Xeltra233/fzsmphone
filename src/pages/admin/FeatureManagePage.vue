@@ -117,7 +117,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
+  background: var(--bg-secondary);
 }
 
 .page-content {
@@ -132,7 +132,7 @@ onMounted(async () => {
 
 .page-desc {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-secondary);
   margin-bottom: 20px;
   line-height: 1.5;
 }
@@ -143,13 +143,13 @@ onMounted(async () => {
   justify-content: center;
   height: 200px;
   font-size: 16px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .loading {
   text-align: center;
   padding: 40px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 /* Category */
@@ -168,22 +168,22 @@ onMounted(async () => {
 .category-name {
   font-size: 14px;
   font-weight: 600;
-  color: #475569;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .category-count {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-tertiary);
 }
 
 .category-items {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--separator);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Feature Item */
@@ -192,7 +192,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--separator);
 }
 
 .feature-item:last-child {
@@ -207,13 +207,13 @@ onMounted(async () => {
 
 .feature-name {
   font-size: 15px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .feature-id {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-tertiary);
   font-family: monospace;
 }
 
@@ -268,8 +268,8 @@ onMounted(async () => {
   bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(15, 23, 42, 0.85);
-  color: #fff;
+  background: var(--text-primary);
+  color: var(--bg-primary);
   padding: 8px 20px;
   border-radius: 20px;
   font-size: 13px;

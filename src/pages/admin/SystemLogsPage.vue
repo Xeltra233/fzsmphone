@@ -178,8 +178,8 @@ onMounted(async () => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
-  color: #0f172a;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .logs-content {
@@ -196,11 +196,11 @@ onMounted(async () => {
 }
 
 .stat-item {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 8px;
   padding: 12px;
   text-align: center;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid var(--separator);
 }
 
 .stat-item.error .stat-value {
@@ -211,12 +211,12 @@ onMounted(async () => {
   display: block;
   font-size: 20px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .stat-label {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .filters {
@@ -228,20 +228,19 @@ onMounted(async () => {
 .filter-select {
   flex: 1;
   padding: 8px 12px;
-  background: #ffffff;
-  border: 1px solid #d7dee8;
+  background: var(--bg-primary);
+  border: 1px solid var(--separator);
   border-radius: 6px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 13px;
 }
 
 .refresh-btn {
   padding: 8px 16px;
-  background: #ffffff;
-  border: 1px solid #d7dee8;
-  border: none;
+  background: var(--bg-primary);
+  border: 1px solid var(--separator);
   border-radius: 6px;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
 }
@@ -253,13 +252,13 @@ onMounted(async () => {
 }
 
 .log-item {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 8px;
   padding: 12px;
   border-left: 3px solid #666;
-  border-top: 1px solid rgba(148, 163, 184, 0.12);
-  border-right: 1px solid rgba(148, 163, 184, 0.12);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  border-top: 1px solid var(--separator);
+  border-right: 1px solid var(--separator);
+  border-bottom: 1px solid var(--separator);
 }
 
 .log-item.info {
@@ -308,21 +307,21 @@ onMounted(async () => {
   flex: 1;
   font-size: 13px;
   font-weight: 500;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .log-time {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-tertiary);
 }
 
 .log-details pre {
   margin: 8px 0;
   padding: 8px;
-  background: #f8fafc;
+  background: var(--bg-secondary);
   border-radius: 4px;
   font-size: 11px;
-  color: #475569;
+  color: var(--text-secondary);
   overflow-x: auto;
 }
 
@@ -330,7 +329,7 @@ onMounted(async () => {
   display: flex;
   gap: 12px;
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-secondary);
   margin-top: 6px;
 }
 
@@ -338,7 +337,7 @@ onMounted(async () => {
 .empty {
   text-align: center;
   padding: 24px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .load-more {
@@ -348,11 +347,10 @@ onMounted(async () => {
 
 .load-more button {
   padding: 10px 24px;
-  background: #ffffff;
-  border: 1px solid #d7dee8;
-  border: none;
+  background: var(--bg-primary);
+  border: 1px solid var(--separator);
   border-radius: 6px;
-  color: #0f172a;
+  color: var(--text-primary);
   cursor: pointer;
 }
 
