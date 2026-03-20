@@ -222,7 +222,6 @@ async function fetchAppName() {
   try {
     const res = await apiClient.get<Record<string, any>>('/api/settings')
     const data = res.data || {}
-    console.log('Settings data:', data) // 调试信息
     if (data.app_name) {
       appName.value = String(data.app_name)
     } else if (data.appName) {

@@ -519,4 +519,11 @@ INSERT INTO app_settings (key, value, updated_at) VALUES
 ON CONFLICT (key) DO NOTHING;
 `,
 	},
+	{
+		Version: 27,
+		Name:    "add_user_banned_until",
+		SQL: `
+ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_until TIMESTAMPTZ;
+`,
+	},
 }

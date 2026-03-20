@@ -322,6 +322,11 @@ const routes: RouteRecordRaw[] = [
     name: 'Credits',
     component: () => import('@/pages/CreditsPage.vue'),
   },
+  {
+    path: '/leaderboard',
+    name: 'Leaderboard',
+    component: () => import('@/pages/LeaderboardPage.vue'),
+  },
 ]
 
 const router = createRouter({

@@ -290,7 +290,6 @@ async function fetchUsers() {
   loading.value = true
   try {
     const res: any = await api.get('/api/users')
-    console.log('Users API response:', res)
     users.value = res.data || res || []
   } catch (e: any) {
     console.error('Failed to fetch users:', e)

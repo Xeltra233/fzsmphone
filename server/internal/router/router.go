@@ -220,6 +220,7 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 			})
 
 			// === Users ===
+			r.Get("/leaderboard", userH.Leaderboard)
 			r.Get("/users/me", authH.GetMe)
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/", userH.List)
