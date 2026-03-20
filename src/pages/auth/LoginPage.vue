@@ -220,7 +220,7 @@ const announcement = ref('')
 
 async function fetchAppName() {
   try {
-    const res = await apiClient.get<Record<string, any>>('/api/settings')
+    const res = await apiClient.get<Record<string, any>>('/api/settings/public')
     const data = res || {}
     if (data.app_name) {
       appName.value = String(data.app_name)

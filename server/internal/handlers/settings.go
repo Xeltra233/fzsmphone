@@ -20,6 +20,39 @@ type SettingsHandler struct {
 	DB *database.DB
 }
 
+// GET /api/settings/public
+// Returns safe public app settings for unauthenticated pages
+func (h *SettingsHandler) GetPublic(w http.ResponseWriter, r *http.Request) {
+	keys := []string{"app_name", "app_title", "announcement", "favicon"}
+	rows, err := h.DB.Pool.Query(r.Context(), `
+	SELECT key, value FROM app_settings WHERE key = ANY($1) ORDER BY key
+	`, keys)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to query public settings")
+		return
+	}
+	defer rows.Close()
+
+	settings := make(map[string]interface{})
+	for rows.Next() {
+		var key string
+		var value []byte
+		if err := rows.Scan(&key, &value); err != nil {
+			mw.Error(w, http.StatusInternalServerError, "failed to scan public setting")
+			return
+		}
+
+		var parsed interface{}
+		if err := json.Unmarshal(value, &parsed); err == nil {
+			settings[key] = parsed
+		} else {
+			settings[key] = string(value)
+		}
+	}
+
+	mw.JSON(w, http.StatusOK, settings)
+}
+
 // GET /api/settings
 // Returns all app settings as a key-value map
 func (h *SettingsHandler) Get(w http.ResponseWriter, r *http.Request) {
