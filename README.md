@@ -21,20 +21,14 @@
 - **生活模块**: 外卖、购物、钱包、日记
 - **工具模块**: 电话、短信、邮箱、浏览器、地图
 
-### 新增功能 (v1.3.0+)
+### 当前重点能力
 
-- **排行榜系统**: 游戏积分排行榜（真实用户+假用户）、Token消耗排名、在线时长排名
-- **等级系统**: 根据Token消耗量划分等级（传奇、王者、钻石、铂金、黄金、白银、青铜、入门）
-- **OAuth配置**: 支持在后台配置Discord OAuth（Client ID、Client Secret、Redirect URI）
-- **多供应商API**: 支持Gemini、OpenAI、OpenRouter、DeepSeek及自定义API地址
-- **模型列表**: 超级管理员可配置可用模型列表供用户选择
-- **社交内容API**: 独立配置微博、邮箱等社交内容的API
-- **联系方式页面**: 官方群二维码展示、进群密码显示
-- **每日签到**: 签到奖励、连续签到加成
-- **邀请系统**: 邀请码生成、邀请奖励机制
-- **优惠券系统**: 管理员可创建兑换码
-
-## 部署
+- **公开系统设置**: 登录页可通过公开接口读取应用名、公告和 favicon，未登录状态也能正确显示自定义站点信息
+- **综合排行榜**: 提供 `/leaderboard` 页面与 `/api/leaderboard` 接口，按用户 Token 消耗展示前 50 名
+- **签到与额度系统**: 支持每日签到、连续签到加成、邀请码奖励、兑换码兑换、模型别名设置
+- **OAuth 配置**: 支持在后台配置 Discord OAuth（Client ID、Client Secret、Redirect URI）
+- **多供应商 API**: 支持 Gemini、OpenAI、OpenRouter、DeepSeek 及自定义兼容接口
+- **后台管理**: 管理员可查看用户、封禁/解封；超级管理员可调整额度、修改系统设置、配置全局 API
 
 ## 认证与用户系统
 
@@ -57,7 +51,7 @@
 | 角色 | 权限 |
 |------|------|
 | super_admin (超级管理员) | 最高权限，可设置全局 API 配置影响整个站点，可管理所有用户 |
-| admin (管理员) | 可管理用户、查看系统设置 |
+| admin (管理员) | 可查看管理区、管理用户、封禁/解封普通用户 |
 | user (普通用户) | 只能使用应用，设置个人 API 配置 |
 
 ### API 配置说明
@@ -71,6 +65,8 @@
   - 优先级高于全局配置
 
 ## 环境变量
+
+> 提示：生产环境下后端会自动执行数据库迁移。若历史数据存在重复用户名、重复邮箱或重复邀请码，新增唯一索引迁移会失败，需要先清洗数据。
 
 ### 必需变量
 
@@ -101,14 +97,6 @@ DISCORD_REQUIRED_ROLE_IDS=必需角色ID1,必需角色ID2
 DISCORD_ROLE_MATCH=all    # 角色匹配模式：all=需全部拥有，any=拥有任一即可
 DISCORD_AUTH_FAIL_MESSAGE=请先加入指定服务器并完成身份组验证
 DISCORD_ADMIN_IDS=管理员Discord ID1,管理员Discord ID2
-```
-
-### 前端 (Vite) 配置
-
-```env
-VITE_API_URL=http://localhost:8080           # 后端API地址
-VITE_DISCORD_CLIENT_ID=你的Discord Client ID # Discord登录用
-VITE_DISCORD_REDIRECT_URI=http://localhost:3000/auth/callback
 ```
 
 ### 前端 (Vite)
@@ -178,6 +166,35 @@ postgres://fzsmphone:fzsmphone_dev_123@postgres:5432/fzsmphone?sslmode=disable
 - 使用邮箱注册或登录
 - 或使用 Discord 账号登录
 
+### 数据库迁移注意事项
+
+项目当前会为以下字段建立唯一约束：
+
+- `LOWER(username)`
+- `LOWER(email)`，但排除空字符串
+- `invite_code`，但排除空字符串
+
+如果线上已有脏数据，建议先执行以下 SQL 查重：
+
+```sql
+SELECT LOWER(username) AS normalized_username, COUNT(*) AS cnt, ARRAY_AGG(id ORDER BY id) AS user_ids
+FROM users
+GROUP BY LOWER(username)
+HAVING COUNT(*) > 1;
+
+SELECT LOWER(email) AS normalized_email, COUNT(*) AS cnt, ARRAY_AGG(id ORDER BY id) AS user_ids
+FROM users
+WHERE email <> ''
+GROUP BY LOWER(email)
+HAVING COUNT(*) > 1;
+
+SELECT invite_code, COUNT(*) AS cnt, ARRAY_AGG(id ORDER BY id) AS user_ids
+FROM users
+WHERE invite_code <> ''
+GROUP BY invite_code
+HAVING COUNT(*) > 1;
+```
+
 ### Docker 部署
 
 ```bash
@@ -190,23 +207,30 @@ docker-compose up -d
 
 访问应用后，你可以选择：
 - **账号登录**: 输入邮箱/用户名和密码登录
-- **立即注册**: 点击注册链接，填写用户名、邮箱、密码
+- **立即注册**: 点击注册链接，填写用户名、邮箱、密码，可选填写邀请码
 - **Discord 登录**: 如已配置 Discord OAuth2
+
+登录页会读取公开设置接口，因此未登录时也能显示自定义应用名、公告和站点图标。
 
 ### 2. 超级管理员设置
 
-如果你需要将用户提升为超级管理员：
+当前版本没有前台“设置超级管理员”入口。
 
-1. 使用超级管理员账号登录
-2. 进入 `/admin/users` 用户管理页面
-3. 找到目标用户（普通用户），点击设置超级管理员
+如需将用户提升为超级管理员，请直接在数据库中执行：
 
-> ⚠️ **限制**：只能操作比自己权限低的用户，不能修改管理员或超级管理员的状态。
-
-或者直接在数据库中执行：
 ```sql
 UPDATE users SET is_super_admin = true WHERE username = 'yourUsername';
 ```
+
+如果希望该用户在前端权限判断里也完全一致，建议同时同步角色字段：
+
+```sql
+UPDATE users
+SET role = 'super_admin', is_super_admin = true
+WHERE username = 'yourUsername';
+```
+
+> ⚠️ 不建议直接修改现有管理员或超级管理员账号，操作前请先备份数据库。
 
 ### 3. 配置 API
 
@@ -242,8 +266,19 @@ UPDATE users SET is_super_admin = true WHERE username = 'yourUsername';
 
 管理员可以：
 - 查看所有用户
-- 修改用户角色
 - 封禁/解封用户
+
+超级管理员额外可以：
+- 修改用户角色
+- 调整用户额度
+- 修改全局系统设置
+- 配置全局 API 与 OAuth 参数
+
+### 6. 排行榜与额度
+
+- `/leaderboard`：展示基于 `total_tokens` 的综合排行榜
+- `/credits`：展示剩余额度、累计 Token、连续签到、邀请码与兑换码入口
+- 签到按钮会根据系统开关与当天是否已签到显示 `立即签到`、`已签到` 或 `未开启`
 
 ## 目录结构
 
