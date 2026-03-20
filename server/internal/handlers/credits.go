@@ -29,6 +29,18 @@ type SigninResponse struct {
 func (h *CreditsHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 	userID, _ := mw.GetUserID(r.Context())
 
+	var signinEnabled bool
+	if err := h.DB.Pool.QueryRow(r.Context(), `
+		SELECT COALESCE((SELECT value::bool FROM app_settings WHERE key = 'signin_enabled'), true)
+	`).Scan(&signinEnabled); err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to load signin settings")
+		return
+	}
+	if !signinEnabled {
+		mw.Error(w, http.StatusBadRequest, "签到功能未开启")
+		return
+	}
+
 	var lastSignin *time.Time
 	var streak int
 	err := h.DB.Pool.QueryRow(r.Context(), `
@@ -122,6 +134,7 @@ func (h *CreditsHandler) GetCredits(w http.ResponseWriter, r *http.Request) {
 
 	var credits, totalTokens, streak int
 	var lastSignin *time.Time
+	var signinEnabled bool
 	err := h.DB.Pool.QueryRow(r.Context(), `
 		SELECT credits, total_tokens, signin_streak, last_signin_at FROM users WHERE id = $1
 	`, userID).Scan(&credits, &totalTokens, &streak, &lastSignin)
@@ -130,8 +143,16 @@ func (h *CreditsHandler) GetCredits(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	canSignIn := true
-	if lastSignin != nil {
+	err = h.DB.Pool.QueryRow(r.Context(), `
+		SELECT COALESCE((SELECT value::bool FROM app_settings WHERE key = 'signin_enabled'), true)
+	`).Scan(&signinEnabled)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to get signin settings")
+		return
+	}
+
+	canSignIn := signinEnabled
+	if signinEnabled && lastSignin != nil {
 		today := time.Now().Truncate(24 * time.Hour)
 		lastDay := lastSignin.Truncate(24 * time.Hour)
 		if lastDay.Equal(today) {
@@ -207,8 +228,8 @@ func (h *CreditsHandler) GetUserSettings(w http.ResponseWriter, r *http.Request)
 	COALESCE((SELECT value FROM app_settings WHERE key = 'tips'), '')
 	`).Scan(&defaultCredits, &signinCredits, &streakBonus, &inviteCredits, &signinEnabled, &inviteEnabled, &announcement, &tips)
 
-	canSignIn := true
-	if lastSignin != nil {
+	canSignIn := signinEnabled
+	if signinEnabled && lastSignin != nil {
 		today := time.Now().Truncate(24 * time.Hour)
 		lastDay := lastSignin.Truncate(24 * time.Hour)
 		if lastDay.Equal(today) {

@@ -34,10 +34,10 @@
           </div>
           <button
             class="signin-btn"
-            :disabled="!canSignIn || signingIn"
+            :disabled="!signinAvailable || signingIn"
             @click="handleSignIn"
           >
-            {{ signingIn ? '签到中...' : (canSignIn ? '立即签到' : '已签到') }}
+            {{ signInButtonText }}
           </button>
         </div>
       </div>
@@ -104,9 +104,17 @@ import { showToast } from '@/utils/toast'
 const creditsStore = useCreditsStore()
 
 const settings = computed(() => creditsStore.settings)
+const signInEnabled = computed(() => settings.value?.settings?.signin_enabled ?? true)
 const canSignIn = computed(() => settings.value?.can_signin ?? false)
+const signinAvailable = computed(() => signInEnabled.value && canSignIn.value)
 const signinDaily = computed(() => settings.value?.settings?.signin_daily_credits ?? 10)
 const streakBonus = computed(() => settings.value?.settings?.signin_streak_bonus ?? 5)
+const signInButtonText = computed(() => {
+  if (signingIn.value) return '签到中...'
+  if (!signInEnabled.value) return '未开启'
+  if (canSignIn.value) return '立即签到'
+  return '已签到'
+})
 
 const inviteCode = ref('')
 const inviteCount = ref(0)
@@ -137,7 +145,7 @@ async function loadData() {
 }
 
 async function handleSignIn() {
-  if (!canSignIn.value || signingIn.value) return
+  if (!signinAvailable.value || signingIn.value) return
   
   signingIn.value = true
   try {

@@ -1017,8 +1017,9 @@ onMounted(() => {
 
 .credits-input-group {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  align-items: center;
+  align-items: stretch;
 }
 
 .credits-btn {
@@ -1028,6 +1029,8 @@ onMounted(() => {
   font-size: 12px;
   cursor: pointer;
   transition: opacity 0.2s;
+  flex: 0 0 auto;
+  min-width: 56px;
 }
 
 .credits-btn.minus {
@@ -1045,7 +1048,7 @@ onMounted(() => {
 }
 
 .credits-input {
-  flex: 1;
+  flex: 1 1 100%;
   padding: 10px 12px;
   background: #f8fafc;
   border: 1px solid #d7dee8;
@@ -1053,6 +1056,7 @@ onMounted(() => {
   color: #0f172a;
   font-size: 14px;
   text-align: center;
+  min-width: 0;
 }
 
 .credits-modal-actions {
