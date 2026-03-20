@@ -24,7 +24,7 @@ type UserHandler struct {
 // GET /api/users
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.DB.Pool.Query(r.Context(), `
-SELECT id, discord_id, username, display_name, COALESCE(avatar_url, ''), role, is_super_admin,
+SELECT id, COALESCE(discord_id, ''), username, display_name, COALESCE(avatar_url, ''), role, is_super_admin,
 is_banned, COALESCE(ban_reason, ''), banned_at, banned_until,
 COALESCE(credits, 0), COALESCE(total_tokens, 0), COALESCE(signin_streak, 0), COALESCE(invite_code, ''),
 created_at, updated_at

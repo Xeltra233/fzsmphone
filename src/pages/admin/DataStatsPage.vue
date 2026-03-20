@@ -260,7 +260,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-bg, #000);
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
 }
 
 .page-content {
@@ -279,13 +279,13 @@ onMounted(async () => {
   justify-content: center;
   height: 200px;
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.5);
+  color: #64748b;
 }
 
 .loading {
   text-align: center;
   padding: 40px;
-  color: rgba(255, 255, 255, 0.5);
+  color: #64748b;
 }
 
 /* Overview Cards */
@@ -297,12 +297,14 @@ onMounted(async () => {
 }
 
 .overview-card {
-  background: rgba(255, 255, 255, 0.06);
+  background: #ffffff;
   border-radius: 12px;
   padding: 16px;
   display: flex;
   align-items: center;
   gap: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
 .card-icon {
@@ -324,12 +326,12 @@ onMounted(async () => {
 .card-value {
   font-size: 24px;
   font-weight: 700;
-  color: #fff;
+  color: #0f172a;
 }
 
 .card-label {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.45);
+  color: #64748b;
 }
 
 /* Section */
@@ -348,15 +350,17 @@ onMounted(async () => {
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .section-card {
-  background: rgba(255, 255, 255, 0.06);
+  background: #ffffff;
   border-radius: 12px;
   overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
 /* Role Distribution */
@@ -365,7 +369,7 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .role-item:last-child {
@@ -388,19 +392,19 @@ onMounted(async () => {
 
 .role-name {
   font-size: 14px;
-  color: #fff;
+  color: #0f172a;
 }
 
 .role-count {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #64748b;
   margin-left: auto;
 }
 
 .role-bar-bg {
   flex: 1;
   height: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: #e2e8f0;
   border-radius: 3px;
   overflow: hidden;
 }
@@ -413,7 +417,7 @@ onMounted(async () => {
 
 .role-percent {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: #64748b;
   min-width: 45px;
   text-align: right;
 }
@@ -434,7 +438,7 @@ onMounted(async () => {
   flex-direction: column;
   justify-content: space-between;
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.3);
+  color: #94a3b8;
   padding-bottom: 18px;
   min-width: 20px;
   text-align: right;
@@ -445,7 +449,7 @@ onMounted(async () => {
   display: flex;
   align-items: flex-end;
   gap: 2px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid #dbe3ee;
   padding-bottom: 18px;
   position: relative;
 }

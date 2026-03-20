@@ -428,7 +428,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-bg, #000);
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
 }
 
 .page-content {
@@ -447,19 +447,19 @@ onMounted(() => {
   justify-content: center;
   height: 200px;
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.5);
+  color: #64748b;
 }
 
 .loading {
   text-align: center;
   padding: 40px;
-  color: rgba(255, 255, 255, 0.5);
+  color: #64748b;
 }
 
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #94a3b8;
   font-size: 14px;
 }
 
@@ -467,16 +467,18 @@ onMounted(() => {
 .search-bar {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.08);
+  background: #ffffff;
   border-radius: 10px;
   padding: 0 12px;
   margin-bottom: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
 }
 
 .search-icon {
   width: 18px;
   height: 18px;
-  color: rgba(255, 255, 255, 0.35);
+  color: #94a3b8;
   flex-shrink: 0;
 }
 
@@ -485,13 +487,13 @@ onMounted(() => {
   background: none;
   border: none;
   outline: none;
-  color: #fff;
+  color: #0f172a;
   font-size: 15px;
   padding: 10px 8px;
 }
 
 .search-input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: #94a3b8;
 }
 
 /* Stats bar */
@@ -503,24 +505,26 @@ onMounted(() => {
 
 .stat-chip {
   flex: 1;
-  background: rgba(255, 255, 255, 0.06);
+  background: #ffffff;
   border-radius: 10px;
   padding: 10px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
 }
 
 .stat-chip-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #64748b;
 }
 
 .stat-chip-value {
   font-size: 18px;
   font-weight: 700;
-  color: #fff;
+  color: #0f172a;
 }
 
 .stat-chip-value.stat-banned {
@@ -529,9 +533,11 @@ onMounted(() => {
 
 /* User list */
 .user-list {
-  background: rgba(255, 255, 255, 0.06);
+  background: #ffffff;
   border-radius: 12px;
   overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
 }
 
 .user-item {
@@ -539,7 +545,7 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid #e5e7eb;
   transition: background 0.2s;
 }
 
@@ -582,7 +588,7 @@ onMounted(() => {
   bottom: -2px;
   right: -2px;
   font-size: 14px;
-  background: #1a1a2e;
+  background: #ffffff;
   border-radius: 50%;
   width: 20px;
   height: 20px;
@@ -599,7 +605,7 @@ onMounted(() => {
 .user-name {
   font-size: 15px;
   font-weight: 500;
-  color: #fff;
+  color: #0f172a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -639,12 +645,12 @@ onMounted(() => {
 
 .user-username {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #64748b;
 }
 
 .user-date {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.25);
+  color: #94a3b8;
 }
 
 .user-ban-reason {
@@ -667,10 +673,10 @@ onMounted(() => {
 .role-select {
   appearance: none;
   -webkit-appearance: none;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
-  color: #fff;
+  color: #0f172a;
   font-size: 12px;
   padding: 6px 10px;
   cursor: pointer;
@@ -739,7 +745,7 @@ onMounted(() => {
   bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(15, 23, 42, 0.85);
   color: #fff;
   padding: 8px 20px;
   border-radius: 20px;
@@ -766,8 +772,8 @@ onMounted(() => {
 }
 
 .ban-modal {
-  background: #1a1a2e;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.18);
   border-radius: 20px;
   padding: 24px;
   width: 90%;
@@ -828,12 +834,12 @@ onMounted(() => {
 .ban-modal-name {
   font-size: 15px;
   font-weight: 600;
-  color: #fff;
+  color: #0f172a;
 }
 
 .ban-modal-username {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #64748b;
 }
 
 .ban-modal-field {
@@ -843,16 +849,16 @@ onMounted(() => {
 .ban-modal-field label {
   display: block;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: #64748b;
   margin-bottom: 6px;
 }
 
 .ban-reason-input {
   width: 100%;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #f8fafc;
+  border: 1px solid #d7dee8;
   border-radius: 10px;
-  color: #fff;
+  color: #0f172a;
   font-size: 14px;
   padding: 10px 12px;
   outline: none;
@@ -866,7 +872,7 @@ onMounted(() => {
 }
 
 .ban-reason-input::placeholder {
-  color: rgba(255, 255, 255, 0.25);
+  color: #94a3b8;
 }
 
 .ban-modal-warning {
@@ -886,17 +892,17 @@ onMounted(() => {
 .btn-cancel {
   flex: 1;
   padding: 10px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #f8fafc;
+  border: 1px solid #d7dee8;
   border-radius: 10px;
-  color: #fff;
+  color: #0f172a;
   font-size: 14px;
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .btn-cancel:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: #eef2f7;
 }
 
 .btn-confirm-ban {
@@ -919,21 +925,21 @@ onMounted(() => {
 .ban-duration-select {
   width: 100%;
   padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #f8fafc;
+  border: 1px solid #d7dee8;
   border-radius: 8px;
-  color: #fff;
+  color: #0f172a;
   font-size: 14px;
   cursor: pointer;
 }
 
 .credits-modal {
-  background: #1c1c1e;
+  background: #ffffff;
   border-radius: 16px;
   padding: 20px;
   width: 90%;
   max-width: 400px;
-  color: #fff;
+  color: #0f172a;
 }
 
 .credits-modal-header {
@@ -954,7 +960,7 @@ onMounted(() => {
   gap: 12px;
   margin-bottom: 16px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.05);
+  background: #f8fafc;
   border-radius: 12px;
 }
 
@@ -963,7 +969,7 @@ onMounted(() => {
   height: 48px;
   border-radius: 50%;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.1);
+  background: #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -981,7 +987,7 @@ onMounted(() => {
 
 .credits-modal-username {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: #64748b;
 }
 
 .credits-modal-current {
@@ -1005,7 +1011,7 @@ onMounted(() => {
 .credits-modal-field label {
   display: block;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  color: #64748b;
   margin-bottom: 8px;
 }
 
@@ -1041,10 +1047,10 @@ onMounted(() => {
 .credits-input {
   flex: 1;
   padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: #f8fafc;
+  border: 1px solid #d7dee8;
   border-radius: 8px;
-  color: #fff;
+  color: #0f172a;
   font-size: 14px;
   text-align: center;
 }

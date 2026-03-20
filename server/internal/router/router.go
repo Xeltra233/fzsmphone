@@ -226,6 +226,7 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/", userH.List)
 				r.Get("/{id}", userH.Get)
+				r.Patch("/{id}/credits", userH.UpdateCredits)
 				r.Patch("/{id}/avatar", userH.UpdateAvatar)
 				r.Patch("/{id}/profile", userH.UpdateProfile)
 				r.Patch("/{id}/role", userH.UpdateRole)

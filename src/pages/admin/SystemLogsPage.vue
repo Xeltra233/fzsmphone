@@ -178,8 +178,8 @@ onMounted(async () => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: #0a0a0f;
-  color: #e0e0e0;
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef3f8 100%);
+  color: #0f172a;
 }
 
 .logs-content {
@@ -196,10 +196,11 @@ onMounted(async () => {
 }
 
 .stat-item {
-  background: rgba(255, 255, 255, 0.05);
+  background: #ffffff;
   border-radius: 8px;
   padding: 12px;
   text-align: center;
+  border: 1px solid rgba(148, 163, 184, 0.16);
 }
 
 .stat-item.error .stat-value {
@@ -210,12 +211,12 @@ onMounted(async () => {
   display: block;
   font-size: 20px;
   font-weight: 700;
-  color: #fff;
+  color: #0f172a;
 }
 
 .stat-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
+  color: #64748b;
 }
 
 .filters {
@@ -227,19 +228,20 @@ onMounted(async () => {
 .filter-select {
   flex: 1;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1px solid #d7dee8;
   border-radius: 6px;
-  color: #e0e0e0;
+  color: #0f172a;
   font-size: 13px;
 }
 
 .refresh-btn {
   padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1px solid #d7dee8;
   border: none;
   border-radius: 6px;
-  color: #e0e0e0;
+  color: #0f172a;
   font-size: 13px;
   cursor: pointer;
 }
@@ -251,10 +253,13 @@ onMounted(async () => {
 }
 
 .log-item {
-  background: rgba(255, 255, 255, 0.03);
+  background: #ffffff;
   border-radius: 8px;
   padding: 12px;
   border-left: 3px solid #666;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+  border-right: 1px solid rgba(148, 163, 184, 0.12);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 }
 
 .log-item.info {
@@ -303,21 +308,21 @@ onMounted(async () => {
   flex: 1;
   font-size: 13px;
   font-weight: 500;
-  color: #fff;
+  color: #0f172a;
 }
 
 .log-time {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #94a3b8;
 }
 
 .log-details pre {
   margin: 8px 0;
   padding: 8px;
-  background: rgba(0, 0, 0, 0.3);
+  background: #f8fafc;
   border-radius: 4px;
   font-size: 11px;
-  color: #aaa;
+  color: #475569;
   overflow-x: auto;
 }
 
@@ -325,7 +330,7 @@ onMounted(async () => {
   display: flex;
   gap: 12px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #64748b;
   margin-top: 6px;
 }
 
@@ -333,7 +338,7 @@ onMounted(async () => {
 .empty {
   text-align: center;
   padding: 24px;
-  color: rgba(255, 255, 255, 0.4);
+  color: #64748b;
 }
 
 .load-more {
@@ -343,10 +348,11 @@ onMounted(async () => {
 
 .load-more button {
   padding: 10px 24px;
-  background: rgba(255, 255, 255, 0.1);
+  background: #ffffff;
+  border: 1px solid #d7dee8;
   border: none;
   border-radius: 6px;
-  color: #e0e0e0;
+  color: #0f172a;
   cursor: pointer;
 }
 
