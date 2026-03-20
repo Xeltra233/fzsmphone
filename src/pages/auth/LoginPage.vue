@@ -221,7 +221,7 @@ const announcement = ref('')
 async function fetchAppName() {
   try {
     const res = await apiClient.get<Record<string, any>>('/api/settings')
-    const data = res.data || {}
+    const data = res || {}
     if (data.app_name) {
       appName.value = String(data.app_name)
     } else if (data.appName) {
@@ -240,7 +240,7 @@ async function fetchAppName() {
 async function fetchOAuthConfig() {
   try {
     const res: any = await apiClient.get('/api/auth/oauth-config')
-    const data = res.data || res || {}
+    const data = res || {}
     if (data.discord) {
       oauthConfig.value.discord = data.discord
     }
@@ -252,7 +252,7 @@ async function fetchOAuthConfig() {
 async function checkSetupNeeded() {
   try {
     const res = await apiClient.get<{ setup_needed: boolean }>('/api/auth/setup-needed')
-    isSetupMode.value = res.setup_needed
+    isSetupMode.value = !!res?.setup_needed
   } catch {
     // Not needed
   }
