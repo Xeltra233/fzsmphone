@@ -422,10 +422,25 @@ func (h *CreditsHandler) GetInviteInfo(w http.ResponseWriter, r *http.Request) {
 	var totalRewards int
 	var invitees []invitee
 
-	h.DB.Pool.QueryRow(r.Context(), `SELECT COALESCE(invite_code, '') FROM users WHERE id = $1`, userID).Scan(&code)
-	h.DB.Pool.QueryRow(r.Context(), `SELECT COALESCE(SUM(reward_credits), 0) FROM invite_rewards WHERE inviter_id = $1`, userID).Scan(&totalRewards)
+	if err := h.DB.Pool.QueryRow(r.Context(), `SELECT COALESCE(invite_code, '') FROM users WHERE id = $1`, userID).Scan(&code); err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to get invite info")
+		return
+	}
 
-	rows, _ := h.DB.Pool.Query(r.Context(), `
+	if code == "" {
+		code = generateInviteCode()
+		if _, err := h.DB.Pool.Exec(r.Context(), `UPDATE users SET invite_code = $1 WHERE id = $2`, code, userID); err != nil {
+			mw.Error(w, http.StatusInternalServerError, "failed to create invite code")
+			return
+		}
+	}
+
+	if err := h.DB.Pool.QueryRow(r.Context(), `SELECT COALESCE(SUM(reward_credits), 0) FROM invite_rewards WHERE inviter_id = $1`, userID).Scan(&totalRewards); err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to load invite rewards")
+		return
+	}
+
+	rows, err := h.DB.Pool.Query(r.Context(), `
 		SELECT u.id, u.username, COALESCE(SUM(r.reward_credits), 0) as total_reward
 		FROM users u
 		LEFT JOIN invite_rewards r ON r.invited_id = u.id
@@ -433,12 +448,23 @@ func (h *CreditsHandler) GetInviteInfo(w http.ResponseWriter, r *http.Request) {
 		GROUP BY u.id, u.username
 		ORDER BY u.created_at DESC
 	`, userID)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to load invite list")
+		return
+	}
 	defer rows.Close()
 
 	for rows.Next() {
 		var inv invitee
-		rows.Scan(&inv.ID, &inv.Username, &inv.Reward)
+		if err := rows.Scan(&inv.ID, &inv.Username, &inv.Reward); err != nil {
+			mw.Error(w, http.StatusInternalServerError, "failed to scan invite list")
+			return
+		}
 		invitees = append(invitees, inv)
+	}
+	if err := rows.Err(); err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to read invite list")
+		return
 	}
 	if invitees == nil {
 		invitees = []invitee{}

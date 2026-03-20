@@ -335,8 +335,12 @@ async function loadInviteData() {
     })
     if (response.ok) {
       inviteData.value = await response.json()
+    } else {
+      inviteData.value = { code: '', invitees: [], totalRewards: 0 }
+      console.error('Failed to load invite data:', response.status)
     }
   } catch (err) {
+    inviteData.value = { code: '', invitees: [], totalRewards: 0 }
     console.error('Failed to load invite data:', err)
   } finally {
     loadingInvite.value = false

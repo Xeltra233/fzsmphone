@@ -281,17 +281,21 @@ async function handleSetup() {
       password: setupForm.value.password
     }) as AuthResponse
 
+    localStorage.setItem('token', res.token)
+    localStorage.setItem('user', JSON.stringify(res.user))
+
     // Save app name after successful registration (now we have token)
     if (setupForm.value.appName) {
       try {
-        await apiClient.put('/api/settings', { app_name: setupForm.value.appName })
+        await apiClient.put('/api/settings', {
+          app_name: setupForm.value.appName,
+          app_title: setupForm.value.appName,
+        })
       } catch {
         // Continue anyway
       }
     }
 
-    localStorage.setItem('token', res.token)
-    localStorage.setItem('user', JSON.stringify(res.user))
     window.location.href = '/'
   } catch (err: any) {
     showToast(err.response?.data?.error || '设置失败', 'error')
