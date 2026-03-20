@@ -136,7 +136,7 @@
   <div class="version-info">
     <p class="copyright">贩子死妈小手机版权所有</p>
     <p class="version">v1.0.0</p>
-    <p class="custom-disclaimer" v-if="customDisclaimer">{{ customDisclaimer }}</p>
+    <p class="custom-disclaimer" v-if="customDisclaimer">附加声明：{{ customDisclaimer }}</p>
   </div>
 </div>
 
@@ -172,11 +172,25 @@
         <button class="modal-close" @click="showContactModal = false">&times;</button>
       </div>
       <div class="modal-body contact-body">
-        <img :src="qrcodeUrl" alt="官方群二维码" class="contact-qrcode-img" @error="qrcodeLoadError = true" />
-        <div v-if="qrcodeLoadError" class="contact-qrcode-placeholder">群二维码加载失败</div>
-        <div class="contact-info" v-if="!qrcodeLoadError">
-          <span class="contact-label">进群密码：</span>
-          <span class="contact-value">贩子死妈</span>
+        <div class="contact-note official-note">请认准官方群二维码，禁止商业倒卖与私下引流。</div>
+
+        <div class="qrcode-grid">
+          <div class="qrcode-panel">
+            <div class="qrcode-panel-title">官方群</div>
+            <img :src="officialQrcodeUrl" alt="官方群二维码" class="contact-qrcode-img" @error="officialQrcodeLoadError = true" />
+            <div v-if="officialQrcodeLoadError" class="contact-qrcode-placeholder">官方群二维码加载失败</div>
+            <div class="contact-info" v-else>
+              <span class="contact-label">进群密码：</span>
+              <span class="contact-value">贩子死妈</span>
+            </div>
+          </div>
+
+          <div v-if="customQrcodeUrl" class="qrcode-panel qrcode-panel-secondary">
+            <div class="qrcode-panel-title">附加展示</div>
+            <img :src="customQrcodeUrl" alt="附加群二维码" class="contact-qrcode-img" @error="customQrcodeLoadError = true" />
+            <div v-if="customQrcodeLoadError" class="contact-qrcode-placeholder">附加二维码加载失败</div>
+            <div v-else class="contact-subtext">此二维码仅作并行展示，不替代官方群入口。</div>
+          </div>
         </div>
       </div>
     </div>
@@ -242,7 +256,8 @@ const bio = ref('')
 const showEditProfile = ref(false)
 const showContactModal = ref(false)
 const showInviteModal = ref(false)
-const qrcodeLoadError = ref(false)
+const officialQrcodeLoadError = ref(false)
+const customQrcodeLoadError = ref(false)
 const editDisplayName = ref('')
 const editAvatarUrl = ref('')
 const saving = ref(false)
@@ -254,6 +269,7 @@ const inviteData = ref<{ code: string; invitees: any[]; totalRewards: number }>(
 })
 const loadingInvite = ref(false)
 const customDisclaimer = ref('')
+const customQrcode = ref('')
 
 const user = computed(() => authStore.user)
 const userAvatar = computed(() => {
@@ -263,9 +279,12 @@ const userAvatar = computed(() => {
   if (avatar.startsWith('/avatar_') || avatar.startsWith('/icon')) return avatar
   return ''
 })
-const qrcodeUrl = computed(() => {
-  // 使用GitHub raw URL作为默认
-  return 'https://raw.githubusercontent.com/Xeltra233/fzsmphone/master/public/qun_qrcode.jpg'
+const officialQrcodeUrl = computed(() => 'https://raw.githubusercontent.com/Xeltra233/fzsmphone/master/public/qun_qrcode.jpg')
+const customQrcodeUrl = computed(() => {
+  const value = customQrcode.value.trim()
+  if (!value) return ''
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/')) return value
+  return `/${value}`
 })
 const showAccountName = computed(() => {
   return user.value?.displayName && user.value?.displayName !== user.value?.username
@@ -318,7 +337,8 @@ function handleMenuItem(item: MenuItem) {
 } else if (item.action === 'editProfile') {
   openEditProfile()
   } else if (item.action === 'showContact') {
-    qrcodeLoadError.value = false
+    officialQrcodeLoadError.value = false
+    customQrcodeLoadError.value = false
     showContactModal.value = true
   } else if (item.action === 'showInvite') {
     loadInviteData()
@@ -442,19 +462,18 @@ onMounted(async () => {
     stats.value[3].value = days
   }
 
-  // Load custom disclaimer from settings
+  // Load additive disclaimer and custom QR config from settings
   try {
-    const response = await fetch(`${API_BASE}/api/settings/key?key=disclaimer`, {
+    const response = await fetch(`${API_BASE}/api/settings`, {
       headers: { 'Authorization': `Bearer ${authStore.token}` }
     })
     if (response.ok) {
       const data = await response.json()
-      if (data.value) {
-        customDisclaimer.value = data.value
-      }
+      customDisclaimer.value = data.disclaimer || ''
+      customQrcode.value = data.qun_qrcode || ''
     }
   } catch (err) {
-    console.error('Failed to load disclaimer:', err)
+    console.error('Failed to load profile settings:', err)
   }
 })
 </script>
@@ -718,6 +737,47 @@ onMounted(async () => {
   color: var(--text-quaternary);
 }
 
+.contact-note {
+  width: 100%;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.official-note {
+  padding: 10px 12px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+}
+
+.qrcode-grid {
+  width: 100%;
+  display: grid;
+  gap: 14px;
+}
+
+.qrcode-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--separator);
+}
+
+.qrcode-panel-secondary {
+  border-style: dashed;
+}
+
+.qrcode-panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
 /* 快捷设置项 */
 .setting-item {
   display: flex;
@@ -952,6 +1012,13 @@ onMounted(async () => {
   align-items: center;
   gap: 4px;
   font-size: 16px;
+}
+
+.contact-subtext {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-tertiary);
+  text-align: center;
 }
 
 .contact-label {

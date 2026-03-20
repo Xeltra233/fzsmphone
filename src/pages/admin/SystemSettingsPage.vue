@@ -271,7 +271,7 @@
         <div class="setting-item vertical">
           <div class="setting-label">
             <span class="label-text">免责声明</span>
-            <span class="label-desc">显示在页面底部，禁止商业声明</span>
+            <span class="label-desc">作为附加声明并行显示，官方版权声明始终保留</span>
           </div>
           <textarea
             v-model="systemSettings.disclaimer"
@@ -283,8 +283,8 @@
         </div>
         <div class="setting-item vertical">
           <div class="setting-label">
-            <span class="label-text">群二维码路径</span>
-            <span class="label-desc">放在public目录下，如 qun_qrcode.jpg</span>
+            <span class="label-text">附加群二维码路径</span>
+            <span class="label-desc">与官方群二维码并行显示，不会覆盖官方入口</span>
           </div>
           <input
             v-model="systemSettings.qun_qrcode"
