@@ -218,15 +218,16 @@ func (h *UserHandler) SetSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get target user info to check privilege level
-	var targetIsAdmin, targetIsSuperAdmin bool
-	err = h.DB.Pool.QueryRow(r.Context(), `SELECT is_admin, is_super_admin FROM users WHERE id = $1`, id).Scan(&targetIsAdmin, &targetIsSuperAdmin)
+	var targetRole string
+	var targetIsSuperAdmin bool
+	err = h.DB.Pool.QueryRow(r.Context(), `SELECT role, is_super_admin FROM users WHERE id = $1`, id).Scan(&targetRole, &targetIsSuperAdmin)
 	if err != nil {
 		mw.Error(w, http.StatusNotFound, "user not found")
 		return
 	}
 
 	// Cannot modify users with same or higher privilege level
-	if targetIsSuperAdmin || targetIsAdmin {
+	if targetIsSuperAdmin || targetRole == "admin" || targetRole == "super_admin" {
 		mw.Error(w, http.StatusForbidden, "cannot modify users with same or higher privilege level")
 		return
 	}
@@ -256,11 +257,11 @@ func (h *UserHandler) SetSuperAdmin(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/users/{id}/ban
 func (h *UserHandler) Ban(w http.ResponseWriter, r *http.Request) {
-	// Only admins can ban users
+	// Only admins and super admins can ban users
 	callerID, _ := mw.GetUserID(r.Context())
 	var callerRole string
 	err := h.DB.Pool.QueryRow(r.Context(), `SELECT role FROM users WHERE id = $1`, callerID).Scan(&callerRole)
-	if err != nil || callerRole != "admin" {
+	if err != nil || (callerRole != "admin" && callerRole != "super_admin") {
 		mw.Error(w, http.StatusForbidden, "admin access required")
 		return
 	}
@@ -277,14 +278,14 @@ func (h *UserHandler) Ban(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Cannot ban another admin
+	// Cannot ban another admin or super admin
 	var targetRole string
 	err = h.DB.Pool.QueryRow(r.Context(), `SELECT role FROM users WHERE id = $1`, id).Scan(&targetRole)
 	if err != nil {
 		mw.Error(w, http.StatusNotFound, "user not found")
 		return
 	}
-	if targetRole == "admin" {
+	if targetRole == "admin" || targetRole == "super_admin" {
 		mw.Error(w, http.StatusForbidden, "cannot ban an admin")
 		return
 	}
@@ -319,11 +320,11 @@ func (h *UserHandler) Ban(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/users/{id}/unban
 func (h *UserHandler) Unban(w http.ResponseWriter, r *http.Request) {
-	// Only admins can unban users
+	// Only admins and super admins can unban users
 	callerID, _ := mw.GetUserID(r.Context())
 	var callerRole string
 	err := h.DB.Pool.QueryRow(r.Context(), `SELECT role FROM users WHERE id = $1`, callerID).Scan(&callerRole)
-	if err != nil || callerRole != "admin" {
+	if err != nil || (callerRole != "admin" && callerRole != "super_admin") {
 		mw.Error(w, http.StatusForbidden, "admin access required")
 		return
 	}
