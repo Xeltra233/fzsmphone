@@ -166,13 +166,11 @@ const monthNewUsers = computed(() => {
 
 const roleColors: Record<string, string> = {
   admin: '#E6162D',
-  moderator: '#F39C12',
   user: '#3498DB',
 }
 
 const roleLabels: Record<string, string> = {
   admin: '管理员',
-  moderator: '版主',
   user: '普通用户',
 }
 
@@ -557,11 +555,6 @@ onMounted(async () => {
 .role-admin {
   background: rgba(230, 22, 45, 0.15);
   color: #ff6b7a;
-}
-
-.role-moderator {
-  background: rgba(243, 156, 18, 0.15);
-  color: #f5c842;
 }
 
 .role-user {

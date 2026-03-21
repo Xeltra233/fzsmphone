@@ -34,8 +34,8 @@
             <span class="stat-chip-value">{{ roleCounts.admin }}</span>
           </div>
           <div class="stat-chip">
-            <span class="stat-chip-label">版主</span>
-            <span class="stat-chip-value">{{ roleCounts.moderator }}</span>
+            <span class="stat-chip-label">普通用户</span>
+            <span class="stat-chip-value">{{ roleCounts.user }}</span>
           </div>
           <div class="stat-chip">
             <span class="stat-chip-label">已封禁</span>
@@ -90,7 +90,6 @@
     :disabled="u.is_banned || (u.is_super_admin && !authStore.isSuperAdmin) || (u.role === 'admin' && !authStore.isSuperAdmin) || (String(u.id) === String(authStore.user?.id))"
   >
     <option value="user" :disabled="u.role === 'super_admin'">普通用户</option>
-    <option value="moderator" :disabled="u.role === 'super_admin' || u.role === 'admin'">版主</option>
     <option value="admin" :disabled="!authStore.isSuperAdmin || u.role === 'super_admin'">管理员</option>
   </select>
               <button
@@ -243,7 +242,6 @@
         <label>角色</label>
         <select v-model="createUserForm.role" class="ban-duration-select">
           <option value="user">普通用户</option>
-          <option value="moderator">版主</option>
           <option v-if="authStore.isSuperAdmin" value="admin">管理员</option>
         </select>
       </div>
@@ -314,7 +312,7 @@ const createUserForm = ref({
 })
 
 const roleCounts = computed(() => {
-  const counts = { admin: 0, moderator: 0, user: 0 }
+  const counts = { admin: 0, user: 0 }
   for (const u of users.value) {
     if (u.role in counts) {
       counts[u.role as keyof typeof counts]++
@@ -804,12 +802,6 @@ onMounted(() => {
   background: rgba(255, 59, 48, 0.2);
   border-color: rgba(255, 59, 48, 0.4);
   color: #ff6b6b;
-}
-
-.role-select.role-moderator {
-  background: rgba(255, 149, 0, 0.2);
-  border-color: rgba(255, 149, 0, 0.4);
-  color: #ffb347;
 }
 
 .role-select.role-user {

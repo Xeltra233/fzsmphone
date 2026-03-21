@@ -179,7 +179,7 @@ func (h *UserHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		mw.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if body.Role != "admin" && body.Role != "user" && body.Role != "moderator" && body.Role != "super_admin" {
+	if body.Role != "admin" && body.Role != "user" && body.Role != "super_admin" {
 		mw.Error(w, http.StatusBadRequest, "invalid role")
 		return
 	}
@@ -306,11 +306,11 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if body.Role == "" {
 		body.Role = "user"
 	}
-	if body.Role != "user" && body.Role != "moderator" && body.Role != "admin" {
+	if body.Role != "user" && body.Role != "admin" {
 		mw.Error(w, http.StatusBadRequest, "invalid role")
 		return
 	}
-	if callerRole != "super_admin" && body.Role != "user" && body.Role != "moderator" {
+	if callerRole != "super_admin" && body.Role != "user" {
 		mw.Error(w, http.StatusForbidden, "only super_admin can create admin users")
 		return
 	}
