@@ -12,6 +12,14 @@
     </NavBar>
 
     <div class="profile-content">
+      <div v-if="impersonationInfo" class="impersonation-banner">
+        <div class="impersonation-banner-text">
+          <strong>代管中</strong>
+          <span>当前正在以 {{ user?.displayName || user?.username }} 身份操作</span>
+        </div>
+        <button class="impersonation-banner-btn" @click="exitImpersonation">退出</button>
+      </div>
+
 <!-- 用户信息卡片 -->
   <div class="user-card">
     <div class="avatar-section" @click="openEditProfile">
@@ -517,6 +525,47 @@ onMounted(async () => {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+}
+
+.impersonation-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 149, 0, 0.14);
+  border: 1px solid rgba(255, 149, 0, 0.24);
+  color: #ff9500;
+}
+
+.impersonation-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.impersonation-banner-text strong {
+  font-size: 14px;
+}
+
+.impersonation-banner-text span {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.impersonation-banner-btn {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.7);
+  color: #ff9500;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .profile-content::-webkit-scrollbar {
