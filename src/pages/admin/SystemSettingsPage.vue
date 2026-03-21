@@ -174,6 +174,61 @@
             </div>
           </div>
 
+          <div class="settings-section">
+            <div class="section-header">
+              <h3>兑换码管理</h3>
+            </div>
+            <div class="settings-list coupon-manager">
+              <div class="setting-item vertical">
+                <div class="setting-label">
+                  <span class="label-text">生成兑换码</span>
+                  <span class="label-desc">支持自定义或随机生成，生成后用户可在额度页直接兑换</span>
+                </div>
+                <div class="coupon-form-grid">
+                  <input v-model.trim="couponForm.code" class="setting-input" :disabled="!authStore.isSuperAdmin || couponCreating" placeholder="留空则随机生成，例如 8 位兑换码" />
+                  <input v-model.number="couponForm.credits" type="number" min="1" class="setting-input" :disabled="!authStore.isSuperAdmin || couponCreating" placeholder="奖励额度" />
+                  <input v-model.number="couponForm.maxUses" type="number" min="1" class="setting-input" :disabled="!authStore.isSuperAdmin || couponCreating" placeholder="可使用次数" />
+                  <input v-model.number="couponForm.expiresIn" type="number" min="0" class="setting-input" :disabled="!authStore.isSuperAdmin || couponCreating" placeholder="有效天数，0 为不过期" />
+                </div>
+                <div class="coupon-actions-row">
+                  <button class="add-model-btn" type="button" @click="handleCreateCoupon" :disabled="!authStore.isSuperAdmin || couponCreating">
+                    {{ couponCreating ? '生成中...' : '生成兑换码' }}
+                  </button>
+                  <button class="add-model-btn secondary" type="button" @click="fetchCoupons" :disabled="couponListLoading">
+                    {{ couponListLoading ? '刷新中...' : '刷新列表' }}
+                  </button>
+                </div>
+                <div v-if="latestCoupon" class="coupon-latest-card">
+                  <span class="coupon-latest-label">最近生成</span>
+                  <div class="coupon-latest-code">{{ latestCoupon.code }}</div>
+                  <div class="coupon-latest-meta">额度 {{ latestCoupon.credits }} / 可用 {{ latestCoupon.max_uses }} 次</div>
+                </div>
+              </div>
+
+              <div class="setting-item vertical">
+                <div class="setting-label">
+                  <span class="label-text">最近兑换码</span>
+                  <span class="label-desc">展示最近 50 条，方便核对是否过期或已用完</span>
+                </div>
+                <div v-if="couponListLoading" class="empty-models">加载兑换码中...</div>
+                <div v-else-if="couponList.length === 0" class="empty-models">暂无兑换码</div>
+                <div v-else class="coupon-list">
+                  <div v-for="coupon in couponList" :key="coupon.code" class="coupon-list-item">
+                    <div class="coupon-list-main">
+                      <div class="coupon-list-code">{{ coupon.code }}</div>
+                      <div class="coupon-list-meta">
+                        <span>额度 {{ coupon.credits }}</span>
+                        <span>已用 {{ coupon.current_uses }}/{{ coupon.max_uses }}</span>
+                        <span>{{ formatCouponExpiry(coupon.expires_at) }}</span>
+                      </div>
+                    </div>
+                    <button class="batch-action-btn" type="button" @click="copyCouponCode(coupon.code)">复制</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <button
             class="save-btn"
             @click="saveCreditSettings"
@@ -680,6 +735,24 @@ const creditSettings = reactive({
   invite_enabled: true,
 })
 
+const couponForm = reactive({
+  code: '',
+  credits: 100,
+  maxUses: 1,
+  expiresIn: 0,
+})
+const couponList = ref<Array<{
+  code: string
+  credits: number
+  max_uses: number
+  current_uses: number
+  expires_at: string | null
+  created_at: string
+}>>([])
+const latestCoupon = ref<null | { code: string; credits: number; max_uses: number }>(null)
+const couponCreating = ref(false)
+const couponListLoading = ref(false)
+
 const systemSettings = reactive({
   app_name: '',
   app_title: '',
@@ -971,6 +1044,66 @@ async function fetchCreditSettings() {
   }
 }
 
+async function fetchCoupons() {
+  if (!authStore.isSuperAdmin) return
+  couponListLoading.value = true
+  try {
+    const res = await apiClient.get<{ coupons?: any[] }>('/api/credits/coupons')
+    couponList.value = Array.isArray(res.coupons) ? res.coupons : []
+  } catch (err: any) {
+    showToast('加载兑换码失败: ' + (err.message || '未知错误'), 'error')
+  } finally {
+    couponListLoading.value = false
+  }
+}
+
+async function handleCreateCoupon() {
+  if (!authStore.isSuperAdmin || couponCreating.value) return
+  if (couponForm.credits <= 0) {
+    showToast('奖励额度必须大于 0', 'error')
+    return
+  }
+  if (couponForm.maxUses <= 0) {
+    showToast('可使用次数必须大于 0', 'error')
+    return
+  }
+
+  couponCreating.value = true
+  try {
+    const res = await apiClient.post<{ code: string; credits: number; max_uses: number }>('/api/credits/coupon', {
+      code: couponForm.code.trim(),
+      credits: couponForm.credits,
+      max_uses: couponForm.maxUses,
+      expires_in: couponForm.expiresIn,
+    })
+    latestCoupon.value = res
+    couponForm.code = ''
+    await navigator.clipboard.writeText(res.code)
+    showToast(`兑换码已生成并复制：${res.code}`)
+    await fetchCoupons()
+  } catch (err: any) {
+    showToast('生成兑换码失败: ' + (err.message || '未知错误'), 'error')
+  } finally {
+    couponCreating.value = false
+  }
+}
+
+function formatCouponExpiry(value: string | null) {
+  if (!value) return '永久有效'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '过期时间未知'
+  return `截止 ${date.toLocaleString()}`
+}
+
+async function copyCouponCode(code: string) {
+  try {
+    await navigator.clipboard.writeText(code)
+    showToast('兑换码已复制')
+  } catch {
+    showToast('复制失败', 'error')
+  }
+}
+
 async function fetchSystemSettings() {
   try {
     const res: any = await apiClient.get('/api/settings')
@@ -1187,6 +1320,7 @@ async function saveApiSettings() {
 onMounted(() => {
   if (authStore.isAdmin) {
     fetchCreditSettings()
+    fetchCoupons()
     fetchSystemSettings()
     fetchApiSettings()
     fetchOauthSettings()
@@ -1527,6 +1661,88 @@ onMounted(() => {
   border: 1px solid var(--separator, 0.08);
   border-radius: 12px;
   overflow: hidden;
+}
+
+.coupon-manager {
+  gap: 14px;
+}
+
+.coupon-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.coupon-actions-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.coupon-latest-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(52, 199, 89, 0.1);
+  border: 1px solid rgba(52, 199, 89, 0.18);
+}
+
+.coupon-latest-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.coupon-latest-code {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
+}
+
+.coupon-latest-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.coupon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.coupon-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--separator, 0.08);
+  background: var(--bg-primary, rgba(255, 255, 255, 0.6));
+}
+
+.coupon-list-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.coupon-list-code {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.coupon-list-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .card-header {
@@ -1875,6 +2091,15 @@ onMounted(() => {
   .input-row {
     flex-direction: column;
     gap: 10px;
+  }
+
+  .coupon-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .coupon-list-item {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .input-row .input-group {
