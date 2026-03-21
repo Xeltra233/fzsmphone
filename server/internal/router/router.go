@@ -38,7 +38,7 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 	diaryH := &handlers.DiaryHandler{DB: db}
 	weiboH := &handlers.WeiboHandler{DB: db}
 	momentH := &handlers.MomentHandler{DB: db}
-	userH := &handlers.UserHandler{DB: db}
+	userH := &handlers.UserHandler{DB: db, Cfg: cfg}
 	personaH := &handlers.PersonaHandler{DB: db}
 	wbookH := &handlers.WorldBookHandler{DB: db}
 	settingsH := &handlers.SettingsHandler{DB: db}
@@ -224,6 +224,7 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 			r.Get("/leaderboard", userH.Leaderboard)
 			r.Get("/users/me", authH.GetMe)
 			r.Route("/users", func(r chi.Router) {
+				r.Post("/", userH.Create)
 				r.Get("/", userH.List)
 				r.Get("/{id}", userH.Get)
 				r.Patch("/{id}/credits", userH.UpdateCredits)
@@ -231,6 +232,7 @@ func New(cfg *config.Config, db *database.DB, hub *ws.Hub) http.Handler {
 				r.Patch("/{id}/profile", userH.UpdateProfile)
 				r.Patch("/{id}/role", userH.UpdateRole)
 				r.Patch("/{id}/super-admin", userH.SetSuperAdmin)
+				r.Post("/{id}/impersonate", userH.Impersonate)
 				r.Post("/{id}/ban", userH.Ban)
 				r.Post("/{id}/unban", userH.Unban)
 			})

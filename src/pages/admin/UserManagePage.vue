@@ -20,6 +20,7 @@
             placeholder="搜索用户名、ID或Discord ID..."
             class="search-input"
           />
+          <button class="create-user-btn" @click="showCreateUserModal = true">添加用户</button>
         </div>
 
         <!-- 统计概览 -->
@@ -92,6 +93,14 @@
     <option value="moderator" :disabled="u.role === 'super_admin' || u.role === 'admin'">版主</option>
     <option value="admin" :disabled="!authStore.isSuperAdmin || u.role === 'super_admin'">管理员</option>
   </select>
+              <button
+                v-if="authStore.isSuperAdmin && String(u.id) !== String(authStore.user?.id)"
+                class="impersonate-btn"
+                @click="impersonateUser(u)"
+                title="代管登录"
+              >
+                代管
+              </button>
               <button
                 v-if="!u.is_banned && u.role !== 'admin'"
                 class="ban-btn"
@@ -210,6 +219,45 @@
     </div>
   </div>
 </teleport>
+
+<teleport to="body">
+  <div v-if="showCreateUserModal" class="modal-overlay" @click.self="showCreateUserModal = false">
+    <div class="credits-modal create-user-modal">
+      <div class="credits-modal-header">
+        <h3>添加用户</h3>
+        <button class="modal-close" @click="showCreateUserModal = false">&times;</button>
+      </div>
+      <div class="credits-modal-field">
+        <label>用户名</label>
+        <input v-model.trim="createUserForm.username" type="text" class="credits-input" placeholder="输入用户名" />
+      </div>
+      <div class="credits-modal-field">
+        <label>邮箱（可选）</label>
+        <input v-model.trim="createUserForm.email" type="email" class="credits-input" placeholder="输入邮箱" />
+      </div>
+      <div class="credits-modal-field">
+        <label>密码</label>
+        <input v-model="createUserForm.password" type="text" class="credits-input" placeholder="至少 6 位" />
+      </div>
+      <div class="credits-modal-field">
+        <label>角色</label>
+        <select v-model="createUserForm.role" class="ban-duration-select">
+          <option value="user">普通用户</option>
+          <option value="moderator">版主</option>
+          <option v-if="authStore.isSuperAdmin" value="admin">管理员</option>
+        </select>
+      </div>
+      <div class="credits-modal-field">
+        <label>初始额度</label>
+        <input v-model.number="createUserForm.credits" type="number" class="credits-input" placeholder="默认 0" />
+      </div>
+      <div class="credits-modal-actions">
+        <button class="btn-cancel" @click="showCreateUserModal = false">取消</button>
+        <button class="btn-confirm-credits" @click="createUser">确认创建</button>
+      </div>
+    </div>
+  </div>
+</teleport>
 </div>
 </template>
 
@@ -218,6 +266,7 @@ import { ref, computed, onMounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/api/client'
+import router from '@/router'
 
 const authStore = useAuthStore()
 
@@ -255,6 +304,14 @@ const showCreditsModal = ref(false)
 const creditsTarget = ref<UserRecord | null>(null)
 const creditsAdjust = ref(0)
 const creditsSet = ref(0)
+const showCreateUserModal = ref(false)
+const createUserForm = ref({
+  username: '',
+  email: '',
+  password: '',
+  role: 'user',
+  credits: 0,
+})
 
 const roleCounts = computed(() => {
   const counts = { admin: 0, moderator: 0, user: 0 }
@@ -416,6 +473,49 @@ async function confirmCreditsAdjust() {
   }
 }
 
+async function createUser() {
+  if (!createUserForm.value.username || !createUserForm.value.password) {
+    alert('请填写用户名和密码')
+    return
+  }
+
+  saving.value = true
+  try {
+    await api.post('/api/users', createUserForm.value)
+    showCreateUserModal.value = false
+    createUserForm.value = { username: '', email: '', password: '', role: 'user', credits: 0 }
+    await fetchUsers()
+  } catch (e: any) {
+    console.error('Failed to create user:', e)
+    alert('创建用户失败: ' + (e.message || '未知错误'))
+  } finally {
+    saving.value = false
+  }
+}
+
+async function impersonateUser(user: UserRecord) {
+  if (!confirm(`将以 ${user.display_name || user.username} 身份进入账户，是否继续？`)) return
+  saving.value = true
+  try {
+    const originalSession = {
+      id: authStore.user?.id,
+      username: authStore.user?.username,
+      displayName: authStore.user?.displayName,
+      token: localStorage.getItem('token'),
+      user: localStorage.getItem('user'),
+    }
+    const res: any = await api.post(`/api/users/${user.id}/impersonate`)
+    sessionStorage.setItem('impersonator_user', JSON.stringify(originalSession))
+    authStore.applyAuthPayload(res)
+    await router.push('/profile')
+  } catch (e: any) {
+    console.error('Failed to impersonate user:', e)
+    alert('代管登录失败: ' + (e.message || '未知错误'))
+  } finally {
+    saving.value = false
+  }
+}
+
 onMounted(() => {
   if (authStore.isAdmin) {
     fetchUsers()
@@ -473,6 +573,18 @@ onMounted(() => {
   margin-bottom: 12px;
   border: 1px solid var(--separator);
   box-shadow: var(--shadow-sm);
+}
+
+.create-user-btn {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: rgba(91, 110, 245, 0.14);
+  color: #5B6EF5;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .search-icon {
@@ -719,6 +831,17 @@ onMounted(() => {
   border: none;
 }
 
+.impersonate-btn {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 149, 0, 0.25);
+  background: rgba(255, 149, 0, 0.12);
+  color: #ff9500;
+  font-size: 12px;
+  cursor: pointer;
+}
+
 .ban-btn {
   background: rgba(255, 59, 48, 0.15);
   border: 1px solid rgba(255, 59, 48, 0.3);
@@ -939,6 +1062,10 @@ onMounted(() => {
   width: 90%;
   max-width: 400px;
   color: var(--text-primary);
+}
+
+.create-user-modal {
+  max-width: 440px;
 }
 
 .credits-modal-header {

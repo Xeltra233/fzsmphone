@@ -28,6 +28,11 @@ interface UserResponse {
   ban_reason: string
 }
 
+interface AuthPayload {
+  token: string
+  user: UserResponse
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const token = ref<string | null>(localStorage.getItem('token'))
@@ -71,6 +76,24 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('user', JSON.stringify(userData))
   }
 
+  function applyAuthPayload(payload: AuthPayload) {
+    token.value = payload.token
+    localStorage.setItem('token', payload.token)
+    user.value = {
+      id: String(payload.user.id),
+      discordId: payload.user.discord_id || '',
+      username: payload.user.username,
+      displayName: payload.user.display_name || '',
+      email: payload.user.email || '',
+      avatar: payload.user.avatar_url || '',
+      role: payload.user.role || 'user',
+      isSuperAdmin: payload.user.is_super_admin || false,
+      approved: true,
+      banned: payload.user.is_banned || false,
+    }
+    localStorage.setItem('user', JSON.stringify(user.value))
+  }
+
   function logout() {
     token.value = null
     user.value = null
@@ -88,6 +111,7 @@ export const useAuthStore = defineStore('auth', () => {
     fetchUser,
     setToken,
     setUser,
+    applyAuthPayload,
     logout,
   }
 })

@@ -370,15 +370,40 @@ placeholder="qun_qrcode.jpg"
           <label>自定义API地址</label>
           <input v-model="apiForm.globalCustomUrl" placeholder="https://api.example.com/v1/chat/completions" class="setting-input" />
         </div>
-        <div class="input-group">
+        <div class="input-group model-manager-group">
           <label>默认模型 <span class="input-tip">用户未选择时的默认</span></label>
-          <input v-model="apiForm.globalModel" placeholder="gpt-4o-mini" class="setting-input" />
+          <select v-model="apiForm.globalModel" class="setting-select">
+            <option value="">请选择默认模型</option>
+            <option v-for="model in enabledModels" :key="model.id" :value="model.id">
+              {{ model.id }}
+            </option>
+          </select>
+          <span class="input-desc">默认模型必须来自已启用模型列表</span>
         </div>
-<div class="input-group">
-            <label>可用模型列表 <span class="input-tip">供用户选择，用英文逗号分隔</span></label>
-            <input v-model="apiForm.globalModelList" placeholder="gpt-4o,gpt-4o-mini,claude-3-5-sonnet" class="setting-input" />
-            <span class="input-desc">设置后全局用户可在这些模型中选择使用</span>
+        <div class="input-group model-manager-group">
+          <label>可用模型列表 <span class="input-tip">可添加、开关与删除</span></label>
+          <div class="model-add-row">
+            <input
+              v-model="newModelId"
+              placeholder="输入模型 ID，如 gpt-4o-mini"
+              class="setting-input"
+              @keyup.enter="addModel"
+            />
+            <button class="add-model-btn" type="button" @click="addModel">添加</button>
           </div>
+          <div v-if="apiForm.globalModels.length > 0" class="model-list-editor">
+            <div v-for="model in apiForm.globalModels" :key="model.id" class="model-chip-row">
+              <label class="model-toggle">
+                <input v-model="model.enabled" type="checkbox" />
+                <span class="model-toggle-slider"></span>
+              </label>
+              <span class="model-chip-id">{{ model.id }}</span>
+              <button class="model-delete-btn" type="button" @click="removeModel(model.id)">删除</button>
+            </div>
+          </div>
+          <div v-else class="empty-models">暂未添加模型</div>
+          <span class="input-desc">关闭后用户不可选，删除会从列表中移除</span>
+        </div>
           <div class="input-row">
             <div class="input-group">
               <label>Temperature <span class="input-tip">创造性</span></label>
@@ -562,7 +587,7 @@ placeholder="qun_qrcode.jpg"
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import apiClient from '@/api/client'
 import NavBar from '@/components/common/NavBar.vue'
@@ -607,12 +632,14 @@ const oauthSettings = reactive({
 const apiSettingsLoading = ref(false)
 const apiSaving = ref(false)
 const apiSettings = ref<Record<string, any> | null>(null)
+type ManagedModel = { id: string; enabled: boolean }
+
 const apiForm = ref({
 globalApiKey: '',
 globalApiUrl: '',
 globalCustomUrl: '',
 globalModel: '',
-globalModelList: '',
+globalModels: [] as ManagedModel[],
 globalTemperature: 0.9,
 globalMaxLength: 4000,
 globalContextSize: 20,
@@ -621,6 +648,7 @@ globalSocialApiKey: '',
 globalSocialApiUrl: '',
 globalSocialModel: '',
 })
+const newModelId = ref('')
 
 const imgGenForm = ref({
 apiFormat: 'openai',
@@ -640,6 +668,56 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
   setTimeout(() => {
     toast.value.show = false
   }, 3000)
+}
+
+function normalizeModelId(value: string) {
+  return value.trim()
+}
+
+function parseManagedModels(value: unknown): ManagedModel[] {
+  if (typeof value !== 'string') return []
+  return value
+    .split(',')
+    .map(normalizeModelId)
+    .filter(Boolean)
+    .map((id) => ({ id, enabled: true }))
+}
+
+function getEnabledModelIds() {
+  return apiForm.value.globalModels
+    .filter((model) => model.enabled)
+    .map((model) => model.id)
+}
+
+const enabledModels = computed(() => apiForm.value.globalModels.filter((model) => model.enabled))
+
+function ensureDefaultModelValid() {
+  const enabledIds = getEnabledModelIds()
+  if (!enabledIds.length) {
+    apiForm.value.globalModel = ''
+    return
+  }
+  if (!enabledIds.includes(apiForm.value.globalModel)) {
+    apiForm.value.globalModel = enabledIds[0]
+  }
+}
+
+function addModel() {
+  const id = normalizeModelId(newModelId.value)
+  if (!id) return
+  const exists = apiForm.value.globalModels.some((model) => model.id.toLowerCase() === id.toLowerCase())
+  if (exists) {
+    showToast('该模型已存在', 'error')
+    return
+  }
+  apiForm.value.globalModels.push({ id, enabled: true })
+  newModelId.value = ''
+  ensureDefaultModelValid()
+}
+
+function removeModel(id: string) {
+  apiForm.value.globalModels = apiForm.value.globalModels.filter((model) => model.id !== id)
+  ensureDefaultModelValid()
 }
 
 async function fetchCreditSettings() {
@@ -791,7 +869,7 @@ apiForm.value.globalApiKey = res.global.api_key || ''
           apiForm.value.globalApiUrl = res.global.api_url || ''
           apiForm.value.globalCustomUrl = res.global.custom_url || ''
           apiForm.value.globalModel = res.global.model || ''
-          apiForm.value.globalModelList = res.global.model_list || ''
+          apiForm.value.globalModels = parseManagedModels(res.global.model_list || '')
           apiForm.value.globalTemperature = res.global.temperature ?? 0.9
 apiForm.value.globalMaxLength = res.global.max_length ?? 4000
 apiForm.value.globalContextSize = res.global.context_size ?? 20
@@ -799,6 +877,7 @@ apiForm.value.globalTimeout = res.global.timeout ?? 60
 apiForm.value.globalSocialApiKey = res.global.social_api_key || ''
 apiForm.value.globalSocialApiUrl = res.global.social_api_url || ''
 apiForm.value.globalSocialModel = res.global.social_model || ''
+          ensureDefaultModelValid()
 }
 // Load global image gen config
 try {
@@ -840,7 +919,7 @@ api_key: apiForm.value.globalApiKey,
 api_url: apiForm.value.globalApiUrl,
 custom_url: apiForm.value.globalCustomUrl,
 model: apiForm.value.globalModel,
-model_list: apiForm.value.globalModelList,
+model_list: getEnabledModelIds().join(','),
 temperature: apiForm.value.globalTemperature,
 max_length: apiForm.value.globalMaxLength,
 context_size: apiForm.value.globalContextSize,
@@ -987,15 +1066,17 @@ onMounted(() => {
 }
 
 .setting-input {
-  width: 80px;
+  width: 100%;
+  min-width: 0;
   padding: 8px 12px;
   background: var(--bg-secondary, 0.3);
   border: 1px solid var(--separator, 0.15);
   border-radius: 8px;
   color: var(--text-primary);
   font-size: 14px;
-  text-align: right;
+  text-align: left;
   outline: none;
+  box-sizing: border-box;
 }
 
 .setting-input:focus {
@@ -1271,10 +1352,151 @@ onMounted(() => {
 .input-row {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .input-row .input-group {
   flex: 1;
+  min-width: 140px;
+}
+
+.api-settings-section .setting-input,
+.api-settings-section .setting-select {
+  width: 100%;
+  min-height: 42px;
+}
+
+.api-settings-section .card-body {
+  gap: 14px;
+}
+
+.model-manager-group {
+  gap: 10px;
+}
+
+.model-add-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.add-model-btn {
+  flex: 0 0 auto;
+  min-width: 72px;
+  padding: 0 14px;
+  border: 1px solid rgba(91, 110, 245, 0.35);
+  border-radius: 10px;
+  background: rgba(91, 110, 245, 0.14);
+  color: #5B6EF5;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.model-list-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.model-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--separator, 0.12);
+  border-radius: 12px;
+  background: var(--bg-secondary, 0.35);
+}
+
+.model-chip-id {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.model-delete-btn {
+  flex: 0 0 auto;
+  border: none;
+  background: rgba(255, 59, 48, 0.14);
+  color: #ff3b30;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.empty-models {
+  padding: 12px;
+  border: 1px dashed var(--separator, 0.16);
+  border-radius: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-tertiary, 0.5);
+}
+
+.model-toggle {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex: 0 0 auto;
+}
+
+.model-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.model-toggle-slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--fill-secondary, rgba(120, 120, 128, 0.2));
+  transition: background 0.2s ease;
+}
+
+.model-toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s ease;
+}
+
+.model-toggle input:checked + .model-toggle-slider {
+  background: #34c759;
+}
+
+.model-toggle input:checked + .model-toggle-slider::after {
+  transform: translateX(18px);
+}
+
+@media (max-width: 430px) {
+  .input-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .input-row .input-group {
+    min-width: 0;
+  }
+
+  .model-add-row,
+  .model-chip-row {
+    flex-wrap: wrap;
+  }
+
+  .add-model-btn,
+  .model-delete-btn {
+    width: 100%;
+  }
 }
 
 .checkbox-label {

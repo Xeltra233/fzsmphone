@@ -131,6 +131,7 @@
       </div>
 
 <!-- 退出登录 -->
+  <button v-if="impersonationInfo" class="logout-btn impersonation-exit-btn" @click="exitImpersonation">退出代管</button>
   <button class="logout-btn" @click="handleLogout">退出登录</button>
 
   <div class="version-info">
@@ -270,6 +271,7 @@ const inviteData = ref<{ code: string; invitees: any[]; totalRewards: number }>(
 const loadingInvite = ref(false)
 const customDisclaimer = ref('')
 const customQrcode = ref('')
+const impersonationInfo = ref<{ username?: string; displayName?: string; token?: string | null; user?: string | null } | null>(null)
 
 const user = computed(() => authStore.user)
 const userAvatar = computed(() => {
@@ -377,6 +379,22 @@ async function handleLogout() {
   router.push('/login')
 }
 
+async function exitImpersonation() {
+  const raw = sessionStorage.getItem('impersonator_user')
+  if (!raw) return
+  try {
+    const original = JSON.parse(raw)
+    if (original?.token) localStorage.setItem('token', original.token)
+    if (original?.user) localStorage.setItem('user', original.user)
+    sessionStorage.removeItem('impersonator_user')
+    impersonationInfo.value = null
+    await authStore.fetchUser()
+    router.push('/admin/users')
+  } catch (err) {
+    console.error('Failed to exit impersonation:', err)
+  }
+}
+
 function triggerAvatarUpload() {
   avatarInput.value?.click()
 }
@@ -447,6 +465,15 @@ async function saveProfile() {
 }
 
 onMounted(async () => {
+  const rawImpersonation = sessionStorage.getItem('impersonator_user')
+  if (rawImpersonation) {
+    try {
+      impersonationInfo.value = JSON.parse(rawImpersonation)
+    } catch {
+      sessionStorage.removeItem('impersonator_user')
+    }
+  }
+
   // Sync dark mode state
   if (settingsStore.settings.darkMode !== (phoneStore.theme === 'dark')) {
     document.documentElement.setAttribute('data-theme', settingsStore.settings.darkMode ? 'dark' : 'light')
@@ -709,6 +736,11 @@ onMounted(async () => {
 
 .logout-btn:active {
   background: var(--bg-tertiary);
+}
+
+.impersonation-exit-btn {
+  background: rgba(255, 149, 0, 0.14);
+  color: #ff9500;
 }
 
 .version-info {

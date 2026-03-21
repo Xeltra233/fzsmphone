@@ -11,14 +11,18 @@ import (
 	"strings"
 	"time"
 
+	"fzsmphone/internal/config"
 	"fzsmphone/internal/database"
 	mw "fzsmphone/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserHandler struct {
-	DB *database.DB
+	DB  *database.DB
+	Cfg *config.Config
 }
 
 // GET /api/users
@@ -253,6 +257,162 @@ func (h *UserHandler) SetSuperAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mw.JSON(w, http.StatusOK, map[string]string{"message": "super_admin status updated"})
+}
+
+func (h *UserHandler) signUserToken(userID int64, email, discordID, role string, isSuperAdmin bool) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id":        userID,
+		"email":          email,
+		"discord_id":     discordID,
+		"role":           role,
+		"is_super_admin": isSuperAdmin,
+		"exp":            time.Now().Add(7 * 24 * time.Hour).Unix(),
+	})
+
+	return token.SignedString([]byte(h.Cfg.JWTSecret))
+}
+
+// POST /api/users
+func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
+	callerID, _ := mw.GetUserID(r.Context())
+	var callerRole string
+	if err := h.DB.Pool.QueryRow(r.Context(), `SELECT role FROM users WHERE id = $1`, callerID).Scan(&callerRole); err != nil || (callerRole != "admin" && callerRole != "super_admin") {
+		mw.Error(w, http.StatusForbidden, "admin access required")
+		return
+	}
+
+	var body struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Role     string `json:"role"`
+		Credits  int    `json:"credits"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		mw.Error(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	body.Username = strings.TrimSpace(body.Username)
+	body.Email = strings.TrimSpace(body.Email)
+	if body.Username == "" || body.Password == "" {
+		mw.Error(w, http.StatusBadRequest, "username and password are required")
+		return
+	}
+	if len(body.Password) < 6 {
+		mw.Error(w, http.StatusBadRequest, "password must be at least 6 characters")
+		return
+	}
+	if body.Role == "" {
+		body.Role = "user"
+	}
+	if body.Role != "user" && body.Role != "moderator" && body.Role != "admin" {
+		mw.Error(w, http.StatusBadRequest, "invalid role")
+		return
+	}
+	if callerRole != "super_admin" && body.Role != "user" && body.Role != "moderator" {
+		mw.Error(w, http.StatusForbidden, "only super_admin can create admin users")
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to hash password")
+		return
+	}
+
+	var userID int64
+	err = h.DB.Pool.QueryRow(r.Context(), `
+		INSERT INTO users (username, email, password_hash, display_name, role, is_super_admin, credits)
+		VALUES ($1, $2, $3, $4, $5, false, $6)
+		RETURNING id
+	`, body.Username, body.Email, string(hashedPassword), body.Username, body.Role, body.Credits).Scan(&userID)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			mw.Error(w, http.StatusConflict, "username or email already exists")
+			return
+		}
+		mw.Error(w, http.StatusInternalServerError, "failed to create user")
+		return
+	}
+
+	mw.JSON(w, http.StatusCreated, map[string]interface{}{
+		"message": "user created",
+		"user": map[string]interface{}{
+			"id":             userID,
+			"username":       body.Username,
+			"email":          body.Email,
+			"display_name":   body.Username,
+			"role":           body.Role,
+			"is_super_admin": false,
+			"credits":        body.Credits,
+		},
+	})
+}
+
+// POST /api/users/{id}/impersonate
+func (h *UserHandler) Impersonate(w http.ResponseWriter, r *http.Request) {
+	callerID, _ := mw.GetUserID(r.Context())
+	callerIsSuperAdmin, _ := mw.GetIsSuperAdmin(r.Context())
+	if !callerIsSuperAdmin {
+		mw.Error(w, http.StatusForbidden, "super_admin access required")
+		return
+	}
+
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		mw.Error(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	if id == callerID {
+		mw.Error(w, http.StatusBadRequest, "cannot impersonate yourself")
+		return
+	}
+
+	var user struct {
+		ID           int64
+		DiscordID    string
+		Username     string
+		Email        string
+		DisplayName  string
+		AvatarURL    string
+		Role         string
+		IsSuperAdmin bool
+		IsBanned     bool
+	}
+	err = h.DB.Pool.QueryRow(r.Context(), `
+		SELECT id, COALESCE(discord_id, ''), username, COALESCE(email, ''), COALESCE(display_name, ''), COALESCE(avatar_url, ''), role, is_super_admin, is_banned
+		FROM users WHERE id = $1
+	`, id).Scan(&user.ID, &user.DiscordID, &user.Username, &user.Email, &user.DisplayName, &user.AvatarURL, &user.Role, &user.IsSuperAdmin, &user.IsBanned)
+	if err != nil {
+		mw.Error(w, http.StatusNotFound, "user not found")
+		return
+	}
+	if user.IsBanned {
+		mw.Error(w, http.StatusForbidden, "cannot impersonate banned user")
+		return
+	}
+
+	tokenStr, err := h.signUserToken(user.ID, user.Email, user.DiscordID, user.Role, user.IsSuperAdmin)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "failed to generate impersonation token")
+		return
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]interface{}{
+		"token": tokenStr,
+		"user": map[string]interface{}{
+			"id":             user.ID,
+			"discord_id":     user.DiscordID,
+			"username":       user.Username,
+			"email":          user.Email,
+			"display_name":   user.DisplayName,
+			"avatar_url":     user.AvatarURL,
+			"role":           user.Role,
+			"is_super_admin": user.IsSuperAdmin,
+		},
+		"impersonated_by": callerID,
+	})
 }
 
 // POST /api/users/{id}/ban
