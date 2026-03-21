@@ -357,17 +357,17 @@ placeholder="qun_qrcode.jpg"
           <input v-model="apiForm.globalApiKey" type="password" placeholder="留空则强制用户填写个人API" class="setting-input" />
         </div>
         <div class="input-group">
-          <label>API 地址</label>
+          <label>接口地址预设</label>
           <select v-model="apiForm.globalApiUrl" class="setting-input">
-            <option value="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions">Gemini AI Studio</option>
-            <option value="https://api.openai.com/v1/chat/completions">OpenAI</option>
-            <option value="https://openrouter.ai/api/v1/chat/completions">OpenRouter (Claude)</option>
-            <option value="https://api.deepseek.com/chat/completions">DeepSeek</option>
-            <option value="custom">自定义地址</option>
+            <option value="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions">Gemini AI Studio 接口地址</option>
+            <option value="https://api.openai.com/v1/chat/completions">OpenAI 接口地址</option>
+            <option value="https://openrouter.ai/api/v1/chat/completions">OpenRouter 接口地址</option>
+            <option value="https://api.deepseek.com/chat/completions">DeepSeek 接口地址</option>
+            <option value="custom">自定义接口地址</option>
           </select>
         </div>
         <div v-if="apiForm.globalApiUrl === 'custom'" class="input-group">
-          <label>自定义API地址</label>
+          <label>自定义接口地址</label>
           <input v-model="apiForm.globalCustomUrl" placeholder="https://api.example.com/v1/chat/completions" class="setting-input" />
         </div>
         <div class="input-group model-manager-group">
@@ -451,7 +451,7 @@ placeholder="qun_qrcode.jpg"
         </div>
         <div class="input-group">
           <label>社交内容 API 地址</label>
-          <input v-model="apiForm.globalSocialApiUrl" placeholder="留空则使用主API地址" class="setting-input" />
+          <input v-model="apiForm.globalSocialApiUrl" placeholder="留空则使用主接口地址" class="setting-input" />
         </div>
 <div class="input-group">
 <label>社交内容默认模型</label>

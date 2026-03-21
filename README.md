@@ -60,7 +60,7 @@
   - 设置后影响整个站点的所有用户
   - 用户未配置个人 API 时使用全局配置
   - 可维护默认模型、可用模型列表，并为每个模型配置显示名称
-  - 支持通过当前 API Key + API 地址一键拉取上游模型列表
+  - 支持通过当前 API Key + 接口地址一键拉取上游模型列表
 
 - **个人 API 设置** (所有用户可配置)
   - 仅影响本人
@@ -244,7 +244,7 @@ WHERE username = 'yourUsername';
 3. 切换到 "API设置" 标签
 4. 在"全局API设置"中填入：
    - **API Key**: 你的 API Key
-   - **API URL**: API 地址 (如 `https://api.openai.com/v1/chat/completions`)
+   - **API URL**: 接口地址 (如 `https://api.openai.com/v1/chat/completions`)
    - **默认模型**: 模型名称 (如 `gpt-4o-mini`)
    - **可用模型列表**: 可手动添加，也可点击“拉取模型”从上游接口导入
    - **显示名称**: 可为每个模型单独设置前台展示名，例如把 `gpt-4o-mini` 显示为 `GPT 4o Mini`

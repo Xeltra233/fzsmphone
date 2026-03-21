@@ -40,21 +40,21 @@
 
           <div class="setting-item">
             <div class="setting-label">
-              <span class="label-text">API 地址</span>
+              <span class="label-text">接口地址预设</span>
             </div>
           </div>
           <select v-model="s.apiUrl" class="setting-select">
-            <option value="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions">Gemini AI Studio</option>
-            <option value="https://api.openai.com/v1/chat/completions">OpenAI</option>
-            <option value="https://openrouter.ai/api/v1/chat/completions">Claude (OpenRouter)</option>
-            <option value="https://api.deepseek.com/chat/completions">DeepSeek</option>
-            <option value="custom">自定义地址</option>
+            <option value="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions">Gemini AI Studio 接口地址</option>
+            <option value="https://api.openai.com/v1/chat/completions">OpenAI 接口地址</option>
+            <option value="https://openrouter.ai/api/v1/chat/completions">OpenRouter 接口地址</option>
+            <option value="https://api.deepseek.com/chat/completions">DeepSeek 接口地址</option>
+            <option value="custom">自定义接口地址</option>
           </select>
 
           <template v-if="s.apiUrl === 'custom'">
             <div class="setting-item">
               <div class="setting-label">
-                <span class="label-text">自定义 API 地址</span>
+                <span class="label-text">自定义接口地址</span>
               </div>
             </div>
             <input
@@ -115,7 +115,7 @@
           </div>
 
           <div class="setting-item"><div class="setting-label"><span class="label-text">社交内容 API 地址</span></div></div>
-          <input v-model="s.socialApiUrl" class="setting-input" placeholder="留空则使用主 API 地址" />
+          <input v-model="s.socialApiUrl" class="setting-input" placeholder="留空则使用主接口地址" />
 
           <div class="setting-item"><div class="setting-label"><span class="label-text">社交内容模型</span></div></div>
           <select v-if="modelList.length > 0" v-model="s.socialModel" class="setting-select">
