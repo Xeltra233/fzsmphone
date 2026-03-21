@@ -216,10 +216,29 @@
                   <span class="label-text">最近兑换码</span>
                   <span class="label-desc">展示最近 50 条，方便核对是否过期或已用完</span>
                 </div>
+                <div class="coupon-toolbar">
+                  <input v-model.trim="couponSearch" class="setting-input" placeholder="搜索兑换码或备注" />
+                  <select v-model="couponStatusFilter" class="setting-input coupon-filter-select">
+                    <option value="all">全部状态</option>
+                    <option value="active">仅启用</option>
+                    <option value="inactive">仅停用</option>
+                    <option value="available">仅未用完</option>
+                    <option value="exhausted">仅已用完</option>
+                    <option value="expired">仅已过期</option>
+                  </select>
+                </div>
+                <div v-if="couponList.length > 0" class="coupon-toolbar-meta">
+                  <span>共 {{ couponList.length }} 条，当前显示 {{ filteredCouponList.length }} 条</span>
+                  <div class="coupon-export-actions">
+                    <button class="batch-action-btn" type="button" @click="exportCoupons('txt')">导出 TXT</button>
+                    <button class="batch-action-btn" type="button" @click="exportCoupons('csv')">导出 CSV</button>
+                  </div>
+                </div>
                 <div v-if="couponListLoading" class="empty-models">加载兑换码中...</div>
                 <div v-else-if="couponList.length === 0" class="empty-models">暂无兑换码</div>
+                <div v-else-if="filteredCouponList.length === 0" class="empty-models">没有符合筛选条件的兑换码</div>
                 <div v-else class="coupon-list">
-                  <div v-for="coupon in couponList" :key="coupon.code" class="coupon-list-item">
+                  <div v-for="coupon in filteredCouponList" :key="coupon.code" class="coupon-list-item">
                     <div class="coupon-list-main">
                       <div class="coupon-list-code">{{ coupon.code }}</div>
                       <div class="coupon-list-meta">
@@ -688,6 +707,13 @@ placeholder="qun_qrcode.jpg"
           </label>
         </div>
 
+        <div v-if="pulledModels.length > 0" class="model-pull-stats">
+          <span>共拉取 {{ modelPullStats.total }} 个</span>
+          <span>新增 {{ modelPullStats.newCount }} 个</span>
+          <span>已存在 {{ modelPullStats.existingCount }} 个</span>
+          <span>当前显示 {{ filteredPulledModels.length }} 个</span>
+        </div>
+
         <div class="model-pull-batch-actions" v-if="pulledModels.length > 0">
           <button class="batch-action-btn" type="button" @click="selectAllPulledModels">全选新增</button>
           <button class="batch-action-btn" type="button" @click="clearPulledModelSelection">清空选择</button>
@@ -705,7 +731,8 @@ placeholder="qun_qrcode.jpg"
               @change="togglePulledModel(model.id)"
             />
             <div class="model-pull-item-main">
-              <span class="model-pull-id">{{ model.id }}</span>
+              <span class="model-pull-display">{{ getPulledModelPreviewName(model.id) }}</span>
+              <span class="model-pull-id">ID: {{ model.id }}</span>
               <span class="model-pull-meta">{{ model.alreadyExists ? '已存在，已自动跳过' : '可添加到可用模型列表' }}</span>
             </div>
           </label>
@@ -768,6 +795,8 @@ const couponList = ref<Array<{
 const latestCoupon = ref<null | { codes: string[]; credits: number; max_uses: number; note: string }>(null)
 const couponCreating = ref(false)
 const couponListLoading = ref(false)
+const couponSearch = ref('')
+const couponStatusFilter = ref<'all' | 'active' | 'inactive' | 'available' | 'exhausted' | 'expired'>('all')
 
 const systemSettings = reactive({
   app_name: '',
@@ -845,6 +874,12 @@ function sanitizeDisplayName(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function isCouponExpired(value: string | null) {
+  if (!value) return false
+  const time = new Date(value).getTime()
+  return !Number.isNaN(time) && time < Date.now()
+}
+
 function parseManagedModels(value: unknown): ManagedModel[] {
   if (Array.isArray(value)) {
     return value
@@ -881,6 +916,32 @@ function getEnabledModelIds() {
 }
 
 const enabledModels = computed(() => apiForm.value.globalModels.filter((model) => model.enabled))
+const couponDisplayRows = computed(() => {
+  return couponList.value.map((coupon) => ({
+    ...coupon,
+    expired: isCouponExpired(coupon.expires_at),
+    exhausted: coupon.current_uses >= coupon.max_uses,
+  }))
+})
+const filteredCouponList = computed(() => {
+  const keyword = couponSearch.value.trim().toLowerCase()
+  return couponDisplayRows.value.filter((coupon) => {
+    if (couponStatusFilter.value === 'active' && !coupon.is_active) return false
+    if (couponStatusFilter.value === 'inactive' && coupon.is_active) return false
+    if (couponStatusFilter.value === 'available' && (coupon.exhausted || coupon.expired)) return false
+    if (couponStatusFilter.value === 'exhausted' && !coupon.exhausted) return false
+    if (couponStatusFilter.value === 'expired' && !coupon.expired) return false
+    if (!keyword) return true
+    return coupon.code.toLowerCase().includes(keyword) || coupon.note.toLowerCase().includes(keyword)
+  })
+})
+const managedModelDisplayMap = computed(() => {
+  const map = new Map<string, string>()
+  for (const model of apiForm.value.globalModels) {
+    map.set(modelIdKey(model.id), model.displayName.trim() || model.id)
+  }
+  return map
+})
 const filteredPulledModels = computed(() => {
   const keyword = modelIdKey(modelPullSearch.value)
   return pulledModels.value.filter((model) => {
@@ -888,6 +949,15 @@ const filteredPulledModels = computed(() => {
     if (!keyword) return true
     return modelIdKey(model.id).includes(keyword)
   })
+})
+const modelPullStats = computed(() => {
+  const total = pulledModels.value.length
+  const existingCount = pulledModels.value.filter((model) => model.alreadyExists).length
+  return {
+    total,
+    existingCount,
+    newCount: total - existingCount,
+  }
 })
 
 function ensureDefaultModelValid() {
@@ -1131,6 +1201,62 @@ function formatCouponExpiry(value: string | null) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '过期时间未知'
   return `截止 ${date.toLocaleString()}`
+}
+
+function getPulledModelPreviewName(id: string) {
+  return managedModelDisplayMap.value.get(modelIdKey(id)) || id
+}
+
+function escapeCsvCell(value: string | number | boolean) {
+  const text = String(value ?? '')
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+}
+
+function downloadTextFile(filename: string, content: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+function exportCoupons(format: 'txt' | 'csv') {
+  if (!filteredCouponList.value.length) {
+    showToast('当前没有可导出的兑换码', 'error')
+    return
+  }
+
+  const rows = filteredCouponList.value.map((coupon) => ({
+    code: coupon.code,
+    credits: coupon.credits,
+    currentUses: coupon.current_uses,
+    maxUses: coupon.max_uses,
+    expiresAt: coupon.expires_at ? formatCouponExpiry(coupon.expires_at) : '永久有效',
+    status: coupon.is_active ? '启用中' : '已停用',
+    note: coupon.note || '',
+    createdAt: new Date(coupon.created_at).toLocaleString(),
+  }))
+
+  if (format === 'txt') {
+    const content = rows
+      .map((row, index) => `${index + 1}. ${row.code}\n额度: ${row.credits}\n已用: ${row.currentUses}/${row.maxUses}\n状态: ${row.status}\n过期: ${row.expiresAt}\n备注: ${row.note || '无'}\n创建时间: ${row.createdAt}`)
+      .join('\n\n')
+    downloadTextFile(`coupons-${Date.now()}.txt`, content, 'text/plain;charset=utf-8')
+    showToast(`已导出 ${rows.length} 条兑换码 TXT`)
+    return
+  }
+
+  const header = ['code', 'credits', 'current_uses', 'max_uses', 'status', 'expires_at', 'note', 'created_at']
+  const content = [
+    header.join(','),
+    ...rows.map((row) => [row.code, row.credits, row.currentUses, row.maxUses, row.status, row.expiresAt, row.note, row.createdAt].map(escapeCsvCell).join(',')),
+  ].join('\n')
+  downloadTextFile(`coupons-${Date.now()}.csv`, content, 'text/csv;charset=utf-8')
+  showToast(`已导出 ${rows.length} 条兑换码 CSV`)
 }
 
 async function copyCouponCode(code: string) {
@@ -1741,6 +1867,37 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
+.coupon-toolbar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.coupon-toolbar .setting-input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.coupon-filter-select {
+  max-width: 180px;
+}
+
+.coupon-toolbar-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.coupon-export-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .coupon-latest-card {
   display: flex;
   flex-direction: column;
@@ -2028,6 +2185,15 @@ onMounted(() => {
   padding: 12px 18px 0;
 }
 
+.model-pull-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 12px 18px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 .batch-action-btn {
   border: none;
   background: rgba(91, 110, 245, 0.1);
@@ -2066,9 +2232,16 @@ onMounted(() => {
   gap: 4px;
 }
 
-.model-pull-id {
+.model-pull-display {
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.model-pull-id {
+  color: var(--text-secondary);
+  font-size: 12px;
   word-break: break-all;
 }
 
@@ -2194,6 +2367,10 @@ onMounted(() => {
   .coupon-list-item {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .coupon-filter-select {
+    max-width: none;
   }
 
   .input-row .input-group {
