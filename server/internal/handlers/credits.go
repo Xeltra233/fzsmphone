@@ -537,6 +537,12 @@ func (h *CreditsHandler) RedeemCoupon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var isActive bool
+	if err := h.DB.Pool.QueryRow(r.Context(), `SELECT COALESCE(is_active, true) FROM coupon_codes WHERE id = $1`, coupon.ID).Scan(&isActive); err == nil && !isActive {
+		mw.Error(w, http.StatusBadRequest, "兑换码已停用")
+		return
+	}
+
 	// Check if user already used this coupon
 	var alreadyUsed bool
 	h.DB.Pool.QueryRow(r.Context(), `
@@ -608,21 +614,27 @@ func (h *CreditsHandler) CreateCoupon(w http.ResponseWriter, r *http.Request) {
 		Credits   int    `json:"credits"`
 		MaxUses   int    `json:"max_uses"`
 		ExpiresIn int    `json:"expires_in"` // days, 0 = never
+		BatchSize int    `json:"batch_size"`
+		Note      string `json:"note"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		mw.Error(w, http.StatusBadRequest, "invalid request")
 		return
 	}
 
-	if body.Code == "" {
-		body.Code = generateInviteCode()
-	}
 	if body.Credits <= 0 {
 		mw.Error(w, http.StatusBadRequest, "额度必须大于0")
 		return
 	}
 	if body.MaxUses <= 0 {
 		body.MaxUses = 1
+	}
+	if body.BatchSize <= 0 {
+		body.BatchSize = 1
+	}
+	if body.BatchSize > 100 {
+		mw.Error(w, http.StatusBadRequest, "批量生成数量不能超过100")
+		return
 	}
 
 	var expiresAt *time.Time
@@ -631,21 +643,40 @@ func (h *CreditsHandler) CreateCoupon(w http.ResponseWriter, r *http.Request) {
 		expiresAt = &t
 	}
 
-	_, err := h.DB.Pool.Exec(r.Context(), `
-		INSERT INTO coupon_codes (code, credits, max_uses, expires_at)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (code) DO UPDATE SET credits = $2, max_uses = $3, expires_at = $4
-	`, body.Code, body.Credits, body.MaxUses, expiresAt)
-	if err != nil {
-		mw.Error(w, http.StatusInternalServerError, "创建失败")
-		return
+	createdCodes := make([]string, 0, body.BatchSize)
+	for i := 0; i < body.BatchSize; i++ {
+		code := body.Code
+		if body.BatchSize > 1 || code == "" {
+			code = generateInviteCode()
+		}
+
+		_, err := h.DB.Pool.Exec(r.Context(), `
+			INSERT INTO coupon_codes (code, credits, max_uses, expires_at, note, is_active)
+			VALUES ($1, $2, $3, $4, $5, true)
+			ON CONFLICT (code) DO UPDATE SET credits = $2, max_uses = $3, expires_at = $4, note = $5, is_active = true
+		`, code, body.Credits, body.MaxUses, expiresAt, body.Note)
+		if err != nil {
+			mw.Error(w, http.StatusInternalServerError, "创建失败")
+			return
+		}
+		createdCodes = append(createdCodes, code)
+		if body.BatchSize == 1 && body.Code != "" {
+			break
+		}
 	}
 
-	mw.JSON(w, http.StatusOK, map[string]interface{}{
-		"code":     body.Code,
-		"credits":  body.Credits,
-		"max_uses": body.MaxUses,
-	})
+	response := map[string]interface{}{
+		"codes":      createdCodes,
+		"credits":    body.Credits,
+		"max_uses":   body.MaxUses,
+		"batch_size": len(createdCodes),
+		"note":       body.Note,
+	}
+	if len(createdCodes) > 0 {
+		response["code"] = createdCodes[0]
+	}
+
+	mw.JSON(w, http.StatusOK, response)
 }
 
 // Admin: List coupon codes
@@ -657,7 +688,7 @@ func (h *CreditsHandler) ListCoupons(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := h.DB.Pool.Query(r.Context(), `
-		SELECT code, credits, max_uses, current_uses, expires_at, created_at
+		SELECT code, credits, max_uses, current_uses, expires_at, created_at, COALESCE(note, ''), COALESCE(is_active, true)
 		FROM coupon_codes
 		ORDER BY created_at DESC
 		LIMIT 50
@@ -675,18 +706,72 @@ func (h *CreditsHandler) ListCoupons(w http.ResponseWriter, r *http.Request) {
 		CurrentUses int        `json:"current_uses"`
 		ExpiresAt   *time.Time `json:"expires_at"`
 		CreatedAt   time.Time  `json:"created_at"`
+		Note        string     `json:"note"`
+		IsActive    bool       `json:"is_active"`
 	}
 
 	var coupons []couponRow
 	for rows.Next() {
 		var c couponRow
-		rows.Scan(&c.Code, &c.Credits, &c.MaxUses, &c.CurrentUses, &c.ExpiresAt, &c.CreatedAt)
+		rows.Scan(&c.Code, &c.Credits, &c.MaxUses, &c.CurrentUses, &c.ExpiresAt, &c.CreatedAt, &c.Note, &c.IsActive)
 		coupons = append(coupons, c)
 	}
 
 	mw.JSON(w, http.StatusOK, map[string]interface{}{
 		"coupons": coupons,
 	})
+}
+
+func (h *CreditsHandler) UpdateCouponStatus(w http.ResponseWriter, r *http.Request) {
+	isSuperAdmin, _ := mw.GetIsSuperAdmin(r.Context())
+	if !isSuperAdmin {
+		mw.Error(w, http.StatusForbidden, "需要超级管理员权限")
+		return
+	}
+
+	var body struct {
+		IsActive bool `json:"is_active"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		mw.Error(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	code := chi.URLParam(r, "code")
+	if code == "" {
+		mw.Error(w, http.StatusBadRequest, "兑换码不能为空")
+		return
+	}
+
+	_, err := h.DB.Pool.Exec(r.Context(), `UPDATE coupon_codes SET is_active = $1 WHERE code = $2`, body.IsActive, code)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "更新失败")
+		return
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]string{"message": "coupon updated"})
+}
+
+func (h *CreditsHandler) DeleteCoupon(w http.ResponseWriter, r *http.Request) {
+	isSuperAdmin, _ := mw.GetIsSuperAdmin(r.Context())
+	if !isSuperAdmin {
+		mw.Error(w, http.StatusForbidden, "需要超级管理员权限")
+		return
+	}
+
+	code := chi.URLParam(r, "code")
+	if code == "" {
+		mw.Error(w, http.StatusBadRequest, "兑换码不能为空")
+		return
+	}
+
+	_, err := h.DB.Pool.Exec(r.Context(), `DELETE FROM coupon_codes WHERE code = $1`, code)
+	if err != nil {
+		mw.Error(w, http.StatusInternalServerError, "删除失败")
+		return
+	}
+
+	mw.JSON(w, http.StatusOK, map[string]string{"message": "coupon deleted"})
 }
 
 func (h *CreditsHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
@@ -810,4 +895,6 @@ func (h *CreditsHandler) RegisterRoutes(r chi.Router) {
 	r.Post("/redeem", h.RedeemCoupon)
 	r.Post("/coupon", h.CreateCoupon)
 	r.Get("/coupons", h.ListCoupons)
+	r.Patch("/coupon/{code}", h.UpdateCouponStatus)
+	r.Delete("/coupon/{code}", h.DeleteCoupon)
 }

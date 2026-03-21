@@ -189,6 +189,8 @@
                   <input v-model.number="couponForm.credits" type="number" min="1" class="setting-input" :disabled="!authStore.isSuperAdmin || couponCreating" placeholder="奖励额度" />
                   <input v-model.number="couponForm.maxUses" type="number" min="1" class="setting-input" :disabled="!authStore.isSuperAdmin || couponCreating" placeholder="可使用次数" />
                   <input v-model.number="couponForm.expiresIn" type="number" min="0" class="setting-input" :disabled="!authStore.isSuperAdmin || couponCreating" placeholder="有效天数，0 为不过期" />
+                  <input v-model.trim="couponForm.note" class="setting-input coupon-note-input" :disabled="!authStore.isSuperAdmin || couponCreating" placeholder="备注/用途，例如 开服补偿、活动礼包" />
+                  <input v-model.number="couponForm.batchSize" type="number" min="1" max="100" class="setting-input" :disabled="!authStore.isSuperAdmin || couponCreating || !!couponForm.code.trim()" placeholder="批量数量，1-100" />
                 </div>
                 <div class="coupon-actions-row">
                   <button class="add-model-btn" type="button" @click="handleCreateCoupon" :disabled="!authStore.isSuperAdmin || couponCreating">
@@ -200,8 +202,12 @@
                 </div>
                 <div v-if="latestCoupon" class="coupon-latest-card">
                   <span class="coupon-latest-label">最近生成</span>
-                  <div class="coupon-latest-code">{{ latestCoupon.code }}</div>
-                  <div class="coupon-latest-meta">额度 {{ latestCoupon.credits }} / 可用 {{ latestCoupon.max_uses }} 次</div>
+                  <div v-if="latestCoupon.codes.length === 1" class="coupon-latest-code">{{ latestCoupon.codes[0] }}</div>
+                  <div v-else class="coupon-latest-code coupon-latest-multi">共生成 {{ latestCoupon.codes.length }} 个兑换码</div>
+                  <div class="coupon-latest-meta">额度 {{ latestCoupon.credits }} / 可用 {{ latestCoupon.max_uses }} 次 / {{ latestCoupon.note || '无备注' }}</div>
+                  <div v-if="latestCoupon.codes.length > 1" class="coupon-latest-list">
+                    <span v-for="code in latestCoupon.codes" :key="code" class="coupon-latest-chip">{{ code }}</span>
+                  </div>
                 </div>
               </div>
 
@@ -220,9 +226,15 @@
                         <span>额度 {{ coupon.credits }}</span>
                         <span>已用 {{ coupon.current_uses }}/{{ coupon.max_uses }}</span>
                         <span>{{ formatCouponExpiry(coupon.expires_at) }}</span>
+                        <span>{{ coupon.is_active ? '启用中' : '已停用' }}</span>
+                        <span v-if="coupon.note">备注：{{ coupon.note }}</span>
                       </div>
                     </div>
-                    <button class="batch-action-btn" type="button" @click="copyCouponCode(coupon.code)">复制</button>
+                    <div class="coupon-item-actions">
+                      <button class="batch-action-btn" type="button" @click="copyCouponCode(coupon.code)">复制</button>
+                      <button class="batch-action-btn" type="button" @click="toggleCouponStatus(coupon)">{{ coupon.is_active ? '停用' : '启用' }}</button>
+                      <button class="batch-action-btn danger" type="button" @click="deleteCoupon(coupon.code)">删除</button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -740,6 +752,8 @@ const couponForm = reactive({
   credits: 100,
   maxUses: 1,
   expiresIn: 0,
+  note: '',
+  batchSize: 1,
 })
 const couponList = ref<Array<{
   code: string
@@ -748,8 +762,10 @@ const couponList = ref<Array<{
   current_uses: number
   expires_at: string | null
   created_at: string
+  note: string
+  is_active: boolean
 }>>([])
-const latestCoupon = ref<null | { code: string; credits: number; max_uses: number }>(null)
+const latestCoupon = ref<null | { codes: string[]; credits: number; max_uses: number; note: string }>(null)
 const couponCreating = ref(false)
 const couponListLoading = ref(false)
 
@@ -1067,19 +1083,41 @@ async function handleCreateCoupon() {
     showToast('可使用次数必须大于 0', 'error')
     return
   }
+  if (couponForm.batchSize <= 0 || couponForm.batchSize > 100) {
+    showToast('批量数量必须在 1 到 100 之间', 'error')
+    return
+  }
+  if (couponForm.code.trim() && couponForm.batchSize > 1) {
+    showToast('自定义兑换码时不能批量生成', 'error')
+    return
+  }
 
   couponCreating.value = true
   try {
-    const res = await apiClient.post<{ code: string; credits: number; max_uses: number }>('/api/credits/coupon', {
+    const res = await apiClient.post<{ code?: string; codes?: string[]; credits: number; max_uses: number; note?: string }>('/api/credits/coupon', {
       code: couponForm.code.trim(),
       credits: couponForm.credits,
       max_uses: couponForm.maxUses,
       expires_in: couponForm.expiresIn,
+      note: couponForm.note.trim(),
+      batch_size: couponForm.batchSize,
     })
-    latestCoupon.value = res
+    latestCoupon.value = {
+      codes: Array.isArray(res.codes) && res.codes.length ? res.codes : (res.code ? [res.code] : []),
+      credits: res.credits,
+      max_uses: res.max_uses,
+      note: res.note || couponForm.note.trim(),
+    }
     couponForm.code = ''
-    await navigator.clipboard.writeText(res.code)
-    showToast(`兑换码已生成并复制：${res.code}`)
+    couponForm.note = ''
+    couponForm.batchSize = 1
+    if (latestCoupon.value.codes.length === 1) {
+      await navigator.clipboard.writeText(latestCoupon.value.codes[0])
+      showToast(`兑换码已生成并复制：${latestCoupon.value.codes[0]}`)
+    } else if (latestCoupon.value.codes.length > 1) {
+      await navigator.clipboard.writeText(latestCoupon.value.codes.join('\n'))
+      showToast(`已批量生成 ${latestCoupon.value.codes.length} 个兑换码，并复制到剪贴板`)
+    }
     await fetchCoupons()
   } catch (err: any) {
     showToast('生成兑换码失败: ' + (err.message || '未知错误'), 'error')
@@ -1101,6 +1139,30 @@ async function copyCouponCode(code: string) {
     showToast('兑换码已复制')
   } catch {
     showToast('复制失败', 'error')
+  }
+}
+
+async function toggleCouponStatus(coupon: { code: string; is_active: boolean }) {
+  try {
+    await apiClient.patch(`/api/credits/coupon/${encodeURIComponent(coupon.code)}`, {
+      is_active: !coupon.is_active,
+    })
+    showToast(coupon.is_active ? '兑换码已停用' : '兑换码已启用')
+    await fetchCoupons()
+  } catch (err: any) {
+    showToast('更新兑换码失败: ' + (err.message || '未知错误'), 'error')
+  }
+}
+
+async function deleteCoupon(code: string) {
+  const confirmed = confirm(`确定删除兑换码 ${code} 吗？删除后无法恢复。`)
+  if (!confirmed) return
+  try {
+    await apiClient.delete(`/api/credits/coupon/${encodeURIComponent(code)}`)
+    showToast('兑换码已删除')
+    await fetchCoupons()
+  } catch (err: any) {
+    showToast('删除兑换码失败: ' + (err.message || '未知错误'), 'error')
   }
 }
 
@@ -1701,9 +1763,29 @@ onMounted(() => {
   color: var(--text-primary);
 }
 
+.coupon-latest-multi {
+  font-size: 16px;
+  letter-spacing: normal;
+}
+
 .coupon-latest-meta {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.coupon-latest-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.coupon-latest-chip {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(52, 199, 89, 0.12);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .coupon-list {
@@ -1743,6 +1825,18 @@ onMounted(() => {
   gap: 8px 12px;
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.coupon-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.batch-action-btn.danger {
+  background: rgba(255, 59, 48, 0.12);
+  color: #ff3b30;
 }
 
 .card-header {

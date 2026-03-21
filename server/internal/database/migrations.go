@@ -542,4 +542,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_invite_code_unique ON users (invite_
 ALTER TABLE users ADD COLUMN IF NOT EXISTS character_storage_quota BIGINT NOT NULL DEFAULT 10485760;
 `,
 	},
+	{
+		Version: 30,
+		Name:    "enhance_coupon_management",
+		SQL: `
+ALTER TABLE coupon_codes ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT '';
+ALTER TABLE coupon_codes ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+CREATE INDEX IF NOT EXISTS idx_coupon_codes_active_created ON coupon_codes(is_active, created_at DESC);
+`,
+	},
 }
