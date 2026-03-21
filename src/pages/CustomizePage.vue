@@ -622,10 +622,20 @@
           <div class="setting-item" @click="exportData">
             <div class="setting-label">
               <span class="label-text">导出数据</span>
-              <span class="label-desc">导出聊天记录和设置</span>
+              <span class="label-desc">导出角色卡、聊天记录、预设、世界书和应用数据（不含 API Key 等敏感信息）</span>
             </div>
             <span class="arrow">›</span>
           </div>
+
+          <div class="setting-item" @click="triggerImportBackup">
+            <div class="setting-label">
+              <span class="label-text">导入数据</span>
+              <span class="label-desc">导入兼容备份文件，恢复角色卡、预设、聊天和本地状态{{ importingBackup ? '（导入中）' : '' }}</span>
+            </div>
+            <span class="arrow">›</span>
+          </div>
+
+          <input ref="backupImportInput" type="file" accept="application/json,.json" style="display:none" @change="handleImportBackup" />
 
           <div class="setting-item" @click="showClearConfirm = true">
             <div class="setting-label">
@@ -673,6 +683,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { usePhoneStore } from '@/stores/phone'
 import { loadImageGenConfig, saveImageGenConfig, IMAGE_ASPECT_RATIO_OPTIONS, type ImageGenConfig } from '@/utils/imageGenConfig'
 import { isChatAutoImageGenEnabled, setChatAutoImageGenEnabled, isSocialAutoImageGenEnabled, setSocialAutoImageGenEnabled } from '@/utils/imageGenService'
+import { downloadAppBackup, importAppBackup, readBackupFile, pingAuth } from '@/utils/dataBackup'
 import api from '@/api/client'
 
 const settingsStore = useSettingsStore()
@@ -711,6 +722,8 @@ const modelList = ref<Array<{ id: string; displayName: string }>>([])
 const fetchingModels = ref(false)
 const fetchError = ref('')
 const dailyTips = ref('')
+const backupImportInput = ref<HTMLInputElement | null>(null)
+const importingBackup = ref(false)
 
 async function fetchDailyTips() {
   try {
@@ -815,20 +828,41 @@ function testSound() {
   }
 }
 
-function exportData() {
-  const data = {
-    settings: { ...s },
-    exportTime: new Date().toISOString(),
+async function exportData() {
+  try {
+    await pingAuth()
+    await downloadAppBackup()
+  } catch (err: any) {
+    alert(err?.message || '导出失败，请稍后重试')
   }
-  // 不导出 apiKey
-  delete (data.settings as any).apiKey
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'fzsmphone-settings.json'
-  a.click()
-  URL.revokeObjectURL(url)
+}
+
+function triggerImportBackup() {
+  if (importingBackup.value) return
+  backupImportInput.value?.click()
+}
+
+async function handleImportBackup(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  const confirmed = confirm('导入会合并本地数据，并向当前账号写入角色卡、预设、短信、日记等内容。为避免重复导入，请尽量只导入一次。是否继续？')
+  if (!confirmed) return
+
+  importingBackup.value = true
+  try {
+    await pingAuth()
+    const backup = await readBackupFile(file)
+    const result = await importAppBackup(backup)
+    alert(`导入完成：角色卡 ${result.characters} 个，预设 ${result.presets} 个，人设 ${result.personas} 个，日记 ${result.diaries} 篇，短信线程 ${result.sms_threads} 个，通话 ${result.calls} 条，游戏记录 ${result.games} 条。\n\n页面将刷新以重新加载数据。`)
+    window.location.reload()
+  } catch (err: any) {
+    alert(err?.message || '导入失败，请检查备份文件格式')
+  } finally {
+    importingBackup.value = false
+  }
 }
 
 function clearAllData() {
