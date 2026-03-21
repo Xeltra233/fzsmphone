@@ -15,15 +15,17 @@ export function getScopedItem(baseKey: string): string | null {
   const scoped = localStorage.getItem(scopedKey)
   if (scoped !== null) return scoped
 
-  const legacy = localStorage.getItem(baseKey)
-  if (legacy !== null) {
-    localStorage.setItem(scopedKey, legacy)
-  }
-  return legacy
+  return localStorage.getItem(baseKey)
 }
 
 export function setScopedItem(baseKey: string, value: string) {
-  localStorage.setItem(getScopedKey(baseKey), value)
+  const scopedKey = getScopedKey(baseKey)
+  try {
+    localStorage.setItem(scopedKey, value)
+  } catch {
+    localStorage.removeItem(baseKey)
+    localStorage.setItem(scopedKey, value)
+  }
 }
 
 export function removeScopedItem(baseKey: string) {
