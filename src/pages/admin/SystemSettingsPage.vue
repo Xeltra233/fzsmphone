@@ -390,19 +390,30 @@ placeholder="qun_qrcode.jpg"
               @keyup.enter="addModel"
             />
             <button class="add-model-btn" type="button" @click="addModel">添加</button>
+            <button class="add-model-btn secondary" type="button" @click="pullModels" :disabled="pullingModels">
+              {{ pullingModels ? '拉取中...' : '拉取模型' }}
+            </button>
           </div>
+          <div v-if="modelPullError" class="model-pull-error">{{ modelPullError }}</div>
           <div v-if="apiForm.globalModels.length > 0" class="model-list-editor">
             <div v-for="model in apiForm.globalModels" :key="model.id" class="model-chip-row">
               <label class="model-toggle">
                 <input v-model="model.enabled" type="checkbox" />
                 <span class="model-toggle-slider"></span>
               </label>
-              <span class="model-chip-id">{{ model.id }}</span>
+              <div class="model-chip-main">
+                <span class="model-chip-id">{{ model.id }}</span>
+                <input
+                  v-model.trim="model.displayName"
+                  class="setting-input model-display-input"
+                  placeholder="显示名称，可留空"
+                />
+              </div>
               <button class="model-delete-btn" type="button" @click="removeModel(model.id)">删除</button>
             </div>
           </div>
           <div v-else class="empty-models">暂未添加模型</div>
-          <span class="input-desc">关闭后用户不可选，删除会从列表中移除</span>
+          <span class="input-desc">支持从当前 API 拉取模型；显示名称仅用于后台展示，留空则直接显示模型 ID</span>
         </div>
           <div class="input-row">
             <div class="input-group">
@@ -632,7 +643,7 @@ const oauthSettings = reactive({
 const apiSettingsLoading = ref(false)
 const apiSaving = ref(false)
 const apiSettings = ref<Record<string, any> | null>(null)
-type ManagedModel = { id: string; enabled: boolean }
+type ManagedModel = { id: string; enabled: boolean; displayName: string }
 
 const apiForm = ref({
 globalApiKey: '',
@@ -649,6 +660,8 @@ globalSocialApiUrl: '',
 globalSocialModel: '',
 })
 const newModelId = ref('')
+const pullingModels = ref(false)
+const modelPullError = ref('')
 
 const imgGenForm = ref({
 apiFormat: 'openai',
@@ -674,13 +687,37 @@ function normalizeModelId(value: string) {
   return value.trim()
 }
 
+function sanitizeDisplayName(value: unknown) {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
 function parseManagedModels(value: unknown): ManagedModel[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === 'string') {
+          const id = normalizeModelId(item)
+          if (!id) return null
+          return { id, enabled: true, displayName: '' }
+        }
+        if (!item || typeof item !== 'object') return null
+        const model = item as Record<string, unknown>
+        const id = normalizeModelId(String(model.id || ''))
+        if (!id) return null
+        return {
+          id,
+          enabled: model.enabled !== false,
+          displayName: sanitizeDisplayName(model.display_name ?? model.displayName),
+        }
+      })
+      .filter((item): item is ManagedModel => Boolean(item))
+  }
   if (typeof value !== 'string') return []
   return value
     .split(',')
     .map(normalizeModelId)
     .filter(Boolean)
-    .map((id) => ({ id, enabled: true }))
+    .map((id) => ({ id, enabled: true, displayName: '' }))
 }
 
 function getEnabledModelIds() {
@@ -710,9 +747,76 @@ function addModel() {
     showToast('该模型已存在', 'error')
     return
   }
-  apiForm.value.globalModels.push({ id, enabled: true })
+  apiForm.value.globalModels.push({ id, enabled: true, displayName: '' })
   newModelId.value = ''
   ensureDefaultModelValid()
+}
+
+function mergeModels(models: ManagedModel[]) {
+  const merged = [...apiForm.value.globalModels]
+  for (const model of models) {
+    const index = merged.findIndex((item) => item.id.toLowerCase() === model.id.toLowerCase())
+    if (index >= 0) {
+      const current = merged[index]
+      merged[index] = {
+        ...current,
+        displayName: current.displayName || model.displayName || '',
+      }
+      continue
+    }
+    merged.push(model)
+  }
+  apiForm.value.globalModels = merged
+  ensureDefaultModelValid()
+}
+
+function resolveApiUrl() {
+  if (apiForm.value.globalApiUrl === 'custom') {
+    return apiForm.value.globalCustomUrl.trim()
+  }
+  return apiForm.value.globalApiUrl.trim()
+}
+
+function extractModelIds(payload: any) {
+  let list: any[] = []
+  if (Array.isArray(payload?.data)) {
+    list = payload.data
+  } else if (Array.isArray(payload?.models)) {
+    list = payload.models
+  } else if (Array.isArray(payload)) {
+    list = payload
+  }
+
+  return list
+    .map((item) => {
+      if (typeof item === 'string') return normalizeModelId(item)
+      if (item && typeof item === 'object') return normalizeModelId(item.id || item.name || '')
+      return ''
+    })
+    .filter(Boolean)
+}
+
+async function pullModels() {
+  pullingModels.value = true
+  modelPullError.value = ''
+  try {
+    const response = await apiClient.post<any>('/api/ai/models', {
+      apiUrl: resolveApiUrl(),
+      apiKey: apiForm.value.globalApiKey,
+    })
+    const pulled = extractModelIds(response).map((id) => ({ id, enabled: true, displayName: '' }))
+    if (!pulled.length) {
+      throw new Error('接口已响应，但没有返回可用模型')
+    }
+    const before = apiForm.value.globalModels.length
+    mergeModels(pulled)
+    const addedCount = apiForm.value.globalModels.length - before
+    showToast(addedCount > 0 ? `已导入 ${addedCount} 个模型` : '模型列表已是最新')
+  } catch (err: any) {
+    modelPullError.value = err.message || '拉取模型失败'
+  } finally {
+    pullingModels.value = false
+  }
 }
 
 function removeModel(id: string) {
@@ -865,45 +969,46 @@ async function fetchApiSettings() {
     const res = await apiClient.get<Record<string, any>>('/api/settings/api') as Record<string, any>
     apiSettings.value = res
     if (authStore.isSuperAdmin && res.global) {
-apiForm.value.globalApiKey = res.global.api_key || ''
-          apiForm.value.globalApiUrl = res.global.api_url || ''
-          apiForm.value.globalCustomUrl = res.global.custom_url || ''
-          apiForm.value.globalModel = res.global.model || ''
-          apiForm.value.globalModels = parseManagedModels(res.global.model_list || '')
-          apiForm.value.globalTemperature = res.global.temperature ?? 0.9
-apiForm.value.globalMaxLength = res.global.max_length ?? 4000
-apiForm.value.globalContextSize = res.global.context_size ?? 20
-apiForm.value.globalTimeout = res.global.timeout ?? 60
-apiForm.value.globalSocialApiKey = res.global.social_api_key || ''
-apiForm.value.globalSocialApiUrl = res.global.social_api_url || ''
-apiForm.value.globalSocialModel = res.global.social_model || ''
-          ensureDefaultModelValid()
-}
-// Load global image gen config
-try {
-const settingsRes = await apiClient.get<Record<string, any>>('/api/settings')
-const settingsData = settingsRes.data || {}
-if (settingsData.img_gen_config) {
-const imgCfg = JSON.parse(settingsData.img_gen_config)
-imgGenForm.value.apiFormat = imgCfg.apiFormat || 'openai'
-if (imgCfg.novelai) {
-imgGenForm.value.novelaiUrl = imgCfg.novelai.url || ''
-imgGenForm.value.novelaiKey = imgCfg.novelai.key || ''
-imgGenForm.value.novelaiModel = imgCfg.novelai.model || 'nai-diffusion-4-5-full'
-}
-if (imgCfg.openai) {
-imgGenForm.value.openaiUrl = imgCfg.openai.url || ''
-imgGenForm.value.openaiKey = imgCfg.openai.key || ''
-imgGenForm.value.openaiModel = imgCfg.openai.model || ''
-}
-if (imgCfg.gemini) {
-imgGenForm.value.geminiUrl = imgCfg.gemini.url || ''
-imgGenForm.value.geminiKey = imgCfg.gemini.key || ''
-imgGenForm.value.geminiModel = imgCfg.gemini.model || ''
-}
-}
-} catch (e) { console.error('Failed to load img gen config', e) }
-} catch (err: any) {
+      apiForm.value.globalApiKey = res.global.api_key || ''
+      apiForm.value.globalApiUrl = res.global.api_url || ''
+      apiForm.value.globalCustomUrl = res.global.custom_url || ''
+      apiForm.value.globalModel = res.global.model || ''
+      apiForm.value.globalModels = parseManagedModels(res.global.model_list || [])
+      apiForm.value.globalTemperature = res.global.temperature ?? 0.9
+      apiForm.value.globalMaxLength = res.global.max_length ?? 4000
+      apiForm.value.globalContextSize = res.global.context_size ?? 20
+      apiForm.value.globalTimeout = res.global.timeout ?? 60
+      apiForm.value.globalSocialApiKey = res.global.social_api_key || ''
+      apiForm.value.globalSocialApiUrl = res.global.social_api_url || ''
+      apiForm.value.globalSocialModel = res.global.social_model || ''
+      ensureDefaultModelValid()
+    }
+
+    try {
+      const settingsData = await apiClient.get<Record<string, any>>('/api/settings')
+      if (settingsData.img_gen_config) {
+        const imgCfg = JSON.parse(settingsData.img_gen_config)
+        imgGenForm.value.apiFormat = imgCfg.apiFormat || 'openai'
+        if (imgCfg.novelai) {
+          imgGenForm.value.novelaiUrl = imgCfg.novelai.url || ''
+          imgGenForm.value.novelaiKey = imgCfg.novelai.key || ''
+          imgGenForm.value.novelaiModel = imgCfg.novelai.model || 'nai-diffusion-4-5-full'
+        }
+        if (imgCfg.openai) {
+          imgGenForm.value.openaiUrl = imgCfg.openai.url || ''
+          imgGenForm.value.openaiKey = imgCfg.openai.key || ''
+          imgGenForm.value.openaiModel = imgCfg.openai.model || ''
+        }
+        if (imgCfg.gemini) {
+          imgGenForm.value.geminiUrl = imgCfg.gemini.url || ''
+          imgGenForm.value.geminiKey = imgCfg.gemini.key || ''
+          imgGenForm.value.geminiModel = imgCfg.gemini.model || ''
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load img gen config', e)
+    }
+  } catch (err: any) {
     showToast('加载API设置失败', 'error')
   } finally {
     apiSettingsLoading.value = false
@@ -914,31 +1019,35 @@ async function saveApiSettings() {
   apiSaving.value = true
   try {
     if (authStore.isSuperAdmin) {
-await apiClient.put('/api/settings/api', {
-api_key: apiForm.value.globalApiKey,
-api_url: apiForm.value.globalApiUrl,
-custom_url: apiForm.value.globalCustomUrl,
-model: apiForm.value.globalModel,
-model_list: getEnabledModelIds().join(','),
-temperature: apiForm.value.globalTemperature,
-max_length: apiForm.value.globalMaxLength,
-context_size: apiForm.value.globalContextSize,
-timeout: apiForm.value.globalTimeout,
-social_api_key: apiForm.value.globalSocialApiKey,
-social_api_url: apiForm.value.globalSocialApiUrl,
-social_model: apiForm.value.globalSocialModel,
-is_global: true,
-})
-// Save global image gen config
-await apiClient.put('/api/settings', {
-img_gen_config: JSON.stringify({
-apiFormat: imgGenForm.value.apiFormat,
-novelai: { url: imgGenForm.value.novelaiUrl, key: imgGenForm.value.novelaiKey, model: imgGenForm.value.novelaiModel },
-openai: { url: imgGenForm.value.openaiUrl, key: imgGenForm.value.openaiKey, model: imgGenForm.value.openaiModel },
-gemini: { url: imgGenForm.value.geminiUrl, key: imgGenForm.value.geminiKey, model: imgGenForm.value.geminiModel },
-})
-})
-}
+      await apiClient.put('/api/settings/api', {
+        api_key: apiForm.value.globalApiKey,
+        api_url: apiForm.value.globalApiUrl,
+        custom_url: apiForm.value.globalCustomUrl,
+        model: apiForm.value.globalModel,
+        model_list: apiForm.value.globalModels.map((model) => ({
+          id: model.id,
+          enabled: model.enabled,
+          display_name: model.displayName.trim(),
+        })),
+        temperature: apiForm.value.globalTemperature,
+        max_length: apiForm.value.globalMaxLength,
+        context_size: apiForm.value.globalContextSize,
+        timeout: apiForm.value.globalTimeout,
+        social_api_key: apiForm.value.globalSocialApiKey,
+        social_api_url: apiForm.value.globalSocialApiUrl,
+        social_model: apiForm.value.globalSocialModel,
+        is_global: true,
+      })
+
+      await apiClient.put('/api/settings', {
+        img_gen_config: JSON.stringify({
+          apiFormat: imgGenForm.value.apiFormat,
+          novelai: { url: imgGenForm.value.novelaiUrl, key: imgGenForm.value.novelaiKey, model: imgGenForm.value.novelaiModel },
+          openai: { url: imgGenForm.value.openaiUrl, key: imgGenForm.value.openaiKey, model: imgGenForm.value.openaiModel },
+          gemini: { url: imgGenForm.value.geminiUrl, key: imgGenForm.value.geminiKey, model: imgGenForm.value.geminiModel },
+        }),
+      })
+    }
     showToast('API设置已保存')
   } catch (err: any) {
     showToast('保存API设置失败: ' + (err.message || '未知错误'), 'error')
@@ -1393,6 +1502,22 @@ onMounted(() => {
   cursor: pointer;
 }
 
+.add-model-btn.secondary {
+  border-color: var(--separator, rgba(120, 120, 128, 0.18));
+  background: var(--bg-secondary, rgba(120, 120, 128, 0.08));
+  color: var(--text-primary);
+}
+
+.add-model-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.model-pull-error {
+  font-size: 12px;
+  color: #ff3b30;
+}
+
 .model-list-editor {
   display: flex;
   flex-direction: column;
@@ -1409,12 +1534,23 @@ onMounted(() => {
   background: var(--bg-secondary, 0.35);
 }
 
-.model-chip-id {
+.model-chip-main {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.model-chip-id {
   min-width: 0;
   color: var(--text-primary);
   font-size: 13px;
   word-break: break-all;
+}
+
+.model-display-input {
+  min-height: 36px !important;
 }
 
 .model-delete-btn {

@@ -71,7 +71,7 @@
           </div>
           <div class="model-row">
             <select v-if="modelList.length > 0" v-model="s.model" class="setting-select flex-1">
-              <option v-for="m in modelList" :key="m" :value="m">{{ m }}</option>
+              <option v-for="m in modelList" :key="m.id" :value="m.id">{{ m.displayName }}</option>
             </select>
             <input v-else v-model="s.model" class="setting-input flex-1" placeholder="gpt-4o-mini" />
             <button class="fetch-btn" @click="handleFetchModels" :disabled="fetchingModels">
@@ -79,6 +79,7 @@
             </button>
           </div>
           <div v-if="fetchError" class="error-text">{{ fetchError }}</div>
+          <div v-else-if="s.model" class="label-desc">当前显示：{{ currentModelDisplayName }}</div>
 
           <div class="setting-item">
             <div class="setting-label">
@@ -117,7 +118,12 @@
           <input v-model="s.socialApiUrl" class="setting-input" placeholder="留空则使用主 API 地址" />
 
           <div class="setting-item"><div class="setting-label"><span class="label-text">社交内容模型</span></div></div>
-          <input v-model="s.socialModel" class="setting-input" placeholder="留空则使用主模型" />
+          <select v-if="modelList.length > 0" v-model="s.socialModel" class="setting-select">
+            <option value="">跟随主模型</option>
+            <option v-for="m in modelList" :key="`social-${m.id}`" :value="m.id">{{ m.displayName }}</option>
+          </select>
+          <input v-else v-model="s.socialModel" class="setting-input" placeholder="留空则使用主模型" />
+          <div v-if="s.socialModel" class="label-desc">当前显示：{{ currentSocialModelDisplayName }}</div>
 
           <div class="setting-item">
             <div class="setting-label">
@@ -661,7 +667,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
 import { useSettingsStore } from '@/stores/settings'
 import { usePhoneStore } from '@/stores/phone'
@@ -701,7 +707,7 @@ const showApiKey = ref(false)
 const showSocialApiKey = ref(false)
 const showImageGenKey = ref(false)
 const showClearConfirm = ref(false)
-const modelList = ref<string[]>([])
+const modelList = ref<Array<{ id: string; displayName: string }>>([])
 const fetchingModels = ref(false)
 const fetchError = ref('')
 const dailyTips = ref('')
@@ -764,7 +770,10 @@ async function handleFetchModels() {
   fetchError.value = ''
   try {
     const list = await settingsStore.fetchModels()
-    modelList.value = list
+    modelList.value = list.map((id) => ({
+      id,
+      displayName: settingsStore.getModelDisplayName(id),
+    }))
     if (list.length > 0 && !list.includes(s.model)) {
       s.model = list[0]
     }
@@ -774,6 +783,19 @@ async function handleFetchModels() {
     fetchingModels.value = false
   }
 }
+
+const currentModelDisplayName = computed(() => settingsStore.getModelDisplayName(s.model) || s.model)
+const currentSocialModelDisplayName = computed(() => settingsStore.getModelDisplayName(s.socialModel) || s.socialModel)
+
+onMounted(async () => {
+  await settingsStore.fetchAvailableModels()
+  modelList.value = settingsStore.availableModels
+    .filter((model) => model.enabled)
+    .map((model) => ({ id: model.id, displayName: model.displayName || model.id }))
+  if (!s.model && settingsStore.defaultModel) {
+    s.model = settingsStore.defaultModel
+  }
+})
 
 function testSound() {
   // 简单的提示音测试

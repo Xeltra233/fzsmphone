@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,6 +19,96 @@ import (
 
 type SettingsHandler struct {
 	DB *database.DB
+}
+
+func (h *SettingsHandler) getAppSettingRaw(r *http.Request, key string) ([]byte, error) {
+	var value []byte
+	err := h.DB.Pool.QueryRow(r.Context(), `
+		SELECT value FROM app_settings WHERE key = $1
+	`, key).Scan(&value)
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+func (h *SettingsHandler) getAppSettingString(r *http.Request, key, fallback string) string {
+	value, err := h.getAppSettingRaw(r, key)
+	if err != nil {
+		return fallback
+	}
+
+	var parsed string
+	if err := json.Unmarshal(value, &parsed); err == nil {
+		return parsed
+	}
+	return string(value)
+}
+
+func (h *SettingsHandler) getAppSettingFloat(r *http.Request, key string, fallback float64) float64 {
+	value, err := h.getAppSettingRaw(r, key)
+	if err != nil {
+		return fallback
+	}
+
+	var parsed float64
+	if err := json.Unmarshal(value, &parsed); err == nil {
+		return parsed
+	}
+
+	parsed, err = strconv.ParseFloat(strings.TrimSpace(string(value)), 64)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func (h *SettingsHandler) getAppSettingInt(r *http.Request, key string, fallback int) int {
+	value, err := h.getAppSettingRaw(r, key)
+	if err != nil {
+		return fallback
+	}
+
+	var parsed int
+	if err := json.Unmarshal(value, &parsed); err == nil {
+		return parsed
+	}
+
+	parsed, err = strconv.Atoi(strings.TrimSpace(string(value)))
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func (h *SettingsHandler) getAppSettingJSON(r *http.Request, key string, fallback interface{}) interface{} {
+	value, err := h.getAppSettingRaw(r, key)
+	if err != nil {
+		return fallback
+	}
+
+	var parsed interface{}
+	if err := json.Unmarshal(value, &parsed); err != nil {
+		return fallback
+	}
+	if parsed == nil {
+		return fallback
+	}
+	return parsed
+}
+
+func (h *SettingsHandler) upsertAppSetting(r *http.Request, key string, value interface{}) error {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+
+	_, err = h.DB.Pool.Exec(r.Context(), `
+		INSERT INTO app_settings (key, value, updated_at)
+		VALUES ($1, $2, NOW())
+		ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = NOW()
+	`, key, payload)
+	return err
 }
 
 // GET /api/settings/public
@@ -154,14 +245,24 @@ func (h *SettingsHandler) GetByKey(w http.ResponseWriter, r *http.Request) {
 func (h *SettingsHandler) GetUserApiSettings(w http.ResponseWriter, r *http.Request) {
 	userID, _ := mw.GetUserID(r.Context())
 	isSuperAdmin, _ := mw.GetIsSuperAdmin(r.Context())
+	availableModels := h.getAppSettingJSON(r, "model_list", []interface{}{})
+	defaultModel := h.getAppSettingString(r, "model", "")
 
 	// If super_admin, return global settings first, then user's personal settings
 	if isSuperAdmin {
 		var globalSettings struct {
-			ID     int64  `json:"id"`
-			APIKey string `json:"api_key"`
-			APIUrl string `json:"api_url"`
-			Model  string `json:"model"`
+			ID           int64       `json:"id"`
+			APIKey       string      `json:"api_key"`
+			APIUrl       string      `json:"api_url"`
+			Model        string      `json:"model"`
+			ModelList    interface{} `json:"model_list"`
+			SocialAPIKey string      `json:"social_api_key"`
+			SocialAPIUrl string      `json:"social_api_url"`
+			SocialModel  string      `json:"social_model"`
+			Temperature  float64     `json:"temperature"`
+			MaxLength    int         `json:"max_length"`
+			ContextSize  int         `json:"context_size"`
+			Timeout      int         `json:"timeout"`
 		}
 		err := h.DB.Pool.QueryRow(r.Context(), `
 			SELECT id, COALESCE(api_key, ''), COALESCE(api_url, ''), COALESCE(model, '')
@@ -171,9 +272,31 @@ func (h *SettingsHandler) GetUserApiSettings(w http.ResponseWriter, r *http.Requ
 			mw.Error(w, http.StatusInternalServerError, "failed to get global settings")
 			return
 		}
+
+		if globalSettings.APIKey == "" {
+			globalSettings.APIKey = h.getAppSettingString(r, "apiKey", "")
+		}
+		if globalSettings.APIUrl == "" {
+			globalSettings.APIUrl = h.getAppSettingString(r, "apiUrl", "")
+		}
+		if globalSettings.Model == "" {
+			globalSettings.Model = h.getAppSettingString(r, "model", "")
+		}
+
+		globalSettings.ModelList = h.getAppSettingJSON(r, "model_list", []interface{}{})
+		globalSettings.SocialAPIKey = h.getAppSettingString(r, "social_api_key", "")
+		globalSettings.SocialAPIUrl = h.getAppSettingString(r, "social_api_url", "")
+		globalSettings.SocialModel = h.getAppSettingString(r, "social_model", "")
+		globalSettings.Temperature = h.getAppSettingFloat(r, "temperature", 0.9)
+		globalSettings.MaxLength = h.getAppSettingInt(r, "max_length", 4000)
+		globalSettings.ContextSize = h.getAppSettingInt(r, "context_size", 20)
+		globalSettings.Timeout = h.getAppSettingInt(r, "timeout", 60)
+
 		mw.JSON(w, http.StatusOK, map[string]interface{}{
-			"is_super_admin": true,
-			"global":         globalSettings,
+			"is_super_admin":   true,
+			"global":           globalSettings,
+			"available_models": availableModels,
+			"default_model":    defaultModel,
 		})
 		return
 	}
@@ -191,8 +314,10 @@ func (h *SettingsHandler) GetUserApiSettings(w http.ResponseWriter, r *http.Requ
 	`, userID).Scan(&settings.ID, &settings.APIKey, &settings.APIUrl, &settings.Model)
 	if err == pgx.ErrNoRows {
 		mw.JSON(w, http.StatusOK, map[string]interface{}{
-			"is_super_admin": false,
-			"personal":       nil,
+			"is_super_admin":   false,
+			"personal":         nil,
+			"available_models": availableModels,
+			"default_model":    defaultModel,
 		})
 		return
 	}
@@ -202,8 +327,10 @@ func (h *SettingsHandler) GetUserApiSettings(w http.ResponseWriter, r *http.Requ
 	}
 
 	mw.JSON(w, http.StatusOK, map[string]interface{}{
-		"is_super_admin": false,
-		"personal":       settings,
+		"is_super_admin":   false,
+		"personal":         settings,
+		"available_models": availableModels,
+		"default_model":    defaultModel,
 	})
 }
 
@@ -213,10 +340,18 @@ func (h *SettingsHandler) UpdateUserApiSettings(w http.ResponseWriter, r *http.R
 	isSuperAdmin, _ := mw.GetIsSuperAdmin(r.Context())
 
 	var body struct {
-		APIKey   string `json:"api_key"`
-		APIUrl   string `json:"api_url"`
-		Model    string `json:"model"`
-		IsGlobal bool   `json:"is_global"` // Only super_admin can set global
+		APIKey       string          `json:"api_key"`
+		APIUrl       string          `json:"api_url"`
+		Model        string          `json:"model"`
+		ModelList    json.RawMessage `json:"model_list"`
+		SocialAPIKey string          `json:"social_api_key"`
+		SocialAPIUrl string          `json:"social_api_url"`
+		SocialModel  string          `json:"social_model"`
+		Temperature  float64         `json:"temperature"`
+		MaxLength    int             `json:"max_length"`
+		ContextSize  int             `json:"context_size"`
+		Timeout      int             `json:"timeout"`
+		IsGlobal     bool            `json:"is_global"` // Only super_admin can set global
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		mw.Error(w, http.StatusBadRequest, "invalid request body")
@@ -240,6 +375,43 @@ func (h *SettingsHandler) UpdateUserApiSettings(w http.ResponseWriter, r *http.R
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to update API settings")
 		return
+	}
+
+	if body.IsGlobal {
+		settingsToSync := map[string]interface{}{
+			"apiKey":         body.APIKey,
+			"apiUrl":         body.APIUrl,
+			"model":          body.Model,
+			"social_api_key": body.SocialAPIKey,
+			"social_api_url": body.SocialAPIUrl,
+			"social_model":   body.SocialModel,
+			"temperature":    body.Temperature,
+			"max_length":     body.MaxLength,
+			"context_size":   body.ContextSize,
+			"timeout":        body.Timeout,
+		}
+
+		for key, value := range settingsToSync {
+			if err := h.upsertAppSetting(r, key, value); err != nil {
+				mw.Error(w, http.StatusInternalServerError, "failed to update global setting: "+key)
+				return
+			}
+		}
+
+		modelListValue := interface{}([]interface{}{})
+		if len(body.ModelList) > 0 {
+			var parsed interface{}
+			if err := json.Unmarshal(body.ModelList, &parsed); err != nil {
+				mw.Error(w, http.StatusBadRequest, "invalid model_list")
+				return
+			}
+			modelListValue = parsed
+		}
+
+		if err := h.upsertAppSetting(r, "model_list", modelListValue); err != nil {
+			mw.Error(w, http.StatusInternalServerError, "failed to update global setting: model_list")
+			return
+		}
 	}
 
 	mw.JSON(w, http.StatusOK, map[string]string{"message": "API settings updated"})

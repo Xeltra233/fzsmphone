@@ -1,5 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
+import api from '@/api/client'
+
+export interface ManagedModelOption {
+  id: string
+  enabled: boolean
+  displayName: string
+}
 
 export interface ChatSettings {
   // API 配置
@@ -97,6 +104,8 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const settings = ref<ChatSettings>(loadFromStorage())
   const loading = ref(false)
+  const availableModels = ref<ManagedModelOption[]>([])
+  const defaultModel = ref('')
 
   // 自动保存到 localStorage
   watch(settings, (val) => {
@@ -125,6 +134,63 @@ export const useSettingsStore = defineStore('settings', () => {
       return settings.value.customApiUrl
     }
     return settings.value.apiUrl
+  }
+
+  function normalizeModelId(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : ''
+  }
+
+  function normalizeDisplayName(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : ''
+  }
+
+  function parseManagedModels(value: unknown): ManagedModelOption[] {
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => {
+          if (typeof item === 'string') {
+            const id = normalizeModelId(item)
+            if (!id) return null
+            return { id, enabled: true, displayName: '' }
+          }
+          if (!item || typeof item !== 'object') return null
+          const model = item as Record<string, unknown>
+          const id = normalizeModelId(model.id)
+          if (!id) return null
+          return {
+            id,
+            enabled: model.enabled !== false,
+            displayName: normalizeDisplayName(model.display_name ?? model.displayName),
+          }
+        })
+        .filter((item): item is ManagedModelOption => Boolean(item))
+    }
+
+    if (typeof value !== 'string') return []
+    return value
+      .split(',')
+      .map((item) => normalizeModelId(item))
+      .filter(Boolean)
+      .map((id) => ({ id, enabled: true, displayName: '' }))
+  }
+
+  function getModelDisplayName(modelId: string): string {
+    const normalized = normalizeModelId(modelId)
+    if (!normalized) return ''
+    const model = availableModels.value.find((item) => item.id.toLowerCase() === normalized.toLowerCase())
+    return model?.displayName || normalized
+  }
+
+  async function fetchAvailableModels() {
+    try {
+      const res = await api.get<Record<string, any>>('/api/settings/api')
+      availableModels.value = parseManagedModels(res.available_models || [])
+      defaultModel.value = normalizeModelId(res.default_model)
+      return availableModels.value
+    } catch (e) {
+      console.error('加载模型配置失败:', e)
+      return availableModels.value
+    }
   }
 
   // 拉取模型列表（通过后端代理避免 CORS）
@@ -190,10 +256,14 @@ export const useSettingsStore = defineStore('settings', () => {
   return {
     settings,
     loading,
+    availableModels,
+    defaultModel,
     updateSettings,
     resetSettings,
     getSetting,
     getApiUrl,
+    getModelDisplayName,
+    fetchAvailableModels,
     fetchModels,
   }
 })

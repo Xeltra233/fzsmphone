@@ -402,6 +402,11 @@
             <div class="info-label">用户人设</div>
             <div class="info-value">{{ userPersonaName }}</div>
           </div>
+          <div class="info-section" v-if="currentModelDisplayName">
+            <div class="info-label">当前模型</div>
+            <div class="info-value">{{ currentModelDisplayName }}</div>
+            <div v-if="currentModelDisplayName !== settingsStore.settings.model" class="info-desc">模型 ID：{{ settingsStore.settings.model }}</div>
+          </div>
           <div class="info-section" v-if="matchedWorldBookCount > 0">
             <div class="info-label">世界书匹配</div>
             <div class="info-value">{{ matchedWorldBookCount }} 个条目已注入</div>
@@ -590,6 +595,11 @@ const activePresetName = computed(() => {
 const userPersonaName = computed(() => {
   const persona = getCurrentUserPersona()
   return persona?.name || ''
+})
+
+const currentModelDisplayName = computed(() => {
+  const modelId = settingsStore.settings.model
+  return settingsStore.getModelDisplayName(modelId) || modelId
 })
 
 // Helpers for extra data
@@ -1046,6 +1056,7 @@ watch(
 )
 
 onMounted(async () => {
+  await settingsStore.fetchAvailableModels()
   await charactersStore.fetchCharacters()
   if (conversationId.value) {
     chatStore.fetchMessages(conversationId.value)
