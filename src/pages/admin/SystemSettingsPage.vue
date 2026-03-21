@@ -420,10 +420,6 @@ placeholder="qun_qrcode.jpg"
       </div>
       <div class="card-body">
         <div class="input-group">
-          <label>API Key <span class="input-tip">全局用户共用</span></label>
-          <input v-model="apiForm.globalApiKey" type="password" placeholder="留空则强制用户填写个人API" class="setting-input" />
-        </div>
-        <div class="input-group">
           <label>接口地址预设</label>
           <select v-model="apiForm.globalApiUrl" class="setting-input">
             <option value="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions">Gemini AI Studio 接口地址</option>
@@ -436,6 +432,10 @@ placeholder="qun_qrcode.jpg"
         <div v-if="apiForm.globalApiUrl === 'custom'" class="input-group">
           <label>自定义接口地址</label>
           <input v-model="apiForm.globalCustomUrl" placeholder="https://api.example.com/v1/chat/completions" class="setting-input" />
+        </div>
+        <div class="input-group">
+          <label>API Key <span class="input-tip">全局用户共用</span></label>
+          <input v-model="apiForm.globalApiKey" type="password" placeholder="留空则强制用户填写个人API" class="setting-input" />
         </div>
         <div class="input-group model-manager-group">
           <label>默认模型 <span class="input-tip">用户未选择时的默认</span></label>
@@ -513,12 +513,12 @@ placeholder="qun_qrcode.jpg"
       </div>
       <div class="card-body">
         <div class="input-group">
-          <label>社交内容 API Key <span class="input-tip">用于微博、邮箱等社交内容生成</span></label>
-          <input v-model="apiForm.globalSocialApiKey" type="password" placeholder="留空则使用主API" class="setting-input" />
-        </div>
-        <div class="input-group">
           <label>社交内容 API 地址</label>
           <input v-model="apiForm.globalSocialApiUrl" placeholder="留空则使用主接口地址" class="setting-input" />
+        </div>
+        <div class="input-group">
+          <label>社交内容 API Key <span class="input-tip">用于微博、邮箱等社交内容生成</span></label>
+          <input v-model="apiForm.globalSocialApiKey" type="password" placeholder="留空则使用主API" class="setting-input" />
         </div>
 <div class="input-group">
 <label>社交内容默认模型</label>

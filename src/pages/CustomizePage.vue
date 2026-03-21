@@ -26,18 +26,6 @@
               <span class="label-desc">用于调用 AI 模型</span>
             </div>
           </div>
-          <div class="input-row">
-            <input
-              v-model="s.apiKey"
-              :type="showApiKey ? 'text' : 'password'"
-              class="setting-input"
-              placeholder="输入你的 API Key"
-            />
-            <button class="icon-action" @click="showApiKey = !showApiKey">
-              {{ showApiKey ? '◇' : '◉' }}
-            </button>
-          </div>
-
           <div class="setting-item">
             <div class="setting-label">
               <span class="label-text">接口地址预设</span>
@@ -63,6 +51,23 @@
               placeholder="https://api.example.com/v1/chat/completions"
             />
           </template>
+
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="label-text">API Key</span>
+            </div>
+          </div>
+          <div class="input-row">
+            <input
+              v-model="s.apiKey"
+              :type="showApiKey ? 'text' : 'password'"
+              class="setting-input"
+              placeholder="输入你的 API Key"
+            />
+            <button class="icon-action" @click="showApiKey = !showApiKey">
+              {{ showApiKey ? '◇' : '◉' }}
+            </button>
+          </div>
 
           <div class="setting-item">
             <div class="setting-label">
@@ -103,6 +108,9 @@
         <div class="section">
           <div class="section-header">■ 社交内容 API（可选）</div>
 
+          <div class="setting-item"><div class="setting-label"><span class="label-text">社交内容 API 地址</span></div></div>
+          <input v-model="s.socialApiUrl" class="setting-input" placeholder="留空则使用主接口地址" />
+
           <div class="setting-item">
             <div class="setting-label">
               <span class="label-text">独立 API Key</span>
@@ -113,9 +121,6 @@
             <input v-model="s.socialApiKey" :type="showSocialApiKey ? 'text' : 'password'" class="setting-input" placeholder="留空则使用主 API Key" />
             <button class="icon-action" @click="showSocialApiKey = !showSocialApiKey">{{ showSocialApiKey ? '◇' : '◉' }}</button>
           </div>
-
-          <div class="setting-item"><div class="setting-label"><span class="label-text">社交内容 API 地址</span></div></div>
-          <input v-model="s.socialApiUrl" class="setting-input" placeholder="留空则使用主接口地址" />
 
           <div class="setting-item"><div class="setting-label"><span class="label-text">社交内容模型</span></div></div>
           <select v-if="modelList.length > 0" v-model="s.socialModel" class="setting-select">
