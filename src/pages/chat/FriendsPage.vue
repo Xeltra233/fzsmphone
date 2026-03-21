@@ -208,6 +208,7 @@ import NavBar from '@/components/common/NavBar.vue'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import type { Conversation } from '@/stores/chat'
+import { getScopedItem } from '@/utils/userScopedStorage'
 
 interface LocalCharacter {
   id: string
@@ -275,7 +276,7 @@ function openConversation(conv: Conversation) {
 
 function loadCharacters() {
   try {
-    const saved = localStorage.getItem('characters')
+    const saved = getScopedItem('characters')
     if (saved) {
       const parsed = JSON.parse(saved)
       if (Array.isArray(parsed)) {

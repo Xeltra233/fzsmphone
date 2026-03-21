@@ -160,6 +160,7 @@ import { useRouter } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
 import { useSmsStore } from '@/stores/sms'
 import { useSettingsStore } from '@/stores/settings'
+import { getScopedItem } from '@/utils/userScopedStorage'
 import {
   sendAIRequest,
   buildSmsMessages,
@@ -198,7 +199,7 @@ const filteredConversations = computed(() => {
 // 可用角色列表（用于新建短信）
 const availableCharacters = computed(() => {
   try {
-    const charsStr = localStorage.getItem('characters')
+    const charsStr = getScopedItem('characters')
     if (!charsStr) return []
     const chars = JSON.parse(charsStr)
     if (!Array.isArray(chars)) return []

@@ -184,6 +184,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
+import { getScopedItem, setScopedItem } from '@/utils/userScopedStorage'
 
 const router = useRouter()
 const route = useRoute()
@@ -229,14 +230,14 @@ const useAlternateGreeting = (idx: number) => {
 
 // 检查是否是当前使用的用户身份
 const isCurrentUser = computed(() => {
-  const currentUserId = localStorage.getItem('currentUserCharId')
+  const currentUserId = getScopedItem('currentUserCharId')
   return formData.value.id !== null && currentUserId === String(formData.value.id)
 })
 
 // 设为当前用户身份
 const setAsCurrentUser = () => {
   if (formData.value.id) {
-    localStorage.setItem('currentUserCharId', String(formData.value.id))
+    setScopedItem('currentUserCharId', String(formData.value.id))
     alert(`已设置「${formData.value.name}」为当前用户身份`)
   } else {
     alert('请先保存角色卡')
@@ -286,7 +287,7 @@ const saveCharacter = () => {
     return
   }
 
-  const characters = JSON.parse(localStorage.getItem('characters') || '[]')
+  const characters = JSON.parse(getScopedItem('characters') || '[]')
 
   if (isNew.value) {
     formData.value.id = Date.now()
@@ -312,7 +313,7 @@ const saveCharacter = () => {
     }
   }
 
-  localStorage.setItem('characters', JSON.stringify(characters))
+  setScopedItem('characters', JSON.stringify(characters))
   router.push('/characters')
 }
 
@@ -355,7 +356,7 @@ const loadCharacter = () => {
   const characterId = route.params.id as string
   if (characterId && characterId !== 'new') {
     isNew.value = false
-    const characters = JSON.parse(localStorage.getItem('characters') || '[]')
+    const characters = JSON.parse(getScopedItem('characters') || '[]')
     const character = characters.find((c: any) => c.id === Number(characterId))
     if (character) {
       formData.value = {

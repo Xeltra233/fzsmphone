@@ -1,3 +1,4 @@
+import { getScopedItem } from '@/utils/userScopedStorage'
 /**
  * 社交功能提示词模板
  * 用户可以自定义修改这些提示词来控制AI生成的内容风格
@@ -540,7 +541,7 @@ export function resetPromptTemplate(type: SocialType): void {
 /** 获取角色列表描述 */
 export function getCharactersList(): string {
   try {
-    const charsStr = localStorage.getItem('characters')
+    const charsStr = getScopedItem('characters')
     if (!charsStr) return '（暂无角色）'
     const chars = JSON.parse(charsStr)
     if (!Array.isArray(chars)) return '（暂无角色）'
@@ -563,7 +564,7 @@ export function getUserName(): string {
   try {
     const currentId = localStorage.getItem('currentPersonaId')
     if (currentId) {
-      const charsStr = localStorage.getItem('characters')
+      const charsStr = getScopedItem('characters')
       if (charsStr) {
         const chars = JSON.parse(charsStr)
         const user = chars.find((c: any) => c.id === currentId && c.type === 'user')

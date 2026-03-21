@@ -185,6 +185,7 @@ import NavBar from '@/components/common/NavBar.vue'
 import { sendAIRequest } from '@/utils/aiService'
 import { parseAIJsonArray } from '@/utils/aiJsonParser'
 import { useSettingsStore } from '@/stores/settings'
+import { getScopedItem, setScopedItem } from '@/utils/userScopedStorage'
 
 const router = useRouter()
 const settingsStore = useSettingsStore()
@@ -545,12 +546,12 @@ const startChat = (character: any) => {
 }
 
 const isCurrentUser = (id: number): boolean => {
-  const currentUserId = localStorage.getItem('currentUserCharId')
+  const currentUserId = getScopedItem('currentUserCharId')
   return !!currentUserId && currentUserId === String(id)
 }
 
 const setAsCurrentUser = (character: any) => {
-  localStorage.setItem('currentUserCharId', String(character.id))
+  setScopedItem('currentUserCharId', String(character.id))
   alert(`已设置「${character.name}」为当前用户身份`)
 }
 
@@ -562,11 +563,11 @@ const deleteCharacter = (id: number) => {
 }
 
 const saveCharacters = () => {
-  localStorage.setItem('characters', JSON.stringify(characters.value))
+  setScopedItem('characters', JSON.stringify(characters.value))
 }
 
 const loadCharacters = () => {
-  const saved = localStorage.getItem('characters')
+  const saved = getScopedItem('characters')
   if (saved) characters.value = JSON.parse(saved)
 }
 

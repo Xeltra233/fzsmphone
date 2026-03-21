@@ -4,6 +4,7 @@
  */
 
 import { processTemplate, type EjsContext } from './ejsTemplateEngine'
+import { getScopedItem } from '@/utils/userScopedStorage'
 
 export interface AIMessage {
   role: 'system' | 'user' | 'assistant'
@@ -674,7 +675,7 @@ export function getCurrentUserPersona(): UserPersonaData | null {
     const currentId = localStorage.getItem('currentPersonaId')
     if (!currentId) return null
 
-    const charsStr = localStorage.getItem('characters')
+    const charsStr = getScopedItem('characters')
     if (!charsStr) return null
 
     const chars = JSON.parse(charsStr)
@@ -698,7 +699,7 @@ export function getCurrentUserPersona(): UserPersonaData | null {
  */
 export function getCharacterById(id: string | number): CharacterData | null {
   try {
-    const charsStr = localStorage.getItem('characters')
+    const charsStr = getScopedItem('characters')
     if (!charsStr) return null
 
     const chars = JSON.parse(charsStr)

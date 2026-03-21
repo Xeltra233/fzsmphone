@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { getScopedItem } from '@/utils/userScopedStorage'
 import { ref, computed } from 'vue'
 import { getCharacterById } from '@/utils/aiService'
 import { smsApi } from '@/api/services'
@@ -110,7 +111,7 @@ export const useSmsStore = defineStore('sms', () => {
   // 从角色列表初始化短信对话
   function initFromCharacters() {
     try {
-      const charsStr = localStorage.getItem('characters')
+      const charsStr = getScopedItem('characters')
       if (!charsStr) return
       const chars = JSON.parse(charsStr)
       if (!Array.isArray(chars)) return

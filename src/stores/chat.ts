@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { getScopedItem } from '@/utils/userScopedStorage'
 import { getCharacterById } from '@/utils/aiService'
 import type { CharacterData } from '@/utils/aiService'
 
@@ -142,7 +143,7 @@ export const useChatStore = defineStore('chat', () => {
 
   function fetchCharacters() {
     try {
-      const saved = localStorage.getItem('characters')
+      const saved = getScopedItem('characters')
       if (saved) {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) {

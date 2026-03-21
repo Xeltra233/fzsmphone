@@ -3,6 +3,7 @@
  * 管理论坛、微博、朋友圈的AI生成数据
  */
 import { defineStore } from 'pinia'
+import { getScopedItem } from '@/utils/userScopedStorage'
 import { ref, reactive } from 'vue'
 import { sendAIRequest } from '@/utils/aiService'
 import { generateImageFromPrompt, isSocialAutoImageGenEnabled } from '@/utils/imageGenService'
@@ -1342,7 +1343,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     try {
       const currentId = localStorage.getItem('currentPersonaId')
       if (currentId) {
-        const charsStr = localStorage.getItem('characters')
+        const charsStr = getScopedItem('characters')
         if (charsStr) {
           const chars = JSON.parse(charsStr)
           const user = chars.find((c: any) => c.id === currentId && c.type === 'user')

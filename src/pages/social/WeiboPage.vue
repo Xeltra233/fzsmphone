@@ -292,6 +292,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, reactive } from 'vue'
+import { getScopedItem } from '@/utils/userScopedStorage'
 import { useSocialAIStore } from '@/stores/socialAI'
 import {
   getAvatarColor,
@@ -321,7 +322,7 @@ const userName = computed(() => {
   try {
     const currentId = localStorage.getItem('currentPersonaId')
     if (currentId) {
-      const charsStr = localStorage.getItem('characters')
+      const charsStr = getScopedItem('characters')
       if (charsStr) {
         const chars = JSON.parse(charsStr)
         const user = chars.find((c: any) => c.id === currentId && c.type === 'user')

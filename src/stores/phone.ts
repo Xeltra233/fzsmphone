@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { callApi } from '@/api/services'
 import { useSettingsStore } from './settings'
+import { getScopedItem } from '@/utils/userScopedStorage'
 
 export interface CallRecord {
   id: string
@@ -182,7 +183,7 @@ function updateClock() {
   function loadContacts() {
     try {
       // 从角色列表生成联系人
-      const charsStr = localStorage.getItem('characters')
+      const charsStr = getScopedItem('characters')
       if (!charsStr) return
       const chars = JSON.parse(charsStr)
       if (!Array.isArray(chars)) return
