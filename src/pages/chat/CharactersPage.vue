@@ -342,8 +342,19 @@ function extractKeywordAndTextFromChunk(
   return null
 }
 
+function decodeBase64Utf8(base64Text: string): string {
+  const binary = atob(base64Text.trim().replace(/\0+$/, ''))
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  } catch {
+    return new TextDecoder('utf-8').decode(bytes)
+  }
+}
+
 function decodeCardPayload(base64Text: string): any {
-  return JSON.parse(atob(base64Text.trim().replace(/\0+$/, '')))
+  return JSON.parse(decodeBase64Utf8(base64Text))
 }
 async function extractCharaFromPng(file: File): Promise<any> {
   const buffer = await file.arrayBuffer()
