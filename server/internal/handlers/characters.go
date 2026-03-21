@@ -18,6 +18,19 @@ type CharacterHandler struct {
 	DB *database.DB
 }
 
+func decodeCharacterExtra(raw []byte) map[string]interface{} {
+	if len(raw) == 0 {
+		return map[string]interface{}{}
+	}
+
+	var extra map[string]interface{}
+	if err := json.Unmarshal(raw, &extra); err != nil || extra == nil {
+		return map[string]interface{}{}
+	}
+
+	return extra
+}
+
 func estimateCharacterPayloadSize(name, avatarURL, description, personality, systemPrompt, greeting string, tags []string, extra map[string]interface{}) int64 {
 	extraBytes, _ := json.Marshal(extra)
 	tagsBytes, _ := json.Marshal(tags)
@@ -137,8 +150,9 @@ func (h *CharacterHandler) List(w http.ResponseWriter, r *http.Request) {
 	var characters []charResp
 	for rows.Next() {
 		var c charResp
+		var extraRaw []byte
 		if err := rows.Scan(&c.ID, &c.UserID, &c.Name, &c.AvatarURL, &c.Description,
-			&c.Personality, &c.SystemPrompt, &c.Greeting, &c.IsPublic, &c.Tags, &c.Extra,
+			&c.Personality, &c.SystemPrompt, &c.Greeting, &c.IsPublic, &c.Tags, &extraRaw,
 			&c.CreatedAt, &c.UpdatedAt); err != nil {
 			mw.Error(w, http.StatusInternalServerError, "failed to scan character")
 			return
@@ -146,6 +160,7 @@ func (h *CharacterHandler) List(w http.ResponseWriter, r *http.Request) {
 		if c.Tags == nil {
 			c.Tags = []string{}
 		}
+		c.Extra = decodeCharacterExtra(extraRaw)
 		characters = append(characters, c)
 	}
 
@@ -254,13 +269,14 @@ func (h *CharacterHandler) Get(w http.ResponseWriter, r *http.Request) {
 		CreatedAt    string                 `json:"created_at"`
 		UpdatedAt    string                 `json:"updated_at"`
 	}
+	var extraRaw []byte
 
 	err = h.DB.Pool.QueryRow(r.Context(), `
 		SELECT id, user_id, name, avatar_url, description, personality, system_prompt,
 		       greeting, is_public, tags, extra, created_at, updated_at
 		FROM characters WHERE id = $1 AND (user_id = $2 OR is_public = true)
 	`, id, userID).Scan(&c.ID, &c.UserID, &c.Name, &c.AvatarURL, &c.Description,
-		&c.Personality, &c.SystemPrompt, &c.Greeting, &c.IsPublic, &c.Tags, &c.Extra,
+		&c.Personality, &c.SystemPrompt, &c.Greeting, &c.IsPublic, &c.Tags, &extraRaw,
 		&c.CreatedAt, &c.UpdatedAt)
 	if err == pgx.ErrNoRows {
 		mw.Error(w, http.StatusNotFound, "character not found")
@@ -273,6 +289,7 @@ func (h *CharacterHandler) Get(w http.ResponseWriter, r *http.Request) {
 	if c.Tags == nil {
 		c.Tags = []string{}
 	}
+	c.Extra = decodeCharacterExtra(extraRaw)
 
 	mw.JSON(w, http.StatusOK, c)
 }
