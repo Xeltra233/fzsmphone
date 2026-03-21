@@ -176,12 +176,12 @@
       </div>
 </teleport>
 
-<!-- 额度编辑弹窗 -->
+<!-- 额度与角色卡空间编辑弹窗 -->
 <teleport to="body">
   <div v-if="showCreditsModal" class="modal-overlay" @click.self="showCreditsModal = false">
     <div class="credits-modal">
       <div class="credits-modal-header">
-        <h3>调整用户额度</h3>
+        <h3>调整额度与角色卡空间</h3>
         <button class="modal-close" @click="showCreditsModal = false">&times;</button>
       </div>
       <div class="credits-modal-user">
@@ -198,7 +198,7 @@
         当前额度: <span class="credits-value">{{ creditsTarget?.credits || 0 }}</span>
       </div>
       <div class="credits-modal-field">
-        <label>调整额度</label>
+        <label>调整额度（增减）</label>
         <div class="credits-input-group">
           <button class="credits-btn minus" @click="creditsAdjust -= 100">-100</button>
           <button class="credits-btn minus" @click="creditsAdjust -= 10">-10</button>
@@ -212,7 +212,7 @@
         <input v-model.number="creditsSet" type="number" class="credits-input" placeholder="直接设置额度" />
       </div>
       <div class="credits-modal-field">
-        <label>角色卡总空间（MB）</label>
+        <label>角色卡存储空间（MB）</label>
         <input v-model.number="characterQuotaMb" type="number" min="1" class="credits-input" placeholder="默认 10" />
       </div>
       <div class="credits-modal-actions">
