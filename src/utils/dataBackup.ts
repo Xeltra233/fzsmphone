@@ -69,6 +69,14 @@ const SOCIAL_STORAGE_KEYS = {
 
 type JsonObject = Record<string, any>
 
+export interface BackupImportPreview {
+  version: number
+  exported_at: string
+  counts: Record<string, number>
+  estimated_new: Record<string, number>
+  estimated_duplicates: Record<string, number>
+}
+
 async function safeCall<T>(action: () => Promise<T>, fallback: T): Promise<T> {
   try {
     return await action()
@@ -115,6 +123,83 @@ function safeParse<T>(raw: string | null, fallback: T): T {
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
+}
+
+function normalizeText(value: unknown): string {
+  return String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+function stableSerialize(value: any): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableSerialize).join(',')}]`
+  }
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value).sort()
+    return `{${keys.map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',')}}`
+  }
+  return JSON.stringify(value)
+}
+
+function dedupeBySignature<T>(items: T[], signature: (item: T) => string): T[] {
+  const seen = new Set<string>()
+  const next: T[] = []
+  for (const item of items) {
+    const key = signature(item)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    next.push(item)
+  }
+  return next
+}
+
+function characterSignature(item: CharacterInput): string {
+  return [
+    normalizeText(item.name),
+    normalizeText(item.description),
+    normalizeText(item.personality),
+    normalizeText(item.greeting),
+  ].join('|')
+}
+
+function presetSignature(item: PresetInput): string {
+  return [normalizeText(item.name), normalizeText(item.content), normalizeText(item.prefill)].join('|')
+}
+
+function personaSignature(item: PersonaInput): string {
+  return [normalizeText(item.name), normalizeText(item.description), normalizeText(item.avatar_url)].join('|')
+}
+
+function diarySignature(item: DiaryInput): string {
+  return [normalizeText(item.title), normalizeText(item.content), normalizeText(item.weather), normalizeText(item.mood)].join('|')
+}
+
+function smsSignature(item: BackupFile['data']['sms'][number]): string {
+  return [
+    normalizeText(item.thread.recipient),
+    normalizeText(item.thread.number),
+    normalizeText(item.thread.character_id),
+    stableSerialize((item.messages || []).map((message) => ({ role: message.role, content: normalizeText(message.content) }))),
+  ].join('|')
+}
+
+function callSignature(item: BackupFile['data']['calls'][number]): string {
+  return [normalizeText(item.name), normalizeText(item.number), normalizeText(item.type), normalizeText(item.call_type), normalizeText(item.duration)].join('|')
+}
+
+function gameSignature(item: BackupFile['data']['games'][number]): string {
+  return [normalizeText(item.game), normalizeText(item.detail), String(item.amount), String(item.win)].join('|')
+}
+
+function mergeUniqueArrayStorage(key: string, value: unknown) {
+  const current = safeParse<any[]>(localStorage.getItem(key), [])
+  const incoming = Array.isArray(value) ? value : []
+  const merged = dedupeBySignature([...current, ...incoming], (item) => stableSerialize(item))
+  localStorage.setItem(key, JSON.stringify(merged))
+}
+
+function mergeUniqueObjectStorage(key: string, value: unknown) {
+  const current = safeParse<JsonObject>(localStorage.getItem(key), {})
+  localStorage.setItem(key, JSON.stringify({ ...current, ...(value && typeof value === 'object' ? value as JsonObject : {}) }))
 }
 
 function sanitizeSettings(settings: JsonObject): JsonObject {
@@ -348,31 +433,62 @@ function setScalarStorage(key: string, value: unknown) {
 }
 
 async function importCharacters(items: CharacterInput[]) {
-  for (const item of items) {
+  const existing = await safeCall(() => characterApi.listWithStorage(), { data: [] as Character[] })
+  const existingSet = new Set((existing.data || []).map(normalizeCharacterInput).map(characterSignature))
+  for (const item of dedupeBySignature(items, characterSignature)) {
+    if (existingSet.has(characterSignature(item))) continue
     await safeCall(() => characterApi.create(item), null)
   }
 }
 
 async function importPresets(items: PresetInput[]) {
-  for (const item of items) {
+  const existing = await safeCall(() => presetApi.list(), { data: [] as Preset[] })
+  const existingSet = new Set((existing.data || []).map(normalizePresetInput).map(presetSignature))
+  for (const item of dedupeBySignature(items, presetSignature)) {
+    if (existingSet.has(presetSignature(item))) continue
     await safeCall(() => presetApi.create(item), null)
   }
 }
 
 async function importPersonas(items: PersonaInput[]) {
-  for (const item of items) {
+  const existing = await safeCall(() => personaApi.list(), { data: [] as Persona[] })
+  const existingSet = new Set((existing.data || []).map(normalizePersonaInput).map(personaSignature))
+  for (const item of dedupeBySignature(items, personaSignature)) {
+    if (existingSet.has(personaSignature(item))) continue
     await safeCall(() => personaApi.create(item), null)
   }
 }
 
 async function importDiaries(items: DiaryInput[]) {
-  for (const item of items) {
+  const existing = await safeCall(() => diaryApi.list(), { data: [] as Diary[] })
+  const existingSet = new Set((existing.data || []).map(normalizeDiaryInput).map(diarySignature))
+  for (const item of dedupeBySignature(items, diarySignature)) {
+    if (existingSet.has(diarySignature(item))) continue
     await safeCall(() => diaryApi.create(item), null)
   }
 }
 
 async function importSms(items: BackupFile['data']['sms']) {
-  for (const item of items) {
+  const existingThreads = await safeCall(() => smsApi.listThreads(), { data: [] as SmsThread[] })
+  const existingThreadIds = Array.isArray(existingThreads.data) ? existingThreads.data.map((thread) => thread.id) : []
+  const existingMessages = await Promise.all(existingThreadIds.map(async (id) => {
+    const messages = await safeCall(() => smsApi.listMessages(id), { data: [] as SmsMessage[] })
+    return messages.data || []
+  }))
+  const existingSet = new Set(existingThreadIds.map((id, index) => smsSignature({
+    thread: {
+      recipient: (existingThreads.data || []).find((item) => item.id === id)?.recipient || '',
+      number: (existingThreads.data || []).find((item) => item.id === id)?.number || '',
+      character_id: (existingThreads.data || []).find((item) => item.id === id)?.character_id || '',
+      avatar: (existingThreads.data || []).find((item) => item.id === id)?.avatar || '',
+      last_content: (existingThreads.data || []).find((item) => item.id === id)?.last_content || '',
+      last_at: (existingThreads.data || []).find((item) => item.id === id)?.last_at || '',
+    },
+    messages: (existingMessages[index] || []).map((message) => ({ role: message.role, content: message.content })),
+  })))
+
+  for (const item of dedupeBySignature(items, smsSignature)) {
+    if (existingSet.has(smsSignature(item))) continue
     const thread = await safeCall(() => smsApi.createThread({
       recipient: item.thread.recipient,
       number: item.thread.number,
@@ -391,7 +507,18 @@ async function importSms(items: BackupFile['data']['sms']) {
 }
 
 async function importCalls(items: BackupFile['data']['calls']) {
-  for (const item of items) {
+  const existing = await safeCall(() => callApi.list(), { data: [] as any[] })
+  const existingSet = new Set((existing.data || []).map((item: any) => callSignature({
+    name: item.name || '',
+    number: item.number || '',
+    avatar: item.avatar || '',
+    character_id: item.character_id || '',
+    type: item.type || 'outgoing',
+    call_type: item.call_type || 'voice',
+    duration: item.duration || '',
+  })))
+  for (const item of dedupeBySignature(items, callSignature)) {
+    if (existingSet.has(callSignature(item))) continue
     await safeCall(() => callApi.create(item), null)
   }
 }
@@ -408,7 +535,15 @@ async function importWallet(data: BackupFile['data']['wallet']) {
 }
 
 async function importGames(items: BackupFile['data']['games']) {
-  for (const item of items) {
+  const existing = await safeCall(() => gameApi.listRecords(), { data: [] as GameRecordItem[] })
+  const existingSet = new Set((existing.data || []).map((item) => gameSignature({
+    game: item.game,
+    detail: item.detail,
+    amount: item.amount,
+    win: item.win,
+  })))
+  for (const item of dedupeBySignature(items, gameSignature)) {
+    if (existingSet.has(gameSignature(item))) continue
     await safeCall(() => gameApi.createRecord(item), null)
   }
 }
@@ -421,18 +556,18 @@ function importLocalState(file: BackupFile) {
   mergeObjectStorage(IMAGE_GEN_KEY, sanitizeImageGenConfig(file.data.image_gen_config || {}))
 
   const localState = file.data.local_state || {}
-  mergeArrayStorage(PRESETS_KEY, localState.presets_cache)
-  mergeArrayStorage(WORLDBOOKS_KEY, localState.worldbooks)
-  mergeArrayStorage(CHAT_CONVERSATIONS_KEY, localState.chat_conversations)
-  mergeArrayStorage(SMS_STORAGE_KEY, localState.sms_local_cache)
-  mergeArrayStorage(CALL_HISTORY_KEY, localState.call_history_local)
-  mergeObjectStorage(WALLET_KEY, localState.wallet_local)
-  mergeArrayStorage(TX_KEY, localState.wallet_transactions_local)
-  mergeArrayStorage(REDPACKET_KEY, localState.wallet_redpackets_local)
-  mergeArrayStorage(TRANSFER_KEY, localState.wallet_transfers_local)
-  mergeArrayStorage(DIARY_LOCAL_KEY, localState.diary_local)
-  mergeArrayStorage(SECURITY_LOG_KEY, localState.security_logs)
-  mergeObjectStorage(GLOBAL_EJS_VARS_KEY, localState.global_template_vars)
+  mergeUniqueArrayStorage(PRESETS_KEY, localState.presets_cache)
+  mergeUniqueArrayStorage(WORLDBOOKS_KEY, localState.worldbooks)
+  mergeUniqueArrayStorage(CHAT_CONVERSATIONS_KEY, localState.chat_conversations)
+  mergeUniqueArrayStorage(SMS_STORAGE_KEY, localState.sms_local_cache)
+  mergeUniqueArrayStorage(CALL_HISTORY_KEY, localState.call_history_local)
+  mergeUniqueObjectStorage(WALLET_KEY, localState.wallet_local)
+  mergeUniqueArrayStorage(TX_KEY, localState.wallet_transactions_local)
+  mergeUniqueArrayStorage(REDPACKET_KEY, localState.wallet_redpackets_local)
+  mergeUniqueArrayStorage(TRANSFER_KEY, localState.wallet_transfers_local)
+  mergeUniqueArrayStorage(DIARY_LOCAL_KEY, localState.diary_local)
+  mergeUniqueArrayStorage(SECURITY_LOG_KEY, localState.security_logs)
+  mergeUniqueObjectStorage(GLOBAL_EJS_VARS_KEY, localState.global_template_vars)
 
   setScalarStorage(ACTIVE_PRESET_KEY, localState.active_preset_id)
   setScalarStorage(CURRENT_PERSONA_KEY, localState.current_persona_id)
@@ -442,17 +577,17 @@ function importLocalState(file: BackupFile) {
 
   const chatMessages = localState.chat_messages || {}
   for (const [key, value] of Object.entries(chatMessages)) {
-    if (key.startsWith('chat-messages-')) {
-      mergeArrayStorage(key, value)
+      if (key.startsWith('chat-messages-')) {
+        mergeUniqueArrayStorage(key, value)
+      }
     }
-  }
 
   const localTemplateVars = localState.local_template_vars || {}
   for (const [key, value] of Object.entries(localTemplateVars)) {
-    if (key.startsWith('ejs-vars-chat-')) {
-      mergeObjectStorage(key, value)
+      if (key.startsWith('ejs-vars-chat-')) {
+        mergeUniqueObjectStorage(key, value)
+      }
     }
-  }
 
   for (const [name, storageKey] of Object.entries(SOCIAL_STORAGE_KEYS)) {
     if (Object.prototype.hasOwnProperty.call(file.data.social_data || {}, name)) {
@@ -482,6 +617,74 @@ export async function importAppBackup(raw: unknown) {
     sms_threads: (file.data.sms || []).length,
     calls: (file.data.calls || []).length,
     games: (file.data.games || []).length,
+  }
+}
+
+export async function analyzeBackupImport(raw: unknown): Promise<BackupImportPreview> {
+  const file = validateBackupFile(raw)
+
+  const [charactersRes, presetsRes, personasRes, diariesRes, smsThreadsRes, callsRes, gamesRes] = await Promise.all([
+    safeCall(() => characterApi.listWithStorage(), { data: [] as Character[] }),
+    safeCall(() => presetApi.list(), { data: [] as Preset[] }),
+    safeCall(() => personaApi.list(), { data: [] as Persona[] }),
+    safeCall(() => diaryApi.list(), { data: [] as Diary[] }),
+    safeCall(() => smsApi.listThreads(), { data: [] as SmsThread[] }),
+    safeCall(() => callApi.list(), { data: [] as any[] }),
+    safeCall(() => gameApi.listRecords(), { data: [] as GameRecordItem[] }),
+  ])
+
+  const existingCharacterSet = new Set((charactersRes.data || []).map(normalizeCharacterInput).map(characterSignature))
+  const existingPresetSet = new Set((presetsRes.data || []).map(normalizePresetInput).map(presetSignature))
+  const existingPersonaSet = new Set((personasRes.data || []).map(normalizePersonaInput).map(personaSignature))
+  const existingDiarySet = new Set((diariesRes.data || []).map(normalizeDiaryInput).map(diarySignature))
+  const existingCallSet = new Set((callsRes.data || []).map((item: any) => callSignature({
+    name: item.name || '', number: item.number || '', avatar: item.avatar || '', character_id: item.character_id || '', type: item.type || 'outgoing', call_type: item.call_type || 'voice', duration: item.duration || '',
+  })))
+  const existingGameSet = new Set((gamesRes.data || []).map((item) => gameSignature({ game: item.game, detail: item.detail, amount: item.amount, win: item.win })))
+  const existingSmsThreadSet = new Set((smsThreadsRes.data || []).map((item) => [normalizeText(item.recipient), normalizeText(item.number), normalizeText(item.character_id)].join('|')))
+
+  const incomingCharacters = dedupeBySignature(file.data.characters || [], characterSignature)
+  const incomingPresets = dedupeBySignature(file.data.presets || [], presetSignature)
+  const incomingPersonas = dedupeBySignature(file.data.personas || [], personaSignature)
+  const incomingDiaries = dedupeBySignature(file.data.diaries || [], diarySignature)
+  const incomingCalls = dedupeBySignature(file.data.calls || [], callSignature)
+  const incomingGames = dedupeBySignature(file.data.games || [], gameSignature)
+  const incomingSms = dedupeBySignature(file.data.sms || [], smsSignature)
+
+  const estimatedNew = {
+    characters: incomingCharacters.filter((item) => !existingCharacterSet.has(characterSignature(item))).length,
+    presets: incomingPresets.filter((item) => !existingPresetSet.has(presetSignature(item))).length,
+    personas: incomingPersonas.filter((item) => !existingPersonaSet.has(personaSignature(item))).length,
+    diaries: incomingDiaries.filter((item) => !existingDiarySet.has(diarySignature(item))).length,
+    sms_threads: incomingSms.filter((item) => !existingSmsThreadSet.has([normalizeText(item.thread.recipient), normalizeText(item.thread.number), normalizeText(item.thread.character_id)].join('|'))).length,
+    calls: incomingCalls.filter((item) => !existingCallSet.has(callSignature(item))).length,
+    games: incomingGames.filter((item) => !existingGameSet.has(gameSignature(item))).length,
+  }
+
+  const counts = {
+    characters: (file.data.characters || []).length,
+    presets: (file.data.presets || []).length,
+    personas: (file.data.personas || []).length,
+    diaries: (file.data.diaries || []).length,
+    sms_threads: (file.data.sms || []).length,
+    calls: (file.data.calls || []).length,
+    games: (file.data.games || []).length,
+  }
+
+  return {
+    version: file.version,
+    exported_at: file.exported_at,
+    counts,
+    estimated_new: estimatedNew,
+    estimated_duplicates: {
+      characters: counts.characters - estimatedNew.characters,
+      presets: counts.presets - estimatedNew.presets,
+      personas: counts.personas - estimatedNew.personas,
+      diaries: counts.diaries - estimatedNew.diaries,
+      sms_threads: counts.sms_threads - estimatedNew.sms_threads,
+      calls: counts.calls - estimatedNew.calls,
+      games: counts.games - estimatedNew.games,
+    },
   }
 }
 

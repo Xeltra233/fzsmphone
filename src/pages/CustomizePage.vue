@@ -683,7 +683,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { usePhoneStore } from '@/stores/phone'
 import { loadImageGenConfig, saveImageGenConfig, IMAGE_ASPECT_RATIO_OPTIONS, type ImageGenConfig } from '@/utils/imageGenConfig'
 import { isChatAutoImageGenEnabled, setChatAutoImageGenEnabled, isSocialAutoImageGenEnabled, setSocialAutoImageGenEnabled } from '@/utils/imageGenService'
-import { downloadAppBackup, importAppBackup, readBackupFile, pingAuth } from '@/utils/dataBackup'
+import { analyzeBackupImport, downloadAppBackup, importAppBackup, readBackupFile, pingAuth, type BackupImportPreview } from '@/utils/dataBackup'
 import api from '@/api/client'
 
 const settingsStore = useSettingsStore()
@@ -724,6 +724,7 @@ const fetchError = ref('')
 const dailyTips = ref('')
 const backupImportInput = ref<HTMLInputElement | null>(null)
 const importingBackup = ref(false)
+const pendingBackup = ref<{ file: File; preview: BackupImportPreview } | null>(null)
 
 async function fetchDailyTips() {
   try {
@@ -848,19 +849,32 @@ async function handleImportBackup(e: Event) {
   input.value = ''
   if (!file) return
 
-  const confirmed = confirm('导入会合并本地数据，并向当前账号写入角色卡、预设、短信、日记等内容。为避免重复导入，请尽量只导入一次。是否继续？')
-  if (!confirmed) return
-
   importingBackup.value = true
   try {
     await pingAuth()
     const backup = await readBackupFile(file)
+    const preview = await analyzeBackupImport(backup)
+    const confirmed = confirm(
+      `检测到备份文件：\n` +
+      `- 角色卡 ${preview.counts.characters}（预计新增 ${preview.estimated_new.characters}，重复 ${preview.estimated_duplicates.characters}）\n` +
+      `- 预设 ${preview.counts.presets}（预计新增 ${preview.estimated_new.presets}，重复 ${preview.estimated_duplicates.presets}）\n` +
+      `- 人设 ${preview.counts.personas}（预计新增 ${preview.estimated_new.personas}，重复 ${preview.estimated_duplicates.personas}）\n` +
+      `- 日记 ${preview.counts.diaries}（预计新增 ${preview.estimated_new.diaries}，重复 ${preview.estimated_duplicates.diaries}）\n` +
+      `- 短信线程 ${preview.counts.sms_threads}（预计新增 ${preview.estimated_new.sms_threads}，重复 ${preview.estimated_duplicates.sms_threads}）\n` +
+      `- 通话 ${preview.counts.calls}（预计新增 ${preview.estimated_new.calls}，重复 ${preview.estimated_duplicates.calls}）\n` +
+      `- 游戏记录 ${preview.counts.games}（预计新增 ${preview.estimated_new.games}，重复 ${preview.estimated_duplicates.games}）\n\n` +
+      `导入会合并本地状态，并尽量跳过重复内容。是否继续？`
+    )
+    if (!confirmed) return
+
+    pendingBackup.value = { file, preview }
     const result = await importAppBackup(backup)
     alert(`导入完成：角色卡 ${result.characters} 个，预设 ${result.presets} 个，人设 ${result.personas} 个，日记 ${result.diaries} 篇，短信线程 ${result.sms_threads} 个，通话 ${result.calls} 条，游戏记录 ${result.games} 条。\n\n页面将刷新以重新加载数据。`)
     window.location.reload()
   } catch (err: any) {
     alert(err?.message || '导入失败，请检查备份文件格式')
   } finally {
+    pendingBackup.value = null
     importingBackup.value = false
   }
 }
