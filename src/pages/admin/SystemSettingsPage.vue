@@ -613,9 +613,15 @@ placeholder="qun_qrcode.jpg"
           <button class="model-pull-close" type="button" @click="closeModelPullModal">×</button>
         </div>
 
-        <div v-if="pulledModels.length === 0" class="empty-models">未拉取到可添加模型</div>
+        <div class="model-pull-toolbar">
+          <input v-model.trim="modelPullSearch" class="setting-input" placeholder="搜索模型 ID" />
+        </div>
+
+        <div v-if="filteredPulledModels.length === 0" class="empty-models">
+          {{ pulledModels.length === 0 ? '未拉取到可添加模型' : '没有匹配的模型' }}
+        </div>
         <div v-else class="model-pull-list">
-          <label v-for="model in pulledModels" :key="model.id" class="model-pull-item" :class="{ disabled: model.alreadyExists }">
+          <label v-for="model in filteredPulledModels" :key="model.id" class="model-pull-item" :class="{ disabled: model.alreadyExists }">
             <input
               type="checkbox"
               :checked="isPulledModelSelected(model.id)"
@@ -706,6 +712,7 @@ const modelPullError = ref('')
 const showModelPullModal = ref(false)
 const pulledModels = ref<Array<{ id: string; alreadyExists: boolean }>>([])
 const selectedPulledModelIds = ref<string[]>([])
+const modelPullSearch = ref('')
 
 const imgGenForm = ref({
 apiFormat: 'openai',
@@ -775,6 +782,11 @@ function getEnabledModelIds() {
 }
 
 const enabledModels = computed(() => apiForm.value.globalModels.filter((model) => model.enabled))
+const filteredPulledModels = computed(() => {
+  const keyword = modelIdKey(modelPullSearch.value)
+  if (!keyword) return pulledModels.value
+  return pulledModels.value.filter((model) => modelIdKey(model.id).includes(keyword))
+})
 
 function ensureDefaultModelValid() {
   const enabledIds = getEnabledModelIds()
@@ -853,6 +865,7 @@ function closeModelPullModal() {
   showModelPullModal.value = false
   pulledModels.value = []
   selectedPulledModelIds.value = []
+  modelPullSearch.value = ''
 }
 
 function isPulledModelSelected(id: string) {
@@ -1658,6 +1671,10 @@ onMounted(() => {
   gap: 10px;
   padding: 16px 18px;
   overflow-y: auto;
+}
+
+.model-pull-toolbar {
+  padding: 14px 18px 0;
 }
 
 .model-pull-item {
