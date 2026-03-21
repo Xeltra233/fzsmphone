@@ -309,8 +309,16 @@ const stats = ref<StatItem[]>([
   { label: '对话', value: 0 },
   { label: '帖子', value: 0 },
   { label: '日记', value: 0 },
-  { label: '天数', value: 0 },
+  { label: '加入天数', value: 0 },
 ])
+
+function calculateJoinDays(createdAt?: string) {
+  if (!createdAt) return 1
+  const created = new Date(createdAt)
+  if (Number.isNaN(created.getTime())) return 1
+  const diff = Date.now() - created.getTime()
+  return Math.max(1, Math.floor(diff / 86400000) + 1)
+}
 
 interface MenuItem {
   icon: string
@@ -487,15 +495,7 @@ onMounted(async () => {
     document.documentElement.setAttribute('data-theme', settingsStore.settings.darkMode ? 'dark' : 'light')
   }
 
-  // Calculate days since first use
-  const firstUse = localStorage.getItem('first_use')
-  if (!firstUse) {
-    localStorage.setItem('first_use', new Date().toISOString())
-    stats.value[3].value = 1
-  } else {
-    const days = Math.ceil((Date.now() - new Date(firstUse).getTime()) / 86400000)
-    stats.value[3].value = days
-  }
+  stats.value[3].value = calculateJoinDays(user.value?.createdAt)
 
   // Load additive disclaimer and custom QR config from settings
   try {

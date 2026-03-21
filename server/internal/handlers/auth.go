@@ -368,12 +368,13 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		IsSuperAdmin bool   `json:"is_super_admin"`
 		IsBanned     bool   `json:"is_banned"`
 		BanReason    string `json:"ban_reason"`
+		CreatedAt    string `json:"created_at"`
 	}
 
 	err := h.DB.Pool.QueryRow(r.Context(), `
-	SELECT id, COALESCE(discord_id, ''), username, COALESCE(email, ''), display_name, COALESCE(avatar_url, ''), role, is_super_admin, is_banned, ban_reason
+	SELECT id, COALESCE(discord_id, ''), username, COALESCE(email, ''), display_name, COALESCE(avatar_url, ''), role, is_super_admin, is_banned, ban_reason, created_at::text
 	FROM users WHERE id = $1
-	`, userID).Scan(&user.ID, &user.DiscordID, &user.Username, &user.Email, &user.DisplayName, &user.AvatarURL, &user.Role, &user.IsSuperAdmin, &user.IsBanned, &user.BanReason)
+	`, userID).Scan(&user.ID, &user.DiscordID, &user.Username, &user.Email, &user.DisplayName, &user.AvatarURL, &user.Role, &user.IsSuperAdmin, &user.IsBanned, &user.BanReason, &user.CreatedAt)
 	if err != nil {
 		mw.Error(w, http.StatusNotFound, "user not found")
 		return

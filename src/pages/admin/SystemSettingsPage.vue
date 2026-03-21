@@ -390,7 +390,7 @@ placeholder="qun_qrcode.jpg"
               @keyup.enter="addModel"
             />
             <button class="add-model-btn" type="button" @click="addModel">添加</button>
-            <button class="add-model-btn secondary" type="button" @click="pullModels" :disabled="pullingModels">
+            <button class="add-model-btn secondary" type="button" @click="pullModels" :disabled="pullingModels || showModelPullModal">
               {{ pullingModels ? '拉取中...' : '拉取模型' }}
             </button>
           </div>
@@ -455,7 +455,13 @@ placeholder="qun_qrcode.jpg"
         </div>
 <div class="input-group">
 <label>社交内容默认模型</label>
-<input v-model="apiForm.globalSocialModel" placeholder="gpt-4o-mini" class="setting-input" />
+<select v-model="apiForm.globalSocialModel" class="setting-select">
+  <option value="">跟随主默认模型</option>
+  <option v-for="model in enabledModels" :key="`social-${model.id}`" :value="model.id">
+    {{ model.displayName || model.id }}
+  </option>
+</select>
+<span class="input-desc">默认从已启用模型中选择，留空则跟随主默认模型</span>
 </div>
 </div>
 </div>
@@ -595,6 +601,41 @@ placeholder="qun_qrcode.jpg"
       {{ toast.message }}
     </div>
   </div>
+
+  <Teleport to="body">
+    <div v-if="showModelPullModal" class="modal-overlay" @click.self="closeModelPullModal">
+      <div class="model-pull-modal">
+        <div class="model-pull-header">
+          <div>
+            <h3>选择要添加的模型</h3>
+            <p>仅在你点击“添加所选模型”后，模型才会写入列表。</p>
+          </div>
+          <button class="model-pull-close" type="button" @click="closeModelPullModal">×</button>
+        </div>
+
+        <div v-if="pulledModels.length === 0" class="empty-models">未拉取到可添加模型</div>
+        <div v-else class="model-pull-list">
+          <label v-for="model in pulledModels" :key="model.id" class="model-pull-item" :class="{ disabled: model.alreadyExists }">
+            <input
+              type="checkbox"
+              :checked="isPulledModelSelected(model.id)"
+              :disabled="model.alreadyExists"
+              @change="togglePulledModel(model.id)"
+            />
+            <div class="model-pull-item-main">
+              <span class="model-pull-id">{{ model.id }}</span>
+              <span class="model-pull-meta">{{ model.alreadyExists ? '已存在，已自动跳过' : '可添加到可用模型列表' }}</span>
+            </div>
+          </label>
+        </div>
+
+        <div class="model-pull-actions">
+          <button class="add-model-btn secondary" type="button" @click="closeModelPullModal">取消</button>
+          <button class="add-model-btn" type="button" @click="confirmAddPulledModels" :disabled="selectedPulledModelIds.length === 0">添加所选模型</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -662,6 +703,9 @@ globalSocialModel: '',
 const newModelId = ref('')
 const pullingModels = ref(false)
 const modelPullError = ref('')
+const showModelPullModal = ref(false)
+const pulledModels = ref<Array<{ id: string; alreadyExists: boolean }>>([])
+const selectedPulledModelIds = ref<string[]>([])
 
 const imgGenForm = ref({
 apiFormat: 'openai',
@@ -685,6 +729,10 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
 
 function normalizeModelId(value: string) {
   return value.trim()
+}
+
+function modelIdKey(value: string) {
+  return normalizeModelId(value).toLowerCase()
 }
 
 function sanitizeDisplayName(value: unknown) {
@@ -732,17 +780,21 @@ function ensureDefaultModelValid() {
   const enabledIds = getEnabledModelIds()
   if (!enabledIds.length) {
     apiForm.value.globalModel = ''
+    apiForm.value.globalSocialModel = ''
     return
   }
   if (!enabledIds.includes(apiForm.value.globalModel)) {
     apiForm.value.globalModel = enabledIds[0]
+  }
+  if (apiForm.value.globalSocialModel && !enabledIds.includes(apiForm.value.globalSocialModel)) {
+    apiForm.value.globalSocialModel = ''
   }
 }
 
 function addModel() {
   const id = normalizeModelId(newModelId.value)
   if (!id) return
-  const exists = apiForm.value.globalModels.some((model) => model.id.toLowerCase() === id.toLowerCase())
+  const exists = apiForm.value.globalModels.some((model) => modelIdKey(model.id) === modelIdKey(id))
   if (exists) {
     showToast('该模型已存在', 'error')
     return
@@ -755,7 +807,7 @@ function addModel() {
 function mergeModels(models: ManagedModel[]) {
   const merged = [...apiForm.value.globalModels]
   for (const model of models) {
-    const index = merged.findIndex((item) => item.id.toLowerCase() === model.id.toLowerCase())
+    const index = merged.findIndex((item) => modelIdKey(item.id) === modelIdKey(model.id))
     if (index >= 0) {
       const current = merged[index]
       merged[index] = {
@@ -794,6 +846,44 @@ function extractModelIds(payload: any) {
       return ''
     })
     .filter(Boolean)
+    .filter((id, index, arr) => arr.findIndex((item) => modelIdKey(item) === modelIdKey(id)) === index)
+}
+
+function closeModelPullModal() {
+  showModelPullModal.value = false
+  pulledModels.value = []
+  selectedPulledModelIds.value = []
+}
+
+function isPulledModelSelected(id: string) {
+  return selectedPulledModelIds.value.some((item) => modelIdKey(item) === modelIdKey(id))
+}
+
+function togglePulledModel(id: string) {
+  const key = modelIdKey(id)
+  const index = selectedPulledModelIds.value.findIndex((item) => modelIdKey(item) === key)
+  if (index >= 0) {
+    selectedPulledModelIds.value.splice(index, 1)
+    return
+  }
+  selectedPulledModelIds.value.push(id)
+}
+
+function confirmAddPulledModels() {
+  const selected = pulledModels.value
+    .filter((model) => !model.alreadyExists && isPulledModelSelected(model.id))
+    .map((model) => ({ id: model.id, enabled: true, displayName: '' }))
+
+  if (!selected.length) {
+    showToast('没有可添加的新模型', 'error')
+    return
+  }
+
+  const before = apiForm.value.globalModels.length
+  mergeModels(selected)
+  const addedCount = apiForm.value.globalModels.length - before
+  closeModelPullModal()
+  showToast(addedCount > 0 ? `已添加 ${addedCount} 个模型` : '模型列表已是最新')
 }
 
 async function pullModels() {
@@ -808,10 +898,13 @@ async function pullModels() {
     if (!pulled.length) {
       throw new Error('接口已响应，但没有返回可用模型')
     }
-    const before = apiForm.value.globalModels.length
-    mergeModels(pulled)
-    const addedCount = apiForm.value.globalModels.length - before
-    showToast(addedCount > 0 ? `已导入 ${addedCount} 个模型` : '模型列表已是最新')
+    const existing = new Set(apiForm.value.globalModels.map((model) => modelIdKey(model.id)))
+    pulledModels.value = pulled.map((model) => ({
+      id: model.id,
+      alreadyExists: existing.has(modelIdKey(model.id)),
+    }))
+    selectedPulledModelIds.value = pulledModels.value.filter((model) => !model.alreadyExists).map((model) => model.id)
+    showModelPullModal.value = true
   } catch (err: any) {
     modelPullError.value = err.message || '拉取模型失败'
   } finally {
@@ -1516,6 +1609,101 @@ onMounted(() => {
 .model-pull-error {
   font-size: 12px;
   color: #ff3b30;
+}
+
+.model-pull-modal {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(78vh, 720px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background: var(--bg-primary, #fff);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.18);
+}
+
+.model-pull-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid var(--separator, rgba(120, 120, 128, 0.14));
+}
+
+.model-pull-header h3 {
+  margin: 0;
+  font-size: 17px;
+  color: var(--text-primary);
+}
+
+.model-pull-header p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.model-pull-close {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.model-pull-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  overflow-y: auto;
+}
+
+.model-pull-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--separator, rgba(120, 120, 128, 0.14));
+  background: var(--bg-secondary, rgba(120, 120, 128, 0.06));
+  cursor: pointer;
+}
+
+.model-pull-item.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.model-pull-item input {
+  margin-top: 2px;
+}
+
+.model-pull-item-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.model-pull-id {
+  color: var(--text-primary);
+  font-size: 14px;
+  word-break: break-all;
+}
+
+.model-pull-meta {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.model-pull-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 14px 18px 18px;
+  border-top: 1px solid var(--separator, rgba(120, 120, 128, 0.14));
 }
 
 .model-list-editor {

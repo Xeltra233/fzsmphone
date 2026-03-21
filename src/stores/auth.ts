@@ -13,6 +13,7 @@ export interface User {
   isSuperAdmin: boolean
   approved: boolean
   banned: boolean
+  createdAt?: string
 }
 
 interface UserResponse {
@@ -26,6 +27,7 @@ interface UserResponse {
   is_super_admin: boolean
   is_banned: boolean
   ban_reason: string
+  created_at?: string
 }
 
 interface AuthPayload {
@@ -57,7 +59,8 @@ export const useAuthStore = defineStore('auth', () => {
         role: data.role || 'user',
         isSuperAdmin: data.is_super_admin || false,
         approved: true,
-        banned: data.is_banned || false
+        banned: data.is_banned || false,
+        createdAt: data.created_at || '',
       }
     } catch {
       logout()
@@ -90,6 +93,7 @@ export const useAuthStore = defineStore('auth', () => {
       isSuperAdmin: payload.user.is_super_admin || false,
       approved: true,
       banned: payload.user.is_banned || false,
+      createdAt: payload.user.created_at || '',
     }
     localStorage.setItem('user', JSON.stringify(user.value))
   }
