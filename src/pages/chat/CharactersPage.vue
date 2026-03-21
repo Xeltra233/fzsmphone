@@ -31,6 +31,7 @@
       ref="fileInput"
       type="file"
       accept=".json,.png"
+      multiple
       @change="handleFileImport"
       style="display: none"
     />
@@ -458,82 +459,99 @@ function buildCharacterFromSTData(data: any, avatar: string = ''): any {
   }
 }
 
+async function importSingleCharacterFile(file: File) {
+  let character: any = null
+  const fileName = file.name.toLowerCase()
+
+  if (fileName.endsWith('.png')) {
+    const data = await extractCharaFromPng(file)
+    const avatarBase64 = await fileToBase64(file)
+    character = buildCharacterFromSTData(data, avatarBase64)
+  } else {
+    const text = await file.text()
+    const data = JSON.parse(text)
+
+    if (isSillyTavernCardData(data)) {
+      character = buildCharacterFromSTData(data)
+    } else if (data.name) {
+      character = {
+        id: Date.now() + Math.floor(Math.random() * 10000),
+        type: 'char',
+        name: data.name || '未命名角色',
+        description: data.description || '',
+        avatar: '',
+        persona: data.personality || data.persona || data.description || '',
+        scenario: data.scenario || '',
+        firstMessage: data.first_mes || data.firstMessage || '',
+        exampleDialogue: data.mes_example || data.exampleDialogue || '',
+        tags: data.tags || [],
+        worldBooks: [],
+      }
+    } else {
+      throw new Error('不支持的角色卡格式')
+    }
+  }
+
+  if (character.stExtensions?.character_book) {
+    try {
+      const charBook = character.stExtensions.character_book
+      const bookEntries = normalizeCharacterBookEntries(charBook)
+      if (bookEntries.length > 0) {
+        const worldBooks = JSON.parse(localStorage.getItem('worldBooks') || '[]')
+        const bookId = `wb-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+        worldBooks.unshift({
+          id: bookId,
+          name: charBook.name || `${character.name}的世界书`,
+          entries: bookEntries,
+          bindChars: [String(character.id)],
+          createdAt: new Date().toISOString(),
+        })
+        localStorage.setItem('worldBooks', JSON.stringify(worldBooks))
+        character.worldBooks = [bookId]
+      }
+    } catch (bookErr) {
+      console.warn('内嵌世界书导入失败:', bookErr)
+    }
+  }
+
+  return character
+}
+
 const handleFileImport = async (event: Event) => {
   const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (!file) return
+  const files = Array.from(target.files || [])
+  if (files.length === 0) return
 
-  try {
-    let character: any = null
-    const fileName = file.name.toLowerCase()
+  const imported: string[] = []
+  const failed: string[] = []
 
-    // PNG 角色卡导入
-    if (fileName.endsWith('.png')) {
-      const data = await extractCharaFromPng(file)
-      const avatarBase64 = await fileToBase64(file)
-      character = buildCharacterFromSTData(data, avatarBase64)
+  for (const file of files) {
+    try {
+      const character = await importSingleCharacterFile(file)
+      characters.value.push(character)
+      imported.push(character.name || file.name)
+    } catch (error: any) {
+      console.error(`导入失败: ${file.name}`, error)
+      failed.push(`${file.name}：${error.message || '未知错误'}`)
     }
-    // JSON 角色卡导入
-    else {
-      const text = await file.text()
-      const data = JSON.parse(text)
-
-      // 支持酒馆 V2/V3 格式
-      if (isSillyTavernCardData(data)) {
-        character = buildCharacterFromSTData(data)
-      }
-      // 通用格式
-      else if (data.name) {
-        character = {
-          id: Date.now(),
-          type: 'char',
-          name: data.name || '未命名角色',
-          description: data.description || '',
-          avatar: '',
-          persona: data.personality || data.persona || data.description || '',
-          scenario: data.scenario || '',
-          firstMessage: data.first_mes || data.firstMessage || '',
-          exampleDialogue: data.mes_example || data.exampleDialogue || '',
-          tags: data.tags || [],
-          worldBooks: [],
-        }
-      } else {
-        throw new Error('不支持的角色卡格式')
-      }
-    }
-
-    // 如果角色卡内嵌了 character_book，自动导入为世界书
-    if (character.stExtensions?.character_book) {
-      try {
-        const charBook = character.stExtensions.character_book
-        const bookEntries = normalizeCharacterBookEntries(charBook)
-        if (bookEntries.length > 0) {
-          const worldBooks = JSON.parse(localStorage.getItem('worldBooks') || '[]')
-          const bookId = `wb-${Date.now()}`
-          worldBooks.unshift({
-            id: bookId,
-            name: charBook.name || `${character.name}的世界书`,
-            entries: bookEntries,
-            bindChars: [String(character.id)],
-            createdAt: new Date().toISOString(),
-          })
-          localStorage.setItem('worldBooks', JSON.stringify(worldBooks))
-          character.worldBooks = [bookId]
-        }
-      } catch (bookErr) {
-        console.warn('内嵌世界书导入失败:', bookErr)
-      }
-    }
-
-    characters.value.push(character)
-    saveCharacters()
-    alert(`成功导入角色：${character.name}`)
-    target.value = ''
-  } catch (error: any) {
-    console.error('导入失败:', error)
-    alert('导入失败：' + error.message)
-    target.value = ''
   }
+
+  if (imported.length > 0) {
+    saveCharacters()
+  }
+
+  const messages: string[] = []
+  if (imported.length > 0) {
+    messages.push(imported.length === 1 ? `成功导入角色：${imported[0]}` : `成功导入 ${imported.length} 个角色卡`)
+  }
+  if (failed.length > 0) {
+    messages.push(`失败 ${failed.length} 个：\n${failed.join('\n')}`)
+  }
+  if (messages.length > 0) {
+    alert(messages.join('\n\n'))
+  }
+
+  target.value = ''
 }
 
 const editCharacter = (character: any) => {
