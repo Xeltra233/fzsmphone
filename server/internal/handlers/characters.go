@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"fzsmphone/internal/database"
 	mw "fzsmphone/internal/middleware"
@@ -143,8 +144,8 @@ func (h *CharacterHandler) List(w http.ResponseWriter, r *http.Request) {
 		IsPublic     bool                   `json:"is_public"`
 		Tags         []string               `json:"tags"`
 		Extra        map[string]interface{} `json:"extra"`
-		CreatedAt    string                 `json:"created_at"`
-		UpdatedAt    string                 `json:"updated_at"`
+		CreatedAt    time.Time              `json:"created_at"`
+		UpdatedAt    time.Time              `json:"updated_at"`
 	}
 
 	var characters []charResp
@@ -266,8 +267,8 @@ func (h *CharacterHandler) Get(w http.ResponseWriter, r *http.Request) {
 		IsPublic     bool                   `json:"is_public"`
 		Tags         []string               `json:"tags"`
 		Extra        map[string]interface{} `json:"extra"`
-		CreatedAt    string                 `json:"created_at"`
-		UpdatedAt    string                 `json:"updated_at"`
+		CreatedAt    time.Time              `json:"created_at"`
+		UpdatedAt    time.Time              `json:"updated_at"`
 	}
 	var extraRaw []byte
 
