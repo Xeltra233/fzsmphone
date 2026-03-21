@@ -615,6 +615,15 @@ placeholder="qun_qrcode.jpg"
 
         <div class="model-pull-toolbar">
           <input v-model.trim="modelPullSearch" class="setting-input" placeholder="搜索模型 ID" />
+          <label class="checkbox-label model-pull-only-new">
+            <input v-model="modelPullOnlyNew" type="checkbox" />
+            <span>只看新增</span>
+          </label>
+        </div>
+
+        <div class="model-pull-batch-actions" v-if="pulledModels.length > 0">
+          <button class="batch-action-btn" type="button" @click="selectAllPulledModels">全选新增</button>
+          <button class="batch-action-btn" type="button" @click="clearPulledModelSelection">清空选择</button>
         </div>
 
         <div v-if="filteredPulledModels.length === 0" class="empty-models">
@@ -713,6 +722,7 @@ const showModelPullModal = ref(false)
 const pulledModels = ref<Array<{ id: string; alreadyExists: boolean }>>([])
 const selectedPulledModelIds = ref<string[]>([])
 const modelPullSearch = ref('')
+const modelPullOnlyNew = ref(false)
 
 const imgGenForm = ref({
 apiFormat: 'openai',
@@ -784,8 +794,11 @@ function getEnabledModelIds() {
 const enabledModels = computed(() => apiForm.value.globalModels.filter((model) => model.enabled))
 const filteredPulledModels = computed(() => {
   const keyword = modelIdKey(modelPullSearch.value)
-  if (!keyword) return pulledModels.value
-  return pulledModels.value.filter((model) => modelIdKey(model.id).includes(keyword))
+  return pulledModels.value.filter((model) => {
+    if (modelPullOnlyNew.value && model.alreadyExists) return false
+    if (!keyword) return true
+    return modelIdKey(model.id).includes(keyword)
+  })
 })
 
 function ensureDefaultModelValid() {
@@ -866,6 +879,7 @@ function closeModelPullModal() {
   pulledModels.value = []
   selectedPulledModelIds.value = []
   modelPullSearch.value = ''
+  modelPullOnlyNew.value = false
 }
 
 function isPulledModelSelected(id: string) {
@@ -880,6 +894,14 @@ function togglePulledModel(id: string) {
     return
   }
   selectedPulledModelIds.value.push(id)
+}
+
+function selectAllPulledModels() {
+  selectedPulledModelIds.value = pulledModels.value.filter((model) => !model.alreadyExists).map((model) => model.id)
+}
+
+function clearPulledModelSelection() {
+  selectedPulledModelIds.value = []
 }
 
 function confirmAddPulledModels() {
@@ -1674,7 +1696,37 @@ onMounted(() => {
 }
 
 .model-pull-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
   padding: 14px 18px 0;
+}
+
+.model-pull-toolbar .setting-input {
+  flex: 1;
+  min-width: 220px;
+}
+
+.model-pull-only-new {
+  flex: 0 0 auto;
+}
+
+.model-pull-batch-actions {
+  display: flex;
+  gap: 10px;
+  padding: 12px 18px 0;
+}
+
+.batch-action-btn {
+  border: none;
+  background: rgba(91, 110, 245, 0.1);
+  color: #5B6EF5;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .model-pull-item {
