@@ -31,6 +31,7 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 SELECT id, COALESCE(discord_id, ''), username, display_name, COALESCE(avatar_url, ''), role, is_super_admin,
 is_banned, COALESCE(ban_reason, ''), banned_at, banned_until,
 COALESCE(credits, 0), COALESCE(total_tokens, 0), COALESCE(signin_streak, 0), COALESCE(invite_code, ''),
+COALESCE(character_storage_quota, 10485760),
 created_at, updated_at
 FROM users
 ORDER BY created_at DESC
@@ -42,29 +43,30 @@ ORDER BY created_at DESC
 	defer rows.Close()
 
 	type userResp struct {
-		ID           int64      `json:"id"`
-		DiscordID    string     `json:"discord_id"`
-		Username     string     `json:"username"`
-		DisplayName  string     `json:"display_name"`
-		AvatarURL    string     `json:"avatar_url"`
-		Role         string     `json:"role"`
-		IsSuperAdmin bool       `json:"is_super_admin"`
-		IsBanned     bool       `json:"is_banned"`
-		BanReason    string     `json:"ban_reason"`
-		BannedAt     *time.Time `json:"banned_at"`
-		BannedUntil  *time.Time `json:"banned_until"`
-		Credits      int        `json:"credits"`
-		TotalTokens  int        `json:"total_tokens"`
-		SigninStreak int        `json:"signin_streak"`
-		InviteCode   string     `json:"invite_code"`
-		CreatedAt    time.Time  `json:"created_at"`
-		UpdatedAt    time.Time  `json:"updated_at"`
+		ID                    int64      `json:"id"`
+		DiscordID             string     `json:"discord_id"`
+		Username              string     `json:"username"`
+		DisplayName           string     `json:"display_name"`
+		AvatarURL             string     `json:"avatar_url"`
+		Role                  string     `json:"role"`
+		IsSuperAdmin          bool       `json:"is_super_admin"`
+		IsBanned              bool       `json:"is_banned"`
+		BanReason             string     `json:"ban_reason"`
+		BannedAt              *time.Time `json:"banned_at"`
+		BannedUntil           *time.Time `json:"banned_until"`
+		Credits               int        `json:"credits"`
+		TotalTokens           int        `json:"total_tokens"`
+		SigninStreak          int        `json:"signin_streak"`
+		InviteCode            string     `json:"invite_code"`
+		CharacterStorageQuota int64      `json:"character_storage_quota"`
+		CreatedAt             time.Time  `json:"created_at"`
+		UpdatedAt             time.Time  `json:"updated_at"`
 	}
 
 	var users []userResp
 	for rows.Next() {
 		var u userResp
-		if err := rows.Scan(&u.ID, &u.DiscordID, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Role, &u.IsSuperAdmin, &u.IsBanned, &u.BanReason, &u.BannedAt, &u.BannedUntil, &u.Credits, &u.TotalTokens, &u.SigninStreak, &u.InviteCode, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.DiscordID, &u.Username, &u.DisplayName, &u.AvatarURL, &u.Role, &u.IsSuperAdmin, &u.IsBanned, &u.BanReason, &u.BannedAt, &u.BannedUntil, &u.Credits, &u.TotalTokens, &u.SigninStreak, &u.InviteCode, &u.CharacterStorageQuota, &u.CreatedAt, &u.UpdatedAt); err != nil {
 			mw.Error(w, http.StatusInternalServerError, "failed to scan user")
 			return
 		}
@@ -526,16 +528,33 @@ func (h *UserHandler) UpdateCredits(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		Credits int `json:"credits"`
+		Credits               *int   `json:"credits"`
+		CharacterStorageQuota *int64 `json:"character_storage_quota"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		mw.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	result, err := h.DB.Pool.Exec(r.Context(), `
+	if body.Credits == nil && body.CharacterStorageQuota == nil {
+		mw.Error(w, http.StatusBadRequest, "credits or character_storage_quota is required")
+		return
+	}
+
+	var result interface{ RowsAffected() int64 }
+	if body.Credits != nil && body.CharacterStorageQuota != nil {
+		result, err = h.DB.Pool.Exec(r.Context(), `
+	UPDATE users SET credits = $1, character_storage_quota = $2, updated_at = NOW() WHERE id = $3
+	`, *body.Credits, *body.CharacterStorageQuota, id)
+	} else if body.Credits != nil {
+		result, err = h.DB.Pool.Exec(r.Context(), `
 	UPDATE users SET credits = $1, updated_at = NOW() WHERE id = $2
-	`, body.Credits, id)
+	`, *body.Credits, id)
+	} else {
+		result, err = h.DB.Pool.Exec(r.Context(), `
+	UPDATE users SET character_storage_quota = $1, updated_at = NOW() WHERE id = $2
+	`, *body.CharacterStorageQuota, id)
+	}
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to update credits")
 		return

@@ -108,6 +108,7 @@ import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
 import { usePhoneStore } from '@/stores/phone'
 import { useSettingsStore } from '@/stores/settings'
+import { useCharactersStore } from '@/stores/characters'
 import {
   sendAIRequest,
   buildCallMessages,
@@ -124,6 +125,7 @@ const route = useRoute()
 const router = useRouter()
 const phoneStore = usePhoneStore()
 const settingsStore = useSettingsStore()
+const charactersStore = useCharactersStore()
 
 const contactName = ref('未知')
 const contactNumber = ref('')
@@ -311,6 +313,7 @@ function scrollChat() {
 }
 
 onMounted(() => {
+  charactersStore.fetchCharacters()
   // 从路由参数获取联系人信息
   const q = route.query
   if (q.name) contactName.value = String(q.name)

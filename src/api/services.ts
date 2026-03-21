@@ -60,6 +60,12 @@ export const characterApi = {
     if (params?.tag) p.tag = params.tag
     return api.get<ListResponse<Character>>('/api/characters', p)
   },
+  listWithStorage(params?: { search?: string; tag?: string }) {
+    const p: Record<string, string> = {}
+    if (params?.search) p.search = params.search
+    if (params?.tag) p.tag = params.tag
+    return api.get<{ data: Character[]; storage?: { quota_bytes: number; used_bytes: number } }>('/api/characters', p)
+  },
   get(id: number) {
     return api.get<Character>(`/api/characters/${id}`)
   },

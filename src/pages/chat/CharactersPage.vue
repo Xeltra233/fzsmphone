@@ -26,6 +26,10 @@
       </template>
     </NavBar>
 
+    <div v-if="charactersStore.storage.quota_bytes > 0" class="storage-tip">
+      已用 {{ formatStorageSize(charactersStore.storage.used_bytes) }} / {{ formatStorageSize(charactersStore.storage.quota_bytes) }}
+    </div>
+
     <!-- 隐藏的文件选择器 -->
     <input
       ref="fileInput"
@@ -186,13 +190,30 @@ import NavBar from '@/components/common/NavBar.vue'
 import { sendAIRequest } from '@/utils/aiService'
 import { parseAIJsonArray } from '@/utils/aiJsonParser'
 import { useSettingsStore } from '@/stores/settings'
-import { getScopedItem, setScopedItem } from '@/utils/userScopedStorage'
+import { useCharactersStore } from '@/stores/characters'
 
 const router = useRouter()
 const settingsStore = useSettingsStore()
+const charactersStore = useCharactersStore()
 
 const currentType = ref('char')
-const characters = ref<any[]>([])
+const characters = computed(() => charactersStore.charItems.map((item) => ({
+  id: item.id,
+  type: item.extra?.type || 'char',
+  name: item.name,
+  description: item.description,
+  avatar: item.avatar_url,
+  persona: item.personality,
+  scenario: item.extra?.scenario || '',
+  firstMessage: item.greeting,
+  exampleDialogue: item.extra?.exampleDialogue || '',
+  alternateGreetings: item.extra?.alternateGreetings || [],
+  depthPromptText: item.extra?.depthPromptText || '',
+  depthPromptDepth: item.extra?.depthPromptDepth ?? 4,
+  tags: item.tags || [],
+  worldBooks: item.extra?.worldBooks || [],
+  stExtensions: item.extra?.stExtensions || null,
+})))
 const fileInput = ref<HTMLInputElement | null>(null)
 
 const filteredCharacters = computed(() => {
@@ -205,6 +226,12 @@ const addCharacter = () => {
 
 const importCharacter = () => {
   fileInput.value?.click()
+}
+
+function formatStorageSize(bytes: number) {
+  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${bytes} B`
 }
 
 // 从 PNG tEXt/iTXt chunk 中提取角色卡数据（兼容 SillyTavern 两种编码方式）
@@ -407,6 +434,29 @@ function fileToBase64(file: File): Promise<string> {
   })
 }
 
+function optimizeAvatarDataUrl(dataUrl: string, maxSize = 320): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height))
+      const width = Math.max(1, Math.round(img.width * scale))
+      const height = Math.max(1, Math.round(img.height * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        resolve(dataUrl)
+        return
+      }
+      ctx.drawImage(img, 0, 0, width, height)
+      resolve(canvas.toDataURL('image/jpeg', 0.82))
+    }
+    img.onerror = () => resolve(dataUrl)
+    img.src = dataUrl
+  })
+}
+
 // 从 SillyTavern 角色卡数据构建角色对象
 function buildCharacterFromSTData(data: any, avatar: string = ''): any {
   const charData = data.data || data
@@ -465,7 +515,7 @@ async function importSingleCharacterFile(file: File) {
 
   if (fileName.endsWith('.png')) {
     const data = await extractCharaFromPng(file)
-    const avatarBase64 = await fileToBase64(file)
+    const avatarBase64 = await optimizeAvatarDataUrl(await fileToBase64(file))
     character = buildCharacterFromSTData(data, avatarBase64)
   } else {
     const text = await file.text()
@@ -528,16 +578,31 @@ const handleFileImport = async (event: Event) => {
   for (const file of files) {
     try {
       const character = await importSingleCharacterFile(file)
-      characters.value.push(character)
+      await charactersStore.createCharacter({
+        name: character.name,
+        avatar_url: character.avatar || '',
+        description: character.description || '',
+        personality: character.persona || '',
+        system_prompt: character.persona || '',
+        greeting: character.firstMessage || '',
+        is_public: false,
+        tags: Array.isArray(character.tags) ? character.tags : [],
+        extra: {
+          type: character.type || 'char',
+          scenario: character.scenario || '',
+          exampleDialogue: character.exampleDialogue || '',
+          alternateGreetings: character.alternateGreetings || [],
+          depthPromptText: character.depthPromptText || '',
+          depthPromptDepth: character.depthPromptDepth ?? 4,
+          worldBooks: character.worldBooks || [],
+          stExtensions: character.stExtensions || null,
+        },
+      })
       imported.push(character.name || file.name)
     } catch (error: any) {
       console.error(`导入失败: ${file.name}`, error)
       failed.push(`${file.name}：${error.message || '未知错误'}`)
     }
-  }
-
-  if (imported.length > 0) {
-    saveCharacters()
   }
 
   const messages: string[] = []
@@ -564,29 +629,19 @@ const startChat = (character: any) => {
 }
 
 const isCurrentUser = (id: number): boolean => {
-  const currentUserId = getScopedItem('currentUserCharId')
+  const currentUserId = localStorage.getItem('currentUserCharId')
   return !!currentUserId && currentUserId === String(id)
 }
 
 const setAsCurrentUser = (character: any) => {
-  setScopedItem('currentUserCharId', String(character.id))
+  localStorage.setItem('currentUserCharId', String(character.id))
   alert(`已设置「${character.name}」为当前用户身份`)
 }
 
 const deleteCharacter = (id: number) => {
   if (confirm('确定删除这个角色卡吗？')) {
-    characters.value = characters.value.filter((c: any) => c.id !== id)
-    saveCharacters()
+    charactersStore.deleteCharacter(id)
   }
-}
-
-const saveCharacters = () => {
-  setScopedItem('characters', JSON.stringify(characters.value))
-}
-
-const loadCharacters = () => {
-  const saved = getScopedItem('characters')
-  if (saved) characters.value = JSON.parse(saved)
 }
 
 // ======== AI 批量创建 ========
@@ -681,7 +736,6 @@ const generateBatchCharacters = async () => {
 
     // 创建角色卡
     const newCharacters = parsed.map((item: any) => ({
-      id: Date.now() + Math.floor(Math.random() * 100000),
       type: aiBatchType.value,
       name: item.name || '未命名',
       description: item.description || '',
@@ -694,8 +748,27 @@ const generateBatchCharacters = async () => {
       worldBooks: [],
     }))
 
-    characters.value.push(...newCharacters)
-    saveCharacters()
+    for (const newCharacter of newCharacters) {
+      await charactersStore.createCharacter({
+        name: newCharacter.name,
+        avatar_url: newCharacter.avatar || '',
+        description: newCharacter.description || '',
+        personality: newCharacter.persona || '',
+        system_prompt: newCharacter.persona || '',
+        greeting: newCharacter.firstMessage || '',
+        is_public: false,
+        tags: Array.isArray(newCharacter.tags) ? newCharacter.tags : [],
+        extra: {
+          type: newCharacter.type || 'char',
+          scenario: newCharacter.scenario || '',
+          exampleDialogue: newCharacter.exampleDialogue || '',
+          alternateGreetings: [],
+          depthPromptText: '',
+          depthPromptDepth: 4,
+          worldBooks: [],
+        },
+      })
+    }
 
     showAIBatchModal.value = false
     aiBatchPrompt.value = ''
@@ -708,7 +781,7 @@ const generateBatchCharacters = async () => {
   }
 }
 
-onMounted(() => loadCharacters())
+onMounted(() => charactersStore.fetchCharacters())
 </script>
 
 <style scoped>
@@ -717,6 +790,14 @@ onMounted(() => loadCharacters())
   background: var(--bg-secondary);
   display: flex;
   flex-direction: column;
+}
+
+.storage-tip {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--separator);
 }
 
 .nav-btn {

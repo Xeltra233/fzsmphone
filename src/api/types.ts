@@ -40,6 +40,7 @@ export interface Character {
   greeting: string
   is_public: boolean
   tags: string[]
+  extra?: Record<string, any>
   created_at: string
   updated_at: string
 }
@@ -53,6 +54,7 @@ export interface CharacterInput {
   greeting: string
   is_public: boolean
   tags: string[]
+  extra?: Record<string, any>
 }
 
 // ========== 对话 ==========

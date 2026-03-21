@@ -421,6 +421,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
 import { useChatStore } from '@/stores/chat'
+import { useCharactersStore } from '@/stores/characters'
 import { useSettingsStore } from '@/stores/settings'
 import { useWalletStore } from '@/stores/wallet'
 import type { ChatMessage } from '@/stores/chat'
@@ -440,6 +441,7 @@ import { generateImageFromPrompt, isChatAutoImageGenEnabled } from '@/utils/imag
 const route = useRoute()
 const router = useRouter()
 const chatStore = useChatStore()
+const charactersStore = useCharactersStore()
 const settingsStore = useSettingsStore()
 const walletStore = useWalletStore()
 
@@ -1043,7 +1045,8 @@ watch(
   () => scrollToBottom(),
 )
 
-onMounted(() => {
+onMounted(async () => {
+  await charactersStore.fetchCharacters()
   if (conversationId.value) {
     chatStore.fetchMessages(conversationId.value)
   }

@@ -211,9 +211,13 @@
         <label>或者直接设置额度</label>
         <input v-model.number="creditsSet" type="number" class="credits-input" placeholder="直接设置额度" />
       </div>
+      <div class="credits-modal-field">
+        <label>角色卡总空间（MB）</label>
+        <input v-model.number="characterQuotaMb" type="number" min="1" class="credits-input" placeholder="默认 10" />
+      </div>
       <div class="credits-modal-actions">
         <button class="btn-cancel" @click="showCreditsModal = false">取消</button>
-        <button class="btn-confirm-credits" @click="confirmCreditsAdjust" :disabled="creditsAdjust === 0 && creditsSet === 0">确认调整</button>
+        <button class="btn-confirm-credits" @click="confirmCreditsAdjust">确认调整</button>
       </div>
     </div>
   </div>
@@ -284,6 +288,7 @@ interface UserRecord {
   updated_at: string
   credits: number
   total_tokens: number
+  character_storage_quota: number
 }
 
 const loading = ref(false)
@@ -302,6 +307,7 @@ const showCreditsModal = ref(false)
 const creditsTarget = ref<UserRecord | null>(null)
 const creditsAdjust = ref(0)
 const creditsSet = ref(0)
+const characterQuotaMb = ref(10)
 const showCreateUserModal = ref(false)
 const createUserForm = ref({
   username: '',
@@ -447,6 +453,7 @@ function openCreditsModal(user: UserRecord) {
   creditsTarget.value = user
   creditsAdjust.value = 0
   creditsSet.value = 0
+  characterQuotaMb.value = Math.max(1, Math.round((user.character_storage_quota || 10485760) / 1024 / 1024))
   showCreditsModal.value = true
 }
 
@@ -460,8 +467,13 @@ async function confirmCreditsAdjust() {
     } else {
       newCredits = (creditsTarget.value.credits || 0) + creditsAdjust.value
     }
-    await api.patch(`/api/users/${creditsTarget.value.id}/credits`, { credits: newCredits })
+    const nextQuota = Math.max(1, Math.round(characterQuotaMb.value)) * 1024 * 1024
+    await api.patch(`/api/users/${creditsTarget.value.id}/credits`, {
+      credits: newCredits,
+      character_storage_quota: nextQuota,
+    })
     creditsTarget.value.credits = newCredits
+    creditsTarget.value.character_storage_quota = nextQuota
     showCreditsModal.value = false
   } catch (e: any) {
     console.error('Failed to adjust credits:', e)

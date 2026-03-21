@@ -68,9 +68,11 @@
 import { ref, onMounted } from 'vue'
 import NavBar from '@/components/common/NavBar.vue'
 import { useSettingsStore } from '@/stores/settings'
+import { useCharactersStore } from '@/stores/characters'
 import { sendAIRequest, getCharacterById } from '@/utils/aiService'
 
 const settingsStore = useSettingsStore()
+const charactersStore = useCharactersStore()
 const isPeeking = ref(false)
 
 interface PeekOption {
@@ -233,6 +235,7 @@ function saveDiscoveries() {
 }
 
 onMounted(() => {
+  charactersStore.fetchCharacters()
   try {
     const saved = localStorage.getItem(DISCOVERY_KEY)
     if (saved) discoveries.value = JSON.parse(saved)

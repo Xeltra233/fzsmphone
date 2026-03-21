@@ -535,4 +535,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users (LOWER(email))
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_invite_code_unique ON users (invite_code) WHERE invite_code <> '';
 `,
 	},
+	{
+		Version: 29,
+		Name:    "add_character_storage_quota",
+		SQL: `
+ALTER TABLE users ADD COLUMN IF NOT EXISTS character_storage_quota BIGINT NOT NULL DEFAULT 10485760;
+`,
+	},
 }

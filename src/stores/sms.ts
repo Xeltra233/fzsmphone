@@ -3,6 +3,7 @@ import { getScopedItem } from '@/utils/userScopedStorage'
 import { ref, computed } from 'vue'
 import { getCharacterById } from '@/utils/aiService'
 import { smsApi } from '@/api/services'
+import { useCharactersStore } from '@/stores/characters'
 
 export interface SmsMessage {
   id: string
@@ -111,23 +112,19 @@ export const useSmsStore = defineStore('sms', () => {
   // 从角色列表初始化短信对话
   function initFromCharacters() {
     try {
-      const charsStr = getScopedItem('characters')
-      if (!charsStr) return
-      const chars = JSON.parse(charsStr)
-      if (!Array.isArray(chars)) return
-
-      const roleChars = chars.filter((c: any) => c.type === 'char')
+      const roleChars = useCharactersStore().charItems
       const colors = ['#ff2d55', '#007aff', '#ff9500', '#5856d6', '#34c759', '#af52de', '#ff6348']
 
       roleChars.forEach((char: any, index: number) => {
-        const existing = conversations.value.find(c => c.characterId === char.id)
+        const charId = String(char.id)
+        const existing = conversations.value.find(c => c.characterId === charId)
         if (!existing) {
           conversations.value.push({
-            id: `sms-${char.id}`,
-            characterId: char.id,
+            id: `sms-${charId}`,
+            characterId: charId,
             name: char.name || '未命名',
-            number: generatePhoneNumber(char.id),
-            avatar: char.avatar || '',
+            number: generatePhoneNumber(charId),
+            avatar: char.avatar_url || '',
             color: colors[index % colors.length],
             lastMsg: '',
             time: '',

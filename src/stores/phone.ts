@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { callApi } from '@/api/services'
 import { useSettingsStore } from './settings'
-import { getScopedItem } from '@/utils/userScopedStorage'
+import { useCharactersStore } from '@/stores/characters'
 
 export interface CallRecord {
   id: string
@@ -181,27 +181,16 @@ function updateClock() {
 
   // === 联系人（从角色同步） ===
   function loadContacts() {
-    try {
-      // 从角色列表生成联系人
-      const charsStr = getScopedItem('characters')
-      if (!charsStr) return
-      const chars = JSON.parse(charsStr)
-      if (!Array.isArray(chars)) return
-
-      const colors = ['#ff2d55', '#007aff', '#ff9500', '#5856d6', '#34c759', '#af52de', '#ff6348']
-      const roleChars = chars.filter((c: any) => c.type === 'char')
-
-      contacts.value = roleChars.map((char: any, index: number) => ({
-        id: `contact-${char.id}`,
-        characterId: char.id,
-        name: char.name || '未命名',
-        number: generatePhoneNumber(char.id),
-        avatar: char.avatar || '',
-        color: colors[index % colors.length],
-      }))
-    } catch {
-      // ignore
-    }
+    const charactersStore = useCharactersStore()
+    const colors = ['#ff2d55', '#007aff', '#ff9500', '#5856d6', '#34c759', '#af52de', '#ff6348']
+    contacts.value = charactersStore.charItems.map((char: any, index: number) => ({
+      id: `contact-${char.id}`,
+      characterId: char.id,
+      name: char.name || '未命名',
+      number: generatePhoneNumber(char.id),
+      avatar: char.avatar_url || '',
+      color: colors[index % colors.length],
+    }))
   }
 
   function generatePhoneNumber(charId: string | number): string {

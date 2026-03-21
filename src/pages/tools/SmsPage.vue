@@ -160,7 +160,7 @@ import { useRouter } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
 import { useSmsStore } from '@/stores/sms'
 import { useSettingsStore } from '@/stores/settings'
-import { getScopedItem } from '@/utils/userScopedStorage'
+import { useCharactersStore } from '@/stores/characters'
 import {
   sendAIRequest,
   buildSmsMessages,
@@ -171,6 +171,7 @@ import type { CharacterData } from '@/utils/aiService'
 const router = useRouter()
 const smsStore = useSmsStore()
 const settingsStore = useSettingsStore()
+const charactersStore = useCharactersStore()
 
 const searchText = ref('')
 const smsText = ref('')
@@ -198,15 +199,12 @@ const filteredConversations = computed(() => {
 
 // 可用角色列表（用于新建短信）
 const availableCharacters = computed(() => {
-  try {
-    const charsStr = getScopedItem('characters')
-    if (!charsStr) return []
-    const chars = JSON.parse(charsStr)
-    if (!Array.isArray(chars)) return []
-    return chars.filter((c: any) => c.type === 'char')
-  } catch {
-    return []
-  }
+  return charactersStore.charItems.map((item: any) => ({
+    id: String(item.id),
+    type: 'char',
+    name: item.name,
+    avatar: item.avatar_url || '',
+  }))
 })
 
 function getCharColor(id: string): string {
@@ -355,6 +353,7 @@ function scrollToBottom() {
 }
 
 onMounted(() => {
+  charactersStore.fetchCharacters()
   smsStore.loadConversations()
 })
 </script>

@@ -208,7 +208,7 @@ import NavBar from '@/components/common/NavBar.vue'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import type { Conversation } from '@/stores/chat'
-import { getScopedItem } from '@/utils/userScopedStorage'
+import { useCharactersStore } from '@/stores/characters'
 
 interface LocalCharacter {
   id: string
@@ -223,6 +223,7 @@ interface LocalCharacter {
 
 const router = useRouter()
 const chatStore = useChatStore()
+const charactersStore = useCharactersStore()
 
 const searchQuery = ref('')
 const showMenu = ref(false)
@@ -275,17 +276,16 @@ function openConversation(conv: Conversation) {
 }
 
 function loadCharacters() {
-  try {
-    const saved = getScopedItem('characters')
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      if (Array.isArray(parsed)) {
-        charList.value = parsed.filter((c: any) => c.type === 'char')
-      }
-    }
-  } catch {
-    // ignore
-  }
+  charList.value = charactersStore.charItems.map((item: any) => ({
+    id: String(item.id),
+    type: 'char',
+    name: item.name,
+    avatar: item.avatar_url || '',
+    description: item.description || '',
+    persona: item.personality || '',
+    scenario: item.extra?.scenario || '',
+    firstMessage: item.greeting || '',
+  }))
 }
 
 function handleAddFriend() {
@@ -343,6 +343,7 @@ function handleDelete(id: string) {
 }
 
 onMounted(() => {
+  charactersStore.fetchCharacters().then(() => loadCharacters())
   chatStore.fetchConversations()
 })
 </script>

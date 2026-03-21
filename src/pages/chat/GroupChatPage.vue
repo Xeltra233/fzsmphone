@@ -152,6 +152,7 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
 import { useChatStore, type Character } from '@/stores/chat'
+import { useCharactersStore } from '@/stores/characters'
 import { useSettingsStore } from '@/stores/settings'
 import {
   sendAIRequest,
@@ -182,6 +183,7 @@ interface GroupMessage {
 const route = useRoute()
 const router = useRouter()
 const chatStore = useChatStore()
+const charactersStore = useCharactersStore()
 const settingsStore = useSettingsStore()
 const groupId = route.params.groupId as string
 
@@ -214,6 +216,7 @@ const availableCharacters = computed(() => {
 
 // Load persisted data
 onMounted(async () => {
+  await charactersStore.fetchCharacters()
   await chatStore.fetchCharacters()
 
   // Restore members from conversation data or localStorage

@@ -4,6 +4,7 @@
  */
 
 import { processTemplate, type EjsContext } from './ejsTemplateEngine'
+import { useCharactersStore } from '@/stores/characters'
 import { getScopedItem } from '@/utils/userScopedStorage'
 
 export interface AIMessage {
@@ -60,6 +61,7 @@ export interface CharacterData {
   name?: string
   description?: string
   avatar?: string
+  avatar_url?: string
   persona?: string
   scenario?: string
   firstMessage?: string
@@ -73,6 +75,8 @@ export interface CharacterData {
   personality?: string
   system_prompt?: string
   greeting?: string
+  is_public?: boolean
+  tags?: string[]
 }
 
 // 用户人设数据
@@ -672,6 +676,18 @@ function checkProbability(entry: WorldBookEntryData): boolean {
  */
 export function getCurrentUserPersona(): UserPersonaData | null {
   try {
+    const currentCharacterId = localStorage.getItem('currentUserCharId')
+    if (currentCharacterId) {
+      const char = getCharacterById(currentCharacterId)
+      if (char && (char.type === 'user' || char.type === 'char')) {
+        return {
+          name: char.name || '',
+          description: char.description || '',
+          persona: char.persona || char.personality || '',
+        }
+      }
+    }
+
     const currentId = localStorage.getItem('currentPersonaId')
     if (!currentId) return null
 
@@ -698,6 +714,32 @@ export function getCurrentUserPersona(): UserPersonaData | null {
  * 从 localStorage 获取角色数据
  */
 export function getCharacterById(id: string | number): CharacterData | null {
+  const store = useCharactersStore()
+  const serverItem: any = store.getCharacterById(id)
+  if (serverItem) {
+    return {
+      id: String(serverItem.id),
+      type: serverItem.extra?.type || 'char',
+      name: serverItem.name,
+      avatar: serverItem.avatar_url || '',
+      avatar_url: serverItem.avatar_url || '',
+      description: serverItem.description || '',
+      persona: serverItem.personality || '',
+      scenario: serverItem.extra?.scenario || '',
+      firstMessage: serverItem.greeting || '',
+      exampleDialogue: serverItem.extra?.exampleDialogue || '',
+      worldBooks: serverItem.extra?.worldBooks || [],
+      alternateGreetings: serverItem.extra?.alternateGreetings || [],
+      depthPromptText: serverItem.extra?.depthPromptText || '',
+      depthPromptDepth: serverItem.extra?.depthPromptDepth ?? 4,
+      personality: serverItem.personality || '',
+      system_prompt: serverItem.system_prompt || '',
+      greeting: serverItem.greeting || '',
+      is_public: serverItem.is_public || false,
+      tags: serverItem.tags || [],
+    }
+  }
+
   try {
     const charsStr = getScopedItem('characters')
     if (!charsStr) return null

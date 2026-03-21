@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { getScopedItem } from '@/utils/userScopedStorage'
 import { getCharacterById } from '@/utils/aiService'
 import type { CharacterData } from '@/utils/aiService'
+import { useCharactersStore } from '@/stores/characters'
 
 export interface Character {
   id: string
@@ -142,17 +143,20 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function fetchCharacters() {
-    try {
-      const saved = getScopedItem('characters')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed)) {
-          characters.value = parsed.filter((c: any) => c.type === 'char')
-        }
-      }
-    } catch {
-      // ignore
-    }
+    const charactersStore = useCharactersStore()
+    charactersStore.fetchCharacters()
+    characters.value = charactersStore.charItems.map((item: any) => ({
+      id: String(item.id),
+      type: item.extra?.type || 'char',
+      name: item.name,
+      avatar: item.avatar_url || '',
+      description: item.description || '',
+      persona: item.personality || '',
+      scenario: item.extra?.scenario || '',
+      firstMessage: item.greeting || '',
+      exampleDialogue: item.extra?.exampleDialogue || '',
+      worldBooks: item.extra?.worldBooks || [],
+    }))
   }
 
   function fetchMessages(conversationId: string | number) {

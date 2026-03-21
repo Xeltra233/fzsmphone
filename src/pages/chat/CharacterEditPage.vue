@@ -184,10 +184,11 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
-import { getScopedItem, setScopedItem } from '@/utils/userScopedStorage'
+import { useCharactersStore } from '@/stores/characters'
 
 const router = useRouter()
 const route = useRoute()
+const charactersStore = useCharactersStore()
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const avatarPreview = ref('')
@@ -230,14 +231,14 @@ const useAlternateGreeting = (idx: number) => {
 
 // 检查是否是当前使用的用户身份
 const isCurrentUser = computed(() => {
-  const currentUserId = getScopedItem('currentUserCharId')
+  const currentUserId = localStorage.getItem('currentUserCharId')
   return formData.value.id !== null && currentUserId === String(formData.value.id)
 })
 
 // 设为当前用户身份
 const setAsCurrentUser = () => {
   if (formData.value.id) {
-    setScopedItem('currentUserCharId', String(formData.value.id))
+    localStorage.setItem('currentUserCharId', String(formData.value.id))
     alert(`已设置「${formData.value.name}」为当前用户身份`)
   } else {
     alert('请先保存角色卡')
@@ -281,39 +282,39 @@ const handleFileChange = (event: Event) => {
 }
 
 // 保存角色
-const saveCharacter = () => {
+const saveCharacter = async () => {
   if (!formData.value.name.trim()) {
     alert('请输入角色名称')
     return
   }
 
-  const characters = JSON.parse(getScopedItem('characters') || '[]')
-
-  if (isNew.value) {
-    formData.value.id = Date.now()
-    const newChar: any = { ...formData.value }
-    characters.push(newChar)
-  } else {
-    const index = characters.findIndex((c: any) => c.id === formData.value.id)
-    if (index > -1) {
-      // 合并保留的 stExtensions 和其他导入时的额外字段
-      const existing = characters[index]
-      const updated: any = { ...formData.value }
-      // 保留 stExtensions（PNG 角色卡导入的扩展数据）
-      if (preservedStExtensions.value) {
-        updated.stExtensions = preservedStExtensions.value
-      } else if (existing.stExtensions) {
-        updated.stExtensions = existing.stExtensions
-      }
-      // 保留 character_book（内嵌世界书引用）
-      if (existing.character_book) {
-        updated.character_book = existing.character_book
-      }
-      characters[index] = updated
-    }
+  const payload = {
+    name: formData.value.name,
+    avatar_url: formData.value.avatar || '',
+    description: formData.value.description || '',
+    personality: formData.value.persona || '',
+    system_prompt: formData.value.persona || '',
+    greeting: formData.value.firstMessage || '',
+    is_public: false,
+    tags: [],
+    extra: {
+      type: formData.value.type,
+      scenario: formData.value.scenario || '',
+      exampleDialogue: formData.value.exampleDialogue || '',
+      alternateGreetings: formData.value.alternateGreetings || [],
+      depthPromptText: formData.value.depthPromptText || '',
+      depthPromptDepth: formData.value.depthPromptDepth ?? 4,
+      worldBooks: formData.value.worldBooks || [],
+      stExtensions: preservedStExtensions.value || null,
+    },
   }
 
-  setScopedItem('characters', JSON.stringify(characters))
+  if (isNew.value) {
+    await charactersStore.createCharacter(payload)
+  } else if (formData.value.id) {
+    await charactersStore.updateCharacter(formData.value.id, payload)
+  }
+
   router.push('/characters')
 }
 
@@ -356,20 +357,26 @@ const loadCharacter = () => {
   const characterId = route.params.id as string
   if (characterId && characterId !== 'new') {
     isNew.value = false
-    const characters = JSON.parse(getScopedItem('characters') || '[]')
-    const character = characters.find((c: any) => c.id === Number(characterId))
+    const character = charactersStore.getCharacterById(Number(characterId)) as any
     if (character) {
       formData.value = {
-        ...character,
-        worldBooks: character.worldBooks || [],
-        alternateGreetings: character.alternateGreetings || [],
-        depthPromptText: character.depthPromptText || '',
-        depthPromptDepth: character.depthPromptDepth ?? 4,
+        id: character.id,
+        type: character.extra?.type || 'char',
+        name: character.name,
+        description: character.description || '',
+        avatar: character.avatar_url || '',
+        persona: character.personality || '',
+        scenario: character.extra?.scenario || '',
+        firstMessage: character.greeting || '',
+        exampleDialogue: character.extra?.exampleDialogue || '',
+        alternateGreetings: character.extra?.alternateGreetings || [],
+        depthPromptText: character.extra?.depthPromptText || '',
+        depthPromptDepth: character.extra?.depthPromptDepth ?? 4,
+        worldBooks: character.extra?.worldBooks || [],
       }
-      avatarPreview.value = character.avatar || ''
-      // 保存 stExtensions 以便编辑保存时能保留
-      if (character.stExtensions) {
-        preservedStExtensions.value = character.stExtensions
+      avatarPreview.value = character.avatar_url || ''
+      if (character.extra?.stExtensions) {
+        preservedStExtensions.value = character.extra.stExtensions
       }
     }
   } else {
@@ -382,7 +389,8 @@ const loadCharacter = () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await charactersStore.fetchCharacters()
   loadWorldBooks()
   loadCharacter()
 })
