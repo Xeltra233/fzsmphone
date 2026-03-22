@@ -56,7 +56,7 @@
       </div>
 
       <!-- API 未配置提示 -->
-      <div v-if="activeConv.characterId && !settingsStore.settings.apiKey" class="api-warning" @click="goToSettings">
+      <div v-if="activeConv.characterId && !settingsStore.hasChatProviderAccess()" class="api-warning" @click="goToSettings">
         △ 未配置 API Key，AI 无法回复，点击前往设置
       </div>
 

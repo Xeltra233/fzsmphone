@@ -870,8 +870,9 @@ async function generateBatchEntries() {
 ]`
 
     const result = await sendAIRequest({
-      apiKey: settingsStore.settings.apiKey,
+      apiKey: settingsStore.settings.apiSource === 'platform' ? '' : settingsStore.settings.apiKey,
       apiUrl: settingsStore.getApiUrl(),
+      providerId: settingsStore.getPlatformProviderId(),
       model: settingsStore.settings.model,
       messages: [
         { role: 'system', content: systemPrompt },

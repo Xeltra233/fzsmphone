@@ -28,6 +28,14 @@ type aiChatRequest struct {
 	Stream      bool                     `json:"stream"`
 	ApiUrl      string                   `json:"apiUrl,omitempty"`
 	ApiKey      string                   `json:"apiKey,omitempty"`
+	ProviderID  string                   `json:"providerId,omitempty"`
+}
+
+type aiProvider struct {
+	ID     string `json:"id"`
+	APIKey string `json:"api_key"`
+	APIUrl string `json:"api_url"`
+	Model  string `json:"model"`
 }
 
 // POST /api/ai/chat
@@ -56,6 +64,23 @@ func (h *AIProxyHandler) Chat(w http.ResponseWriter, r *http.Request) {
 	// Use apiUrl/apiKey from request body first, fallback to app_settings
 	apiUrl := req.ApiUrl
 	apiKey := req.ApiKey
+
+	if req.ProviderID != "" {
+		provider, err := h.getGlobalProviderByID(r, "chat_providers", req.ProviderID)
+		if err != nil {
+			mw.Error(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if apiUrl == "" {
+			apiUrl = provider.APIUrl
+		}
+		if apiKey == "" {
+			apiKey = provider.APIKey
+		}
+		if req.Model == "" {
+			req.Model = provider.Model
+		}
+	}
 
 	if apiUrl == "" || apiKey == "" {
 		dbUrl, dbKey, err := h.getAISettings(r, userID)
@@ -193,8 +218,9 @@ func (h *AIProxyHandler) Models(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		ApiUrl string `json:"apiUrl,omitempty"`
-		ApiKey string `json:"apiKey,omitempty"`
+		ApiUrl     string `json:"apiUrl,omitempty"`
+		ApiKey     string `json:"apiKey,omitempty"`
+		ProviderID string `json:"providerId,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		mw.Error(w, http.StatusBadRequest, "invalid request body")
@@ -203,6 +229,20 @@ func (h *AIProxyHandler) Models(w http.ResponseWriter, r *http.Request) {
 
 	apiUrl := req.ApiUrl
 	apiKey := req.ApiKey
+
+	if req.ProviderID != "" {
+		provider, err := h.getGlobalProviderByID(r, "chat_providers", req.ProviderID)
+		if err != nil {
+			mw.Error(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if apiUrl == "" {
+			apiUrl = provider.APIUrl
+		}
+		if apiKey == "" {
+			apiKey = provider.APIKey
+		}
+	}
 
 	if apiUrl == "" || apiKey == "" {
 		dbUrl, dbKey, err := h.getAISettings(r, userID)
@@ -243,6 +283,25 @@ func (h *AIProxyHandler) Models(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+}
+
+func (h *AIProxyHandler) getGlobalProviderByID(r *http.Request, key string, providerID string) (*aiProvider, error) {
+	var raw []byte
+	if err := h.DB.Pool.QueryRow(r.Context(), `SELECT value FROM app_settings WHERE key = $1`, key).Scan(&raw); err != nil {
+		return nil, fmt.Errorf("failed to get global providers")
+	}
+
+	var providers []aiProvider
+	if err := json.Unmarshal(raw, &providers); err != nil {
+		return nil, fmt.Errorf("failed to parse global providers")
+	}
+
+	for _, provider := range providers {
+		if provider.ID == providerID {
+			return &provider, nil
+		}
+	}
+	return nil, fmt.Errorf("provider not found")
 }
 
 // getAISettings retrieves apiUrl and apiKey from the app_settings table

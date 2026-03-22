@@ -84,21 +84,23 @@ function getAIConfig() {
     const saved = localStorage.getItem('fzsm-settings')
     if (saved) {
       const s = JSON.parse(saved)
-      const mainApiKey = s.apiKey || ''
-      const mainApiUrl = s.apiUrl === 'custom' ? (s.customApiUrl || '') : (s.apiUrl || '')
+      const mainApiKey = s.apiSource === 'platform' ? '' : (s.apiKey || '')
+      const mainApiUrl = s.apiSource === 'platform' ? '' : (s.apiUrl === 'custom' ? (s.customApiUrl || '') : (s.apiUrl || ''))
+      const mainProviderId = s.apiSource === 'platform' ? (s.platformProviderId || '') : ''
       const mainModel = s.model || ''
       // 优先使用社交API配置，留空则回退到主API
-      const apiKey = s.socialApiKey || mainApiKey
-      const apiUrl = s.socialApiUrl || mainApiUrl
+      const apiKey = s.socialApiSource === 'platform' ? '' : (s.socialApiKey || mainApiKey)
+      const apiUrl = s.socialApiSource === 'platform' ? '' : (s.socialApiUrl || mainApiUrl)
+      const providerId = s.socialApiSource === 'platform' ? (s.socialPlatformProviderId || mainProviderId) : mainProviderId
       const model = s.socialModel || mainModel
       const maxTokens = s.maxLength || 4000
       const temperature = s.temperature ?? 0.9
       const enableYamlParsing = s.enableYamlParsing ?? false
-      return { apiKey, apiUrl, model, maxTokens, temperature, enableYamlParsing }
+      return { apiKey, apiUrl, providerId, model, maxTokens, temperature, enableYamlParsing }
     }
-    return { apiKey: '', apiUrl: '', model: '', maxTokens: 4000, temperature: 0.9, enableYamlParsing: false }
+    return { apiKey: '', apiUrl: '', providerId: '', model: '', maxTokens: 4000, temperature: 0.9, enableYamlParsing: false }
   } catch {
-    return { apiKey: '', apiUrl: '', model: '', maxTokens: 4000, temperature: 0.9, enableYamlParsing: false }
+    return { apiKey: '', apiUrl: '', providerId: '', model: '', maxTokens: 4000, temperature: 0.9, enableYamlParsing: false }
   }
 }
 
@@ -451,6 +453,7 @@ export const useSocialAIStore = defineStore('socialAI', () => {
     const response = await sendAIRequest({
       apiKey: config.apiKey,
       apiUrl: config.apiUrl,
+      providerId: config.providerId,
       model: config.model,
       messages,
       maxTokens: config.maxTokens,

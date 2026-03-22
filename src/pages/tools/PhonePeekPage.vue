@@ -178,7 +178,7 @@ async function peekAt(option: PeekOption) {
   const s = settingsStore.settings
   let aiResult: PeekResultData | null = null
 
-  if (s.apiKey) {
+  if (settingsStore.hasChatProviderAccess()) {
     try {
       const currentId = localStorage.getItem('currentPersonaId') || ''
       const character = currentId ? getCharacterById(currentId) : null
@@ -190,8 +190,9 @@ Generate 4 realistic, fun items for this category. Return ONLY a JSON array like
 Keep values short (under 20 chars). Use Chinese. Category: ${option.category}`
 
       const response = await sendAIRequest({
-        apiKey: s.apiKey,
+        apiKey: s.apiSource === 'platform' ? '' : s.apiKey,
         apiUrl: settingsStore.getApiUrl(),
+        providerId: settingsStore.getPlatformProviderId(),
         model: s.model,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.9,

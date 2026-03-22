@@ -243,15 +243,16 @@ async function generatePlan() {
   const s = settingsStore.settings
   let aiPlan: DatePlan | null = null
 
-  if (s.apiKey) {
+  if (settingsStore.hasChatProviderAccess()) {
     try {
       const prompt = `Generate a date plan for type "${selectedType.value}". Return ONLY valid JSON:
 {"title":"...","steps":[{"time":"HH:MM","title":"...","desc":"...","done":false},...],"budget":number,"duration":"Xh"}
 Generate 4-6 steps. Use Chinese. Be creative and romantic.`
 
       const response = await sendAIRequest({
-        apiKey: s.apiKey,
+        apiKey: s.apiSource === 'platform' ? '' : s.apiKey,
         apiUrl: settingsStore.getApiUrl(),
+        providerId: settingsStore.getPlatformProviderId(),
         model: s.model,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.9,

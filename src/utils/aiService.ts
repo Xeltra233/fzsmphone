@@ -15,6 +15,7 @@ export interface AIMessage {
 export interface AIRequestOptions {
   apiKey: string
   apiUrl: string
+  providerId?: string
   model: string
   messages: AIMessage[]
   temperature?: number
@@ -207,6 +208,7 @@ async function requestNonStream(options: AIRequestOptions): Promise<AIResponse> 
         stream: false,
         apiUrl: options.apiUrl || '',
         apiKey: options.apiKey || '',
+        providerId: options.providerId || '',
         // Function calling 透传
         ...(options.tools?.length ? { tools: options.tools } : {}),
         ...(options.tool_choice ? { tool_choice: options.tool_choice } : {}),
@@ -297,6 +299,7 @@ async function requestStream(options: AIRequestOptions): Promise<AIResponse> {
         stream: true,
         apiUrl: options.apiUrl || '',
         apiKey: options.apiKey || '',
+        providerId: options.providerId || '',
         // Function calling 透传
         ...(options.tools?.length ? { tools: options.tools } : {}),
         ...(options.tool_choice ? { tool_choice: options.tool_choice } : {}),

@@ -13,7 +13,7 @@
     </NavBar>
 
     <!-- No API Key warning -->
-    <div v-if="!settingsStore.settings.apiKey" class="api-warning" @click="goToSettings">
+    <div v-if="!settingsStore.hasChatProviderAccess()" class="api-warning" @click="goToSettings">
       <span>未配置 API Key，点击前往设置</span>
     </div>
 
@@ -874,8 +874,8 @@ async function handleSend() {
   scrollToBottom()
 
   const s = settingsStore.settings
-  if (!s.apiKey) {
-    chatStore.addMessage(conversationId.value, 'assistant', '请先在设置中配置 API Key 才能和我聊天')
+  if (!settingsStore.hasChatProviderAccess()) {
+    chatStore.addMessage(conversationId.value, 'assistant', '请先在设置中配置可用的聊天来源才能和我聊天')
     scrollToBottom()
     return
   }
@@ -887,7 +887,7 @@ async function doAIReply(extraSystemHint?: string) {
   if (!conversationId.value) return
 
   const s = settingsStore.settings
-  if (!s.apiKey) return
+  if (!settingsStore.hasChatProviderAccess()) return
 
   const startMsgLength = chatStore.currentMessages.length
 
@@ -911,10 +911,11 @@ async function doAIReply(extraSystemHint?: string) {
     matchedWorldBookCount.value = matched.length
 
     const apiUrl = settingsStore.getApiUrl()
+    const providerId = settingsStore.getPlatformProviderId()
     const isStream = s.streamEnabled
 
     const response = await sendAIRequest({
-      apiKey: s.apiKey,
+      apiKey: s.apiSource === 'platform' ? '' : s.apiKey,
       apiUrl: apiUrl,
       model: s.model,
       messages: aiMessages,
@@ -923,6 +924,7 @@ async function doAIReply(extraSystemHint?: string) {
       stream: isStream,
       timeout: s.timeout,
       signal: abortController.signal,
+      providerId,
       onChunk: (chunk: string) => {
         streamingText.value += chunk
         scrollToBottom()
@@ -993,8 +995,8 @@ async function triggerAIReplyWithContext(contextHint: string) {
   if (!conversationId.value) return
 
   const s = settingsStore.settings
-  if (!s.apiKey) {
-    chatStore.addMessage(conversationId.value, 'assistant', '请先在设置中配置 API Key')
+  if (!settingsStore.hasChatProviderAccess()) {
+    chatStore.addMessage(conversationId.value, 'assistant', '请先在设置中配置可用的聊天来源')
     scrollToBottom()
     return
   }
@@ -1045,7 +1047,7 @@ async function regenerateLast() {
   if (!lastUserMsg) return
 
   const s = settingsStore.settings
-  if (!s.apiKey) return
+  if (!settingsStore.hasChatProviderAccess()) return
 
   await doAIReply()
 }

@@ -265,11 +265,13 @@ async function triggerAIReply() {
     const aiMessages = buildCallMessages(character, history, 'video')
 
     const apiUrl = settingsStore.getApiUrl()
+    const providerId = settingsStore.getPlatformProviderId()
     const isStream = s.streamEnabled
 
     const response = await sendAIRequest({
-      apiKey: s.apiKey,
+      apiKey: s.apiSource === 'platform' ? '' : s.apiKey,
       apiUrl: apiUrl,
+      providerId,
       model: s.model,
       messages: aiMessages,
       temperature: s.temperature,

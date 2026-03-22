@@ -15,7 +15,7 @@
     </NavBar>
 
     <!-- No API Key warning -->
-    <div v-if="!settingsStore.settings.apiKey" class="api-warning" @click="goToSettings">
+    <div v-if="!settingsStore.hasChatProviderAccess()" class="api-warning" @click="goToSettings">
       <span>未配置 API Key，回复将使用模拟模式</span>
     </div>
 
@@ -360,7 +360,7 @@ async function sendMessage() {
   const shuffled = [...otherMembers].sort(() => Math.random() - 0.5)
   const repliers = shuffled.slice(0, replyCount)
 
-  const hasApiKey = !!settingsStore.settings.apiKey
+  const hasApiKey = settingsStore.hasChatProviderAccess()
 
   for (let i = 0; i < repliers.length; i++) {
     const replier = repliers[i]

@@ -9,12 +9,16 @@ export interface ManagedModelOption {
 }
 
 export interface ChatSettings {
+  apiSource: 'platform' | 'personal'
+  platformProviderId: string
   // API 配置
   apiKey: string
   apiUrl: string
   customApiUrl: string
   model: string
   // 社交内容 API（可选独立配置）
+  socialApiSource: 'platform' | 'personal'
+  socialPlatformProviderId: string
   socialApiKey: string
   socialApiUrl: string
   socialModel: string
@@ -52,10 +56,14 @@ export interface ChatSettings {
 }
 
 const DEFAULT_SETTINGS: ChatSettings = {
+  apiSource: 'platform',
+  platformProviderId: '',
   apiKey: '',
   apiUrl: 'https://api.openai.com/v1/chat/completions',
   customApiUrl: '',
   model: 'gpt-4o-mini',
+  socialApiSource: 'platform',
+  socialPlatformProviderId: '',
   socialApiKey: '',
   socialApiUrl: '',
   socialModel: '',
@@ -106,6 +114,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const loading = ref(false)
   const availableModels = ref<ManagedModelOption[]>([])
   const defaultModel = ref('')
+  const platformProviders = ref<Array<{ id: string; name: string; model_list?: unknown[]; model?: string; provider?: string }>>([])
+  const platformDefaultProviderId = ref('')
+  const socialPlatformProviders = ref<Array<{ id: string; name: string; model_list?: unknown[]; model?: string; provider?: string }>>([])
+  const socialPlatformDefaultProviderId = ref('')
 
   // 自动保存到 localStorage
   watch(settings, (val) => {
@@ -130,10 +142,27 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // 获取实际的 API URL
   function getApiUrl(): string {
+    if (settings.value.apiSource === 'platform') {
+      return ''
+    }
     if (settings.value.apiUrl === 'custom') {
       return settings.value.customApiUrl
     }
     return settings.value.apiUrl
+  }
+
+  function getPlatformProviderId(): string {
+    return settings.value.apiSource === 'platform' ? settings.value.platformProviderId : ''
+  }
+
+  function hasChatProviderAccess(): boolean {
+    return settings.value.apiSource === 'platform' ? !!settings.value.platformProviderId : !!settings.value.apiKey
+  }
+
+  function hasSocialProviderAccess(): boolean {
+    return settings.value.socialApiSource === 'platform'
+      ? !!(settings.value.socialPlatformProviderId || settings.value.platformProviderId)
+      : !!(settings.value.socialApiKey || settings.value.apiKey)
   }
 
   function normalizeModelId(value: unknown): string {
@@ -186,6 +215,17 @@ export const useSettingsStore = defineStore('settings', () => {
       const res = await api.get<Record<string, any>>('/api/settings/api')
       availableModels.value = parseManagedModels(res.available_models || [])
       defaultModel.value = normalizeModelId(res.default_model)
+      const global = res.global || {}
+      platformProviders.value = Array.isArray(global.chat_providers) ? global.chat_providers : []
+      platformDefaultProviderId.value = normalizeModelId(global.chat_default_provider_id)
+      socialPlatformProviders.value = Array.isArray(global.social_providers) ? global.social_providers : []
+      socialPlatformDefaultProviderId.value = normalizeModelId(global.social_default_provider_id)
+      if (!settings.value.platformProviderId) {
+        settings.value.platformProviderId = platformDefaultProviderId.value || platformProviders.value[0]?.id || ''
+      }
+      if (!settings.value.socialPlatformProviderId) {
+        settings.value.socialPlatformProviderId = socialPlatformDefaultProviderId.value || socialPlatformProviders.value[0]?.id || ''
+      }
       return availableModels.value
     } catch (e) {
       console.error('加载模型配置失败:', e)
@@ -258,10 +298,17 @@ export const useSettingsStore = defineStore('settings', () => {
     loading,
     availableModels,
     defaultModel,
+    platformProviders,
+    platformDefaultProviderId,
+    socialPlatformProviders,
+    socialPlatformDefaultProviderId,
     updateSettings,
     resetSettings,
     getSetting,
     getApiUrl,
+    getPlatformProviderId,
+    hasChatProviderAccess,
+    hasSocialProviderAccess,
     getModelDisplayName,
     fetchAvailableModels,
     fetchModels,

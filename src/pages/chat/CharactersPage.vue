@@ -663,10 +663,11 @@ const generateBatchCharacters = async () => {
 
   const apiKey = settingsStore.settings.apiKey
   const apiUrl = settingsStore.getApiUrl()
+  const providerId = settingsStore.getPlatformProviderId()
   const model = settingsStore.settings.model
 
-  if (!apiKey || !apiUrl || !model) {
-    aiBatchError.value = '请先在设置中配置 API Key、API 地址和模型'
+  if ((!settingsStore.hasChatProviderAccess()) || !model) {
+    aiBatchError.value = '请先在设置中配置可用的聊天来源和模型'
     return
   }
 
@@ -679,6 +680,7 @@ const generateBatchCharacters = async () => {
     const result = await sendAIRequest({
       apiKey,
       apiUrl,
+      providerId,
       model,
       messages: [
         {

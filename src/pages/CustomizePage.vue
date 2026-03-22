@@ -22,6 +22,42 @@
 
           <div class="setting-item">
             <div class="setting-label">
+              <span class="label-text">聊天来源</span>
+              <span class="label-desc">可直接使用平台提供的全局供应商，或填写个人 API</span>
+            </div>
+          </div>
+          <select v-model="s.apiSource" class="setting-select">
+            <option value="platform">平台提供</option>
+            <option value="personal">个人 API</option>
+          </select>
+
+          <template v-if="s.apiSource === 'platform'">
+            <div class="setting-item">
+              <div class="setting-label">
+                <span class="label-text">平台供应商</span>
+              </div>
+            </div>
+            <select v-model="s.platformProviderId" class="setting-select">
+              <option v-for="provider in platformProviderOptions" :key="provider.id" :value="provider.id">{{ provider.name }}</option>
+            </select>
+            <div v-if="selectedPlatformProvider" class="label-desc">当前平台供应商：{{ selectedPlatformProvider.name }}</div>
+
+            <div class="setting-item">
+              <div class="setting-label">
+                <span class="label-text">模型</span>
+                <span class="label-desc">这里只显示平台已配置的模型显示名</span>
+              </div>
+            </div>
+            <select v-if="platformModelOptions.length > 0" v-model="s.model" class="setting-select">
+              <option v-for="m in platformModelOptions" :key="m.id" :value="m.id">{{ m.displayName }}</option>
+            </select>
+            <div v-if="s.model" class="label-desc">当前显示：{{ currentModelDisplayName }}</div>
+          </template>
+
+          <template v-else>
+
+          <div class="setting-item">
+            <div class="setting-label">
               <span class="label-text">API Key</span>
               <span class="label-desc">用于调用 AI 模型</span>
             </div>
@@ -85,6 +121,7 @@
           </div>
           <div v-if="fetchError" class="error-text">{{ fetchError }}</div>
           <div v-else-if="s.model" class="label-desc">当前显示：{{ currentModelDisplayName }}</div>
+          </template>
 
           <div class="setting-item">
             <div class="setting-label">
@@ -108,6 +145,34 @@
         <div class="section">
           <div class="section-header">■ 社交内容 API（可选）</div>
 
+          <div class="setting-item">
+            <div class="setting-label">
+              <span class="label-text">社交来源</span>
+              <span class="label-desc">可直接使用平台提供的社交供应商，或填写个人 API</span>
+            </div>
+          </div>
+          <select v-model="s.socialApiSource" class="setting-select">
+            <option value="platform">平台提供</option>
+            <option value="personal">个人 API</option>
+          </select>
+
+          <template v-if="s.socialApiSource === 'platform'">
+            <div class="setting-item"><div class="setting-label"><span class="label-text">平台社交供应商</span></div></div>
+            <select v-model="s.socialPlatformProviderId" class="setting-select">
+              <option v-for="provider in socialProviderOptions" :key="provider.id" :value="provider.id">{{ provider.name }}</option>
+            </select>
+            <div v-if="selectedSocialProvider" class="label-desc">当前平台社交供应商：{{ selectedSocialProvider.name }}</div>
+
+            <div class="setting-item"><div class="setting-label"><span class="label-text">社交内容模型</span></div></div>
+            <select v-if="socialModelOptions.length > 0" v-model="s.socialModel" class="setting-select">
+              <option value="">跟随平台默认模型</option>
+              <option v-for="m in socialModelOptions" :key="`social-${m.id}`" :value="m.id">{{ m.displayName }}</option>
+            </select>
+            <div v-if="s.socialModel" class="label-desc">当前显示：{{ currentSocialModelDisplayName }}</div>
+          </template>
+
+          <template v-else>
+
           <div class="setting-item"><div class="setting-label"><span class="label-text">社交内容 API 地址</span></div></div>
           <input v-model="s.socialApiUrl" class="setting-input" placeholder="留空则使用主接口地址" />
 
@@ -129,6 +194,7 @@
           </select>
           <input v-else v-model="s.socialModel" class="setting-input" placeholder="留空则使用主模型" />
           <div v-if="s.socialModel" class="label-desc">当前显示：{{ currentSocialModelDisplayName }}</div>
+          </template>
 
           <div class="setting-item">
             <div class="setting-label">
@@ -724,6 +790,33 @@ const showSocialApiKey = ref(false)
 const showImageGenKey = ref(false)
 const showClearConfirm = ref(false)
 const modelList = ref<Array<{ id: string; displayName: string }>>([])
+const platformProviderOptions = computed(() => settingsStore.platformProviders.map((provider) => ({ id: provider.id, name: provider.name || provider.id })))
+const socialProviderOptions = computed(() => settingsStore.socialPlatformProviders.map((provider) => ({ id: provider.id, name: provider.name || provider.id })))
+const platformModelOptions = computed(() => {
+  const provider = settingsStore.platformProviders.find((item) => item.id === s.platformProviderId)
+  const rawList = Array.isArray(provider?.model_list) ? provider.model_list : []
+  const mapped = rawList
+    .map((item: any) => {
+      if (typeof item === 'string') return { id: item, displayName: settingsStore.getModelDisplayName(item) || item }
+      const id = typeof item?.id === 'string' ? item.id : ''
+      if (!id || item?.enabled === false) return null
+      return { id, displayName: item.display_name || item.displayName || settingsStore.getModelDisplayName(id) || id }
+    })
+    .filter((item): item is { id: string; displayName: string } => Boolean(item))
+  return mapped
+})
+const socialModelOptions = computed(() => {
+  const provider = settingsStore.socialPlatformProviders.find((item) => item.id === s.socialPlatformProviderId)
+  const rawList = Array.isArray(provider?.model_list) ? provider.model_list : []
+  return rawList
+    .map((item: any) => {
+      if (typeof item === 'string') return { id: item, displayName: settingsStore.getModelDisplayName(item) || item }
+      const id = typeof item?.id === 'string' ? item.id : ''
+      if (!id || item?.enabled === false) return null
+      return { id, displayName: item.display_name || item.displayName || settingsStore.getModelDisplayName(id) || id }
+    })
+    .filter((item): item is { id: string; displayName: string } => Boolean(item))
+})
 const fetchingModels = ref(false)
 const fetchError = ref('')
 const dailyTips = ref('')
@@ -805,6 +898,8 @@ async function handleFetchModels() {
 
 const currentModelDisplayName = computed(() => settingsStore.getModelDisplayName(s.model) || s.model)
 const currentSocialModelDisplayName = computed(() => settingsStore.getModelDisplayName(s.socialModel) || s.socialModel)
+const selectedPlatformProvider = computed(() => settingsStore.platformProviders.find((provider) => provider.id === s.platformProviderId))
+const selectedSocialProvider = computed(() => settingsStore.socialPlatformProviders.find((provider) => provider.id === s.socialPlatformProviderId))
 
 onMounted(async () => {
   await settingsStore.fetchAvailableModels()
@@ -813,6 +908,12 @@ onMounted(async () => {
     .map((model) => ({ id: model.id, displayName: model.displayName || model.id }))
   if (!s.model && settingsStore.defaultModel) {
     s.model = settingsStore.defaultModel
+  }
+  if (!s.platformProviderId && settingsStore.platformDefaultProviderId) {
+    s.platformProviderId = settingsStore.platformDefaultProviderId
+  }
+  if (!s.socialPlatformProviderId && settingsStore.platformDefaultProviderId) {
+    s.socialPlatformProviderId = settingsStore.socialPlatformDefaultProviderId || settingsStore.socialPlatformProviders[0]?.id || ''
   }
 })
 
