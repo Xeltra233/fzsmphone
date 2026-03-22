@@ -71,7 +71,7 @@
   </div>
   <div class="user-meta">
     <span class="user-username">@{{ u.username }}</span>
-    <span class="user-credits" @click="openCreditsModal(u)" title="点击修改额度">
+    <span class="user-credits">
       额度: {{ u.credits || 0 }} | Token: {{ u.total_tokens || 0 }}
     </span>
     <span class="user-date">{{ formatDate(u.created_at) }}</span>
@@ -82,6 +82,13 @@
   </div>
 </div>
 <div class="user-actions">
+  <button
+    class="credits-manage-btn"
+    @click="openCreditsModal(u)"
+    title="调整额度与角色卡空间"
+  >
+    管理额度
+  </button>
   <select
     :value="u.role"
     @change="changeRole(u, ($event.target as HTMLSelectElement).value)"
@@ -846,6 +853,22 @@ onMounted(() => {
   cursor: pointer;
 }
 
+.credits-manage-btn {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(91, 110, 245, 0.28);
+  background: rgba(91, 110, 245, 0.12);
+  color: #5B6EF5;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.credits-manage-btn:hover {
+  background: rgba(91, 110, 245, 0.18);
+}
+
 .ban-btn {
   background: rgba(255, 59, 48, 0.15);
   border: 1px solid rgba(255, 59, 48, 0.3);
@@ -1211,13 +1234,8 @@ onMounted(() => {
 }
 
 .user-credits {
-  cursor: pointer;
-  color: #5B6EF5;
+  color: var(--text-secondary);
   font-size: 12px;
-}
-
-.user-credits:hover {
-  text-decoration: underline;
 }
 
 .banned-until {
