@@ -700,7 +700,7 @@ placeholder="qun_qrcode.jpg"
         </div>
 
         <div class="model-pull-toolbar">
-          <input v-model.trim="modelPullSearch" class="setting-input" placeholder="搜索模型 ID" />
+          <input v-model.trim="modelPullSearch" class="setting-input" placeholder="搜索显示名或模型 ID" />
           <label class="checkbox-label model-pull-only-new">
             <input v-model="modelPullOnlyNew" type="checkbox" />
             <span>只看新增</span>
@@ -731,7 +731,7 @@ placeholder="qun_qrcode.jpg"
               @change="togglePulledModel(model.id)"
             />
             <div class="model-pull-item-main">
-              <span class="model-pull-display">{{ getPulledModelPreviewName(model.id) }}</span>
+              <span class="model-pull-display">{{ getPulledModelPreviewName(model) }}</span>
               <span class="model-pull-id">ID: {{ model.id }}</span>
               <span class="model-pull-meta">{{ model.alreadyExists ? '已存在，已自动跳过' : '可添加到可用模型列表' }}</span>
             </div>
@@ -837,7 +837,7 @@ const newModelId = ref('')
 const pullingModels = ref(false)
 const modelPullError = ref('')
 const showModelPullModal = ref(false)
-const pulledModels = ref<Array<{ id: string; alreadyExists: boolean }>>([])
+const pulledModels = ref<Array<{ id: string; displayName: string; alreadyExists: boolean }>>([])
 const selectedPulledModelIds = ref<string[]>([])
 const modelPullSearch = ref('')
 const modelPullOnlyNew = ref(false)
@@ -872,6 +872,10 @@ function modelIdKey(value: string) {
 
 function sanitizeDisplayName(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function normalizeSearchText(value: string) {
+  return value.trim().toLowerCase()
 }
 
 function isCouponExpired(value: string | null) {
@@ -943,11 +947,12 @@ const managedModelDisplayMap = computed(() => {
   return map
 })
 const filteredPulledModels = computed(() => {
-  const keyword = modelIdKey(modelPullSearch.value)
+  const keyword = normalizeSearchText(modelPullSearch.value)
   return pulledModels.value.filter((model) => {
     if (modelPullOnlyNew.value && model.alreadyExists) return false
     if (!keyword) return true
-    return modelIdKey(model.id).includes(keyword)
+    const previewName = normalizeSearchText(getPulledModelPreviewName(model))
+    return modelIdKey(model.id).includes(keyword) || previewName.includes(keyword)
   })
 })
 const modelPullStats = computed(() => {
@@ -1013,7 +1018,7 @@ function resolveApiUrl() {
   return apiForm.value.globalApiUrl.trim()
 }
 
-function extractModelIds(payload: any) {
+function extractModelItems(payload: any) {
   let list: any[] = []
   if (Array.isArray(payload?.data)) {
     list = payload.data
@@ -1025,12 +1030,20 @@ function extractModelIds(payload: any) {
 
   return list
     .map((item) => {
-      if (typeof item === 'string') return normalizeModelId(item)
-      if (item && typeof item === 'object') return normalizeModelId(item.id || item.name || '')
-      return ''
+      if (typeof item === 'string') {
+        const id = normalizeModelId(item)
+        return id ? { id, displayName: '' } : null
+      }
+      if (!item || typeof item !== 'object') return null
+      const id = normalizeModelId(item.id || item.name || '')
+      if (!id) return null
+      return {
+        id,
+        displayName: sanitizeDisplayName(item.display_name ?? item.displayName ?? item.label ?? item.title),
+      }
     })
-    .filter(Boolean)
-    .filter((id, index, arr) => arr.findIndex((item) => modelIdKey(item) === modelIdKey(id)) === index)
+    .filter((item): item is { id: string; displayName: string } => Boolean(item))
+    .filter((item, index, arr) => arr.findIndex((current) => modelIdKey(current.id) === modelIdKey(item.id)) === index)
 }
 
 function closeModelPullModal() {
@@ -1088,13 +1101,14 @@ async function pullModels() {
       apiUrl: resolveApiUrl(),
       apiKey: apiForm.value.globalApiKey,
     })
-    const pulled = extractModelIds(response).map((id) => ({ id, enabled: true, displayName: '' }))
+    const pulled = extractModelItems(response).map((model) => ({ id: model.id, enabled: true, displayName: model.displayName }))
     if (!pulled.length) {
       throw new Error('接口已响应，但没有返回可用模型')
     }
     const existing = new Set(apiForm.value.globalModels.map((model) => modelIdKey(model.id)))
     pulledModels.value = pulled.map((model) => ({
       id: model.id,
+      displayName: model.displayName,
       alreadyExists: existing.has(modelIdKey(model.id)),
     }))
     selectedPulledModelIds.value = pulledModels.value.filter((model) => !model.alreadyExists).map((model) => model.id)
@@ -1203,8 +1217,8 @@ function formatCouponExpiry(value: string | null) {
   return `截止 ${date.toLocaleString()}`
 }
 
-function getPulledModelPreviewName(id: string) {
-  return managedModelDisplayMap.value.get(modelIdKey(id)) || id
+function getPulledModelPreviewName(model: { id: string; displayName: string }) {
+  return managedModelDisplayMap.value.get(modelIdKey(model.id)) || model.displayName || model.id
 }
 
 function escapeCsvCell(value: string | number | boolean) {
