@@ -76,19 +76,21 @@
     </span>
     <span class="user-date">{{ formatDate(u.created_at) }}</span>
   </div>
+  <div class="user-quick-actions">
+    <button
+      class="credits-manage-btn"
+      @click="openCreditsModal(u)"
+      title="调整额度与角色卡空间"
+    >
+      管理额度
+    </button>
+  </div>
   <div v-if="u.is_banned && u.ban_reason" class="user-ban-reason">
     原因：{{ u.ban_reason }}
     <span v-if="u.banned_until" class="banned-until"> 解除时间: {{ formatDate(u.banned_until) }}</span>
   </div>
 </div>
 <div class="user-actions">
-  <button
-    class="credits-manage-btn"
-    @click="openCreditsModal(u)"
-    title="调整额度与角色卡空间"
-  >
-    管理额度
-  </button>
   <select
     :value="u.role"
     @change="changeRole(u, ($event.target as HTMLSelectElement).value)"
@@ -768,8 +770,13 @@ onMounted(() => {
 
 .user-meta {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 2px;
+}
+
+.user-quick-actions {
+  margin-top: 8px;
 }
 
 .user-username {
@@ -796,6 +803,8 @@ onMounted(() => {
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  align-self: flex-start;
+  margin-top: 2px;
   gap: 6px;
 }
 
