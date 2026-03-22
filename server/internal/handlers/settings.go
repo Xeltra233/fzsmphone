@@ -61,6 +61,14 @@ func inferProviderLabel(apiURL string) string {
 	}
 }
 
+func normalizeProviderName(raw string, fallback string) string {
+	raw = strings.TrimSpace(raw)
+	if raw != "" {
+		return raw
+	}
+	return fallback
+}
+
 func (h *SettingsHandler) getAppSettingProviders(r *http.Request, key string) []APIProvider {
 	value, err := h.getAppSettingRaw(r, key)
 	if err != nil {
@@ -79,7 +87,7 @@ func (h *SettingsHandler) buildLegacyChatProvider(r *http.Request) APIProvider {
 	return APIProvider{
 		ID:        "chat-default",
 		Name:      inferProviderLabel(apiURL),
-		Provider:  inferProviderLabel(apiURL),
+		Provider:  normalizeProviderName(h.getAppSettingString(r, "provider", ""), "custom"),
 		APIKey:    h.getAppSettingString(r, "apiKey", ""),
 		APIUrl:    apiURL,
 		CustomUrl: h.getAppSettingString(r, "custom_url", ""),
@@ -94,7 +102,7 @@ func (h *SettingsHandler) buildLegacySocialProvider(r *http.Request) APIProvider
 	return APIProvider{
 		ID:        "social-default",
 		Name:      inferProviderLabel(apiURL),
-		Provider:  inferProviderLabel(apiURL),
+		Provider:  normalizeProviderName(h.getAppSettingString(r, "social_provider", ""), "custom"),
 		APIKey:    h.getAppSettingString(r, "social_api_key", ""),
 		APIUrl:    apiURL,
 		CustomUrl: h.getAppSettingString(r, "social_custom_url", ""),

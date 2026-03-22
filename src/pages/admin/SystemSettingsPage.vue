@@ -932,6 +932,7 @@ const providerState = ref({
 const providerDrafts = reactive<Record<string, string>>({})
 const expandedProviderIds = ref<string[]>([])
 const activeProviderId = ref('')
+const activeProviderKind = ref<ProviderKind>('chat')
 const pullingModels = ref(false)
 const modelPullError = ref('')
 const showModelPullModal = ref(false)
@@ -1294,6 +1295,7 @@ function closeModelPullModal() {
   selectedPulledModelIds.value = []
   modelPullSearch.value = ''
   modelPullTab.value = 'new'
+  activeProviderId.value = ''
 }
 
 function isPulledModelSelected(id: string) {
@@ -1313,7 +1315,7 @@ const selectedVisiblePulledModelCount = computed(() => {
 })
 
 function confirmAddPulledModels() {
-  const provider = providerState.value.chatProviders.find((item) => item.id === activeProviderId.value)
+  const provider = getProviders(activeProviderKind.value).find((item) => item.id === activeProviderId.value)
   if (!provider) {
     showToast('未找到当前供应商', 'error')
     return
@@ -1340,6 +1342,7 @@ function confirmAddPulledModels() {
 async function pullProviderModels(kind: ProviderKind, providerId: string) {
   pullingModels.value = true
   modelPullError.value = ''
+  activeProviderKind.value = kind
   activeProviderId.value = providerId
   try {
     const provider = getProviders(kind).find((item) => item.id === providerId)
