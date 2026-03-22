@@ -439,13 +439,13 @@ placeholder="qun_qrcode.jpg"
       </div>
       <div class="card-body">
         <div class="input-group">
-          <label>接口地址预设</label>
+          <label>模型提供商</label>
           <select v-model="apiForm.globalApiUrl" class="setting-input">
-            <option value="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions">Gemini AI Studio 接口地址</option>
-            <option value="https://api.openai.com/v1/chat/completions">OpenAI 接口地址</option>
-            <option value="https://openrouter.ai/api/v1/chat/completions">OpenRouter 接口地址</option>
-            <option value="https://api.deepseek.com/chat/completions">DeepSeek 接口地址</option>
-            <option value="custom">自定义接口地址</option>
+            <option value="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions">Gemini AI Studio</option>
+            <option value="https://api.openai.com/v1/chat/completions">OpenAI</option>
+            <option value="https://openrouter.ai/api/v1/chat/completions">OpenRouter</option>
+            <option value="https://api.deepseek.com/chat/completions">DeepSeek</option>
+            <option value="custom">自定义提供商</option>
           </select>
         </div>
         <div v-if="apiForm.globalApiUrl === 'custom'" class="input-group">

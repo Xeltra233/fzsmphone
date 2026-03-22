@@ -28,15 +28,15 @@
           </div>
           <div class="setting-item">
             <div class="setting-label">
-              <span class="label-text">接口地址预设</span>
+              <span class="label-text">模型提供商</span>
             </div>
           </div>
           <select v-model="s.apiUrl" class="setting-select">
-            <option value="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions">Gemini AI Studio 接口地址</option>
-            <option value="https://api.openai.com/v1/chat/completions">OpenAI 接口地址</option>
-            <option value="https://openrouter.ai/api/v1/chat/completions">OpenRouter 接口地址</option>
-            <option value="https://api.deepseek.com/chat/completions">DeepSeek 接口地址</option>
-            <option value="custom">自定义接口地址</option>
+            <option value="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions">Gemini AI Studio</option>
+            <option value="https://api.openai.com/v1/chat/completions">OpenAI</option>
+            <option value="https://openrouter.ai/api/v1/chat/completions">OpenRouter</option>
+            <option value="https://api.deepseek.com/chat/completions">DeepSeek</option>
+            <option value="custom">自定义提供商</option>
           </select>
 
           <template v-if="s.apiUrl === 'custom'">
