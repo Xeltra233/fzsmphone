@@ -904,6 +904,16 @@ type APIProviderForm = {
   enabled: boolean
   apiFormat: string
 }
+type ProviderSection = {
+  kind: ProviderKind
+  title: string
+  shortLabel: string
+  namePlaceholder: string
+  customUrlPlaceholder: string
+  baseUrlPlaceholder: string
+  apiKeyPlaceholder: string
+  modelPlaceholder: string
+}
 
 const apiForm = ref({
 globalTemperature: 0.9,
@@ -929,6 +939,38 @@ const pulledModels = ref<Array<{ id: string; displayName: string; searchText: st
 const selectedPulledModelIds = ref<string[]>([])
 const modelPullSearch = ref('')
 const modelPullTab = ref<'new' | 'existing'>('new')
+const providerSections: ProviderSection[] = [
+  {
+    kind: 'chat',
+    title: '全局聊天供应商',
+    shortLabel: '聊天',
+    namePlaceholder: '例如 OpenRouter 主线路',
+    customUrlPlaceholder: 'https://api.example.com/v1/chat/completions',
+    baseUrlPlaceholder: '',
+    apiKeyPlaceholder: 'sk-...',
+    modelPlaceholder: '输入模型 ID，如 gpt-4o-mini',
+  },
+  {
+    kind: 'social',
+    title: '全局社交供应商',
+    shortLabel: '社交',
+    namePlaceholder: '例如 社交 OpenAI',
+    customUrlPlaceholder: 'https://api.example.com/v1/chat/completions',
+    baseUrlPlaceholder: '',
+    apiKeyPlaceholder: 'sk-...',
+    modelPlaceholder: '输入模型 ID，如 claude-3-7-sonnet',
+  },
+  {
+    kind: 'image',
+    title: '全局生图供应商',
+    shortLabel: '生图',
+    namePlaceholder: '例如 DALL-E / Gemini / NovelAI',
+    customUrlPlaceholder: 'https://api.example.com/v1/chat/completions',
+    baseUrlPlaceholder: 'https://api.openai.com',
+    apiKeyPlaceholder: 'sk-... / user-key / AIza...',
+    modelPlaceholder: '输入模型 ID，如 dall-e-3',
+  },
+]
 
 function providerPresetUrl(provider: string) {
   if (provider === 'gemini') return 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
@@ -961,6 +1003,18 @@ function getProviders(kind: ProviderKind) {
   if (kind === 'chat') return providerState.value.chatProviders
   if (kind === 'social') return providerState.value.socialProviders
   return providerState.value.imageProviders
+}
+
+function getDefaultProviderId(kind: ProviderKind) {
+  if (kind === 'chat') return providerState.value.chatDefaultProviderId
+  if (kind === 'social') return providerState.value.socialDefaultProviderId
+  return providerState.value.imageDefaultProviderId
+}
+
+function setDefaultProviderId(kind: ProviderKind, providerId: string) {
+  if (kind === 'chat') providerState.value.chatDefaultProviderId = providerId
+  else if (kind === 'social') providerState.value.socialDefaultProviderId = providerId
+  else providerState.value.imageDefaultProviderId = providerId
 }
 
 function resolveProviderApiUrl(provider: APIProviderForm) {
