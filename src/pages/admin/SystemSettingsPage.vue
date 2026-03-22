@@ -853,7 +853,7 @@ const newModelId = ref('')
 const pullingModels = ref(false)
 const modelPullError = ref('')
 const showModelPullModal = ref(false)
-const pulledModels = ref<Array<{ id: string; displayName: string; alreadyExists: boolean; existsReason: string }>>([])
+const pulledModels = ref<Array<{ id: string; displayName: string; searchText: string; alreadyExists: boolean; existsReason: string }>>([])
 const selectedPulledModelIds = ref<string[]>([])
 const modelPullSearch = ref('')
 const modelPullTab = ref<'new' | 'existing'>('new')
@@ -980,11 +980,12 @@ const newPulledModels = computed(() => pulledModels.value.filter((model) => !mod
 const existingPulledModels = computed(() => pulledModels.value.filter((model) => model.alreadyExists))
 const filteredPulledModels = computed(() => {
   const keyword = normalizeSearchText(modelPullSearch.value)
-  const source = modelPullTab.value === 'existing' ? existingPulledModels.value : newPulledModels.value
+  const source = keyword
+    ? pulledModels.value
+    : (modelPullTab.value === 'existing' ? existingPulledModels.value : newPulledModels.value)
   return source.filter((model) => {
     if (!keyword) return true
-    const previewName = normalizeSearchText(getPulledModelPreviewName(model))
-    return modelIdKey(model.id).includes(keyword) || previewName.includes(keyword)
+    return model.searchText.includes(keyword)
   })
 })
 const modelPullStats = computed(() => {
@@ -1057,7 +1058,7 @@ function extractModelItems(payload: any) {
     .map((item) => {
       if (typeof item === 'string') {
         const id = normalizeModelId(item)
-        return id ? { id, displayName: '' } : null
+        return id ? { id, displayName: '', searchText: normalizeSearchText(id) } : null
       }
       if (!item || typeof item !== 'object') return null
       const id = normalizeModelId(item.id || item.name || item.model || '')
@@ -1073,12 +1074,32 @@ function extractModelItems(payload: any) {
         ?? item.meta?.displayName
         ?? item.meta?.name
       )
+      const searchParts = [
+        id,
+        displayName,
+        sanitizeDisplayName(item.owned_by),
+        sanitizeDisplayName(item.provider),
+        sanitizeDisplayName(item.vendor),
+        sanitizeDisplayName(item.organization),
+        sanitizeDisplayName(item.group),
+        sanitizeDisplayName(item.channel),
+        sanitizeDisplayName(item.source),
+        sanitizeDisplayName(item.description),
+        sanitizeDisplayName(item.remark),
+        sanitizeDisplayName(item.meta?.provider),
+        sanitizeDisplayName(item.meta?.vendor),
+        sanitizeDisplayName(item.meta?.organization),
+        sanitizeDisplayName(item.meta?.group),
+        sanitizeDisplayName(item.meta?.channel),
+        sanitizeDisplayName(item.meta?.source),
+      ]
       return {
         id,
         displayName,
+        searchText: normalizeSearchText(searchParts.filter(Boolean).join(' | ')),
       }
     })
-    .filter((item): item is { id: string; displayName: string } => Boolean(item))
+    .filter((item): item is { id: string; displayName: string; searchText: string } => Boolean(item))
     .filter((item, index, arr) => arr.findIndex((current) => modelIdKey(current.id) === modelIdKey(item.id)) === index)
 }
 
@@ -1131,7 +1152,7 @@ async function pullModels() {
       apiUrl: resolveApiUrl(),
       apiKey: apiForm.value.globalApiKey,
     })
-    const pulled = extractModelItems(response).map((model) => ({ id: model.id, enabled: true, displayName: model.displayName }))
+    const pulled = extractModelItems(response)
     if (!pulled.length) {
       throw new Error('接口已响应，但没有返回可用模型')
     }
@@ -1139,6 +1160,7 @@ async function pullModels() {
     pulledModels.value = pulled.map((model) => ({
       id: model.id,
       displayName: model.displayName,
+      searchText: model.searchText,
       alreadyExists: existingModels.has(modelIdKey(model.id)),
       existsReason: existingModels.get(modelIdKey(model.id))?.displayName?.trim() ? '已存在，当前已配置自定义显示名' : '已存在于可用模型列表',
     }))
