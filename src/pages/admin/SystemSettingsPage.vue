@@ -431,186 +431,243 @@ placeholder="qun_qrcode.jpg"
     <p>加载API设置...</p>
   </div>
   <template v-else>
-    <!-- 全局API设置 -->
     <div class="settings-card">
       <div class="card-header">
-        <h3>全局API设置</h3>
+        <h3>全局聊天供应商</h3>
         <span class="badge">全局</span>
       </div>
       <div class="card-body">
-        <div class="input-group">
-          <label>模型提供商</label>
-          <select v-model="apiForm.globalApiUrl" class="setting-input">
-            <option value="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions">Gemini AI Studio</option>
-            <option value="https://api.openai.com/v1/chat/completions">OpenAI</option>
-            <option value="https://openrouter.ai/api/v1/chat/completions">OpenRouter</option>
-            <option value="https://api.deepseek.com/chat/completions">DeepSeek</option>
-            <option value="custom">自定义提供商</option>
-          </select>
+        <div class="provider-toolbar">
+          <button class="add-model-btn" type="button" @click="addProvider('chat')">新增聊天供应商</button>
         </div>
-        <div v-if="apiForm.globalApiUrl === 'custom'" class="input-group">
-          <label>自定义接口地址</label>
-          <input v-model="apiForm.globalCustomUrl" placeholder="https://api.example.com/v1/chat/completions" class="setting-input" />
-        </div>
-        <div class="input-group">
-          <label>API Key <span class="input-tip">全局用户共用</span></label>
-          <input v-model="apiForm.globalApiKey" type="password" placeholder="留空则强制用户填写个人API" class="setting-input" />
-        </div>
-        <div class="input-group model-manager-group">
-          <label>默认模型 <span class="input-tip">用户未选择时的默认</span></label>
-          <select v-model="apiForm.globalModel" class="setting-select">
-            <option value="">请选择默认模型</option>
-            <option v-for="model in enabledModels" :key="model.id" :value="model.id">
-              {{ model.id }}
-            </option>
-          </select>
-          <span class="input-desc">默认模型必须来自已启用模型列表</span>
-        </div>
-        <div class="input-group model-manager-group">
-          <label>可用模型列表 <span class="input-tip">可添加、开关与删除</span></label>
-          <div class="model-add-row">
-            <input
-              v-model="newModelId"
-              placeholder="输入模型 ID，如 gpt-4o-mini"
-              class="setting-input"
-              @keyup.enter="addModel"
-            />
-            <button class="add-model-btn" type="button" @click="addModel">添加</button>
-            <button class="add-model-btn secondary" type="button" @click="pullModels" :disabled="pullingModels || showModelPullModal">
-              {{ pullingModels ? '拉取中...' : '拉取模型' }}
-            </button>
-          </div>
-          <div v-if="modelPullError" class="model-pull-error">{{ modelPullError }}</div>
-          <div v-if="apiForm.globalModels.length > 0" class="model-list-editor">
-            <div v-for="model in apiForm.globalModels" :key="model.id" class="model-chip-row">
-              <label class="model-toggle">
-                <input v-model="model.enabled" type="checkbox" />
-                <span class="model-toggle-slider"></span>
-              </label>
-              <div class="model-chip-main">
-                <span class="model-chip-id">{{ model.id }}</span>
-                <input
-                  v-model.trim="model.displayName"
-                  class="setting-input model-display-input"
-                  placeholder="显示名称，可留空"
-                />
+        <div class="provider-list" v-if="providerState.chatProviders.length > 0">
+          <div v-for="provider in providerState.chatProviders" :key="provider.id" class="provider-card">
+            <div class="provider-card-header">
+              <div class="provider-card-header-main">
+                <button class="provider-collapse-btn" type="button" @click="toggleProviderExpanded(provider.id)">
+                  {{ isProviderExpanded(provider.id) ? '▾' : '▸' }} {{ provider.name || '未命名聊天供应商' }}
+                </button>
+                <span class="provider-summary">{{ getEnabledProviderModels(provider).length }}/{{ provider.models.length }} 个模型启用</span>
               </div>
-              <button class="model-delete-btn" type="button" @click="removeModel(model.id)">删除</button>
+              <div class="provider-card-actions">
+                <label class="provider-default-radio">
+                  <input v-model="providerState.chatDefaultProviderId" type="radio" :value="provider.id" />
+                  <span>默认</span>
+                </label>
+                <button class="batch-action-btn" type="button" @click="() => testProviderConnection('chat', provider.id)">测试连接</button>
+                <button class="model-delete-btn" type="button" @click="removeProvider('chat', provider.id)">删除</button>
+              </div>
+            </div>
+            <div v-if="isProviderExpanded(provider.id)">
+            <div class="input-row">
+              <div class="input-group">
+                <label>供应商名称</label>
+                <input v-model.trim="provider.name" class="setting-input" placeholder="例如 OpenRouter 主线路" />
+              </div>
+              <div class="input-group">
+                <label>模型提供商</label>
+                <select v-model="provider.provider" class="setting-input">
+                  <option value="gemini">Gemini AI Studio</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="openrouter">OpenRouter</option>
+                  <option value="deepseek">DeepSeek</option>
+                  <option value="custom">自定义提供商</option>
+                </select>
+              </div>
+            </div>
+            <div class="input-group" v-if="provider.provider === 'custom'">
+              <label>自定义接口地址</label>
+              <input v-model.trim="provider.customUrl" class="setting-input" placeholder="https://api.example.com/v1/chat/completions" />
+            </div>
+            <div class="input-row">
+              <div class="input-group">
+                <label>接口地址</label>
+                <input :value="resolveProviderApiUrl(provider)" class="setting-input" readonly />
+              </div>
+              <div class="input-group">
+                <label>API Key</label>
+                <input v-model="provider.apiKey" type="password" class="setting-input" placeholder="sk-..." />
+              </div>
+            </div>
+            <div class="input-group model-manager-group">
+              <label>默认模型</label>
+              <select v-model="provider.model" class="setting-select">
+                <option value="">请选择默认模型</option>
+                <option v-for="model in getEnabledProviderModels(provider)" :key="`${provider.id}-${model.id}`" :value="model.id">{{ model.displayName || model.id }}</option>
+              </select>
+            </div>
+            <div class="input-group model-manager-group">
+              <label>可用模型列表</label>
+              <div class="model-add-row">
+                <input v-model="providerDrafts[provider.id]" class="setting-input" placeholder="输入模型 ID，如 gpt-4o-mini" @keyup.enter="addProviderModel(provider.id)" />
+                <button class="add-model-btn" type="button" @click="addProviderModel(provider.id)">添加</button>
+                <button class="add-model-btn secondary" type="button" @click="() => pullProviderModels('chat', provider.id)" :disabled="pullingModels || showModelPullModal">{{ pullingModels ? '拉取中...' : '拉取模型' }}</button>
+              </div>
+              <div v-if="modelPullError && activeProviderId === provider.id" class="model-pull-error">{{ modelPullError }}</div>
+              <div v-if="provider.models.length > 0" class="model-list-editor">
+                <div v-for="model in provider.models" :key="`${provider.id}-${model.id}`" class="model-chip-row">
+                  <label class="model-toggle"><input v-model="model.enabled" type="checkbox" /><span class="model-toggle-slider"></span></label>
+                  <div class="model-chip-main">
+                    <span class="model-chip-id">{{ model.id }}</span>
+                    <input v-model.trim="model.displayName" class="setting-input model-display-input" placeholder="显示名称，可留空" />
+                  </div>
+                  <button class="model-delete-btn" type="button" @click="removeProviderModel(provider.id, model.id)">删除</button>
+                </div>
+              </div>
+              <div v-else class="empty-models">暂未添加模型</div>
+            </div>
             </div>
           </div>
-          <div v-else class="empty-models">暂未添加模型</div>
-          <span class="input-desc">支持从当前 API 拉取模型；显示名称仅用于后台展示，留空则直接显示模型 ID</span>
         </div>
-          <div class="input-row">
-            <div class="input-group">
-              <label>Temperature <span class="input-tip">创造性</span></label>
-              <input v-model.number="apiForm.globalTemperature" type="number" step="0.1" min="0" max="2" class="setting-input" />
-            </div>
-            <div class="input-group">
-              <label>Max Length <span class="input-tip">最大回复长度</span></label>
-              <input v-model.number="apiForm.globalMaxLength" type="number" min="100" max="32000" class="setting-input" />
-            </div>
-          </div>
-          <div class="input-row">
-            <div class="input-group">
-              <label>Context Size <span class="input-tip">历史消息数</span></label>
-              <input v-model.number="apiForm.globalContextSize" type="number" min="1" max="100" class="setting-input" />
-            </div>
-            <div class="input-group">
-<label>Timeout <span class="input-tip">超时秒数</span></label>
-<input v-model.number="apiForm.globalTimeout" type="number" min="10" max="300" class="setting-input" />
-</div>
-</div>
-</div>
-</div>
+      </div>
+    </div>
 
-<!-- 社交内容全局API -->
     <div class="settings-card">
       <div class="card-header">
-        <h3>社交内容全局API</h3>
+        <h3>全局社交供应商</h3>
         <span class="badge">全局</span>
       </div>
       <div class="card-body">
-        <div class="input-group">
-          <label>社交内容 API 地址</label>
-          <input v-model="apiForm.globalSocialApiUrl" placeholder="留空则使用主接口地址" class="setting-input" />
+        <div class="provider-toolbar">
+          <button class="add-model-btn" type="button" @click="addProvider('social')">新增社交供应商</button>
         </div>
-        <div class="input-group">
-          <label>社交内容 API Key <span class="input-tip">用于微博、邮箱等社交内容生成</span></label>
-          <input v-model="apiForm.globalSocialApiKey" type="password" placeholder="留空则使用主API" class="setting-input" />
+        <div class="provider-list" v-if="providerState.socialProviders.length > 0">
+          <div v-for="provider in providerState.socialProviders" :key="provider.id" class="provider-card">
+            <div class="provider-card-header">
+              <div class="provider-card-header-main">
+                <button class="provider-collapse-btn" type="button" @click="toggleProviderExpanded(provider.id)">
+                  {{ isProviderExpanded(provider.id) ? '▾' : '▸' }} {{ provider.name || '未命名社交供应商' }}
+                </button>
+                <span class="provider-summary">{{ getEnabledProviderModels(provider).length }}/{{ provider.models.length }} 个模型启用</span>
+              </div>
+              <div class="provider-card-actions">
+                <label class="provider-default-radio"><input v-model="providerState.socialDefaultProviderId" type="radio" :value="provider.id" /><span>默认</span></label>
+                <button class="batch-action-btn" type="button" @click="() => testProviderConnection('social', provider.id)">测试连接</button>
+                <button class="model-delete-btn" type="button" @click="removeProvider('social', provider.id)">删除</button>
+              </div>
+            </div>
+            <div v-if="isProviderExpanded(provider.id)">
+            <div class="input-row">
+              <div class="input-group"><label>供应商名称</label><input v-model.trim="provider.name" class="setting-input" placeholder="例如 社交 OpenAI" /></div>
+              <div class="input-group"><label>模型提供商</label><select v-model="provider.provider" class="setting-input"><option value="gemini">Gemini AI Studio</option><option value="openai">OpenAI</option><option value="openrouter">OpenRouter</option><option value="deepseek">DeepSeek</option><option value="custom">自定义提供商</option></select></div>
+            </div>
+            <div class="input-group" v-if="provider.provider === 'custom'"><label>自定义接口地址</label><input v-model.trim="provider.customUrl" class="setting-input" placeholder="https://api.example.com/v1/chat/completions" /></div>
+            <div class="input-row">
+              <div class="input-group"><label>接口地址</label><input :value="resolveProviderApiUrl(provider)" class="setting-input" readonly /></div>
+              <div class="input-group"><label>API Key</label><input v-model="provider.apiKey" type="password" class="setting-input" placeholder="sk-..." /></div>
+            </div>
+            <div class="input-group model-manager-group">
+              <label>默认模型</label>
+              <select v-model="provider.model" class="setting-select">
+                <option value="">请选择默认模型</option>
+                <option v-for="model in getEnabledProviderModels(provider)" :key="`${provider.id}-${model.id}`" :value="model.id">{{ model.displayName || model.id }}</option>
+              </select>
+            </div>
+            <div class="input-group model-manager-group">
+              <label>可用模型列表</label>
+              <div class="model-add-row">
+                <input v-model="providerDrafts[provider.id]" class="setting-input" placeholder="输入模型 ID，如 claude-3-7-sonnet" @keyup.enter="addProviderModel(provider.id, 'social')" />
+                <button class="add-model-btn" type="button" @click="addProviderModel(provider.id, 'social')">添加</button>
+                <button class="add-model-btn secondary" type="button" @click="() => pullProviderModels('social', provider.id)" :disabled="pullingModels || showModelPullModal">{{ pullingModels ? '拉取中...' : '拉取模型' }}</button>
+              </div>
+              <div v-if="modelPullError && activeProviderId === provider.id" class="model-pull-error">{{ modelPullError }}</div>
+              <div v-if="provider.models.length > 0" class="model-list-editor">
+                <div v-for="model in provider.models" :key="`${provider.id}-${model.id}`" class="model-chip-row">
+                  <label class="model-toggle"><input v-model="model.enabled" type="checkbox" /><span class="model-toggle-slider"></span></label>
+                  <div class="model-chip-main">
+                    <span class="model-chip-id">{{ model.id }}</span>
+                    <input v-model.trim="model.displayName" class="setting-input model-display-input" placeholder="显示名称，可留空" />
+                  </div>
+                  <button class="model-delete-btn" type="button" @click="removeProviderModel(provider.id, model.id, 'social')">删除</button>
+                </div>
+              </div>
+              <div v-else class="empty-models">暂未添加模型</div>
+            </div>
+            </div>
+          </div>
         </div>
-<div class="input-group">
-<label>社交内容默认模型</label>
-<select v-model="apiForm.globalSocialModel" class="setting-select">
-  <option value="">跟随主默认模型</option>
-  <option v-for="model in enabledModels" :key="`social-${model.id}`" :value="model.id">
-    {{ model.displayName || model.id }}
-  </option>
-</select>
-<span class="input-desc">默认从已启用模型中选择，留空则跟随主默认模型</span>
-</div>
-</div>
-</div>
+      </div>
+    </div>
 
-<!-- 全局生图配置 -->
-<div class="settings-card">
-<div class="card-header">
-<h3>全局生图配置</h3>
-<span class="badge">全局</span>
-</div>
-<div class="card-body">
-<div class="input-group">
-<label>生图 API 格式</label>
-<select v-model="imgGenForm.apiFormat" class="setting-select">
-<option value="novelai">NovelAI</option>
-<option value="openai">OpenAI/自定义</option>
-<option value="gemini">Gemini</option>
-</select>
-</div>
-<template v-if="imgGenForm.apiFormat === 'openai'">
-<div class="input-group">
-<label>生图 Base URL</label>
-<input v-model="imgGenForm.openaiUrl" placeholder="https://api.openai.com" class="setting-input" />
-</div>
-<div class="input-group">
-<label>生图 API Key</label>
-<input v-model="imgGenForm.openaiKey" type="password" placeholder="sk-..." class="setting-input" />
-</div>
-<div class="input-group">
-<label>生图模型</label>
-<input v-model="imgGenForm.openaiModel" placeholder="dall-e-3 / flux" class="setting-input" />
-</div>
-</template>
-<template v-else-if="imgGenForm.apiFormat === 'novelai'">
-<div class="input-group">
-<label>NovelAI 地址</label>
-<input v-model="imgGenForm.novelaiUrl" placeholder="https://image.novelai.run" class="setting-input" />
-</div>
-<div class="input-group">
-<label>NovelAI Key</label>
-<input v-model="imgGenForm.novelaiKey" type="password" placeholder="user-key" class="setting-input" />
-</div>
-<div class="input-group">
-<label>模型</label>
-<input v-model="imgGenForm.novelaiModel" placeholder="nai-diffusion-4-5-full" class="setting-input" />
-</div>
-</template>
-<template v-else-if="imgGenForm.apiFormat === 'gemini'">
-<div class="input-group">
-<label>Gemini 地址</label>
-<input v-model="imgGenForm.geminiUrl" placeholder="https://generativelanguage.googleapis.com" class="setting-input" />
-</div>
-<div class="input-group">
-<label>Gemini Key</label>
-<input v-model="imgGenForm.geminiKey" type="password" placeholder="AIza..." class="setting-input" />
-</div>
-<div class="input-group">
-<label>模型</label>
-<input v-model="imgGenForm.geminiModel" placeholder="gemini-2.0-flash-exp" class="setting-input" />
-</div>
-</template>
-</div>
-</div>
+    <div class="settings-card">
+      <div class="card-header">
+        <h3>全局生图供应商</h3>
+        <span class="badge">全局</span>
+      </div>
+      <div class="card-body">
+        <div class="provider-toolbar">
+          <button class="add-model-btn" type="button" @click="addProvider('image')">新增生图供应商</button>
+        </div>
+        <div class="provider-list" v-if="providerState.imageProviders.length > 0">
+          <div v-for="provider in providerState.imageProviders" :key="provider.id" class="provider-card">
+            <div class="provider-card-header">
+              <div class="provider-card-header-main">
+                <button class="provider-collapse-btn" type="button" @click="toggleProviderExpanded(provider.id)">
+                  {{ isProviderExpanded(provider.id) ? '▾' : '▸' }} {{ provider.name || '未命名生图供应商' }}
+                </button>
+                <span class="provider-summary">{{ getEnabledProviderModels(provider).length }}/{{ provider.models.length }} 个模型启用</span>
+              </div>
+              <div class="provider-card-actions">
+                <label class="provider-default-radio"><input v-model="providerState.imageDefaultProviderId" type="radio" :value="provider.id" /><span>默认</span></label>
+                <button class="batch-action-btn" type="button" @click="() => testProviderConnection('image', provider.id)">测试连接</button>
+                <button class="model-delete-btn" type="button" @click="removeProvider('image', provider.id)">删除</button>
+              </div>
+            </div>
+            <div v-if="isProviderExpanded(provider.id)">
+            <div class="input-row">
+              <div class="input-group"><label>供应商名称</label><input v-model.trim="provider.name" class="setting-input" placeholder="例如 DALL-E / Gemini / NovelAI" /></div>
+              <div class="input-group"><label>生图类型</label><select v-model="provider.apiFormat" class="setting-input"><option value="openai">OpenAI/自定义</option><option value="novelai">NovelAI</option><option value="gemini">Gemini</option></select></div>
+            </div>
+            <div class="input-row">
+              <div class="input-group"><label>Base URL</label><input v-model.trim="provider.apiUrl" class="setting-input" placeholder="https://api.openai.com" /></div>
+              <div class="input-group"><label>API Key</label><input v-model="provider.apiKey" type="password" class="setting-input" placeholder="sk-... / user-key / AIza..." /></div>
+            </div>
+            <div class="input-group model-manager-group">
+              <label>模型</label>
+              <select v-model="provider.model" class="setting-select">
+                <option value="">请选择默认模型</option>
+                <option v-for="model in getEnabledProviderModels(provider)" :key="`${provider.id}-${model.id}`" :value="model.id">{{ model.displayName || model.id }}</option>
+              </select>
+            </div>
+            <div class="input-group model-manager-group">
+              <label>可用模型列表</label>
+              <div class="model-add-row">
+                <input v-model="providerDrafts[provider.id]" class="setting-input" placeholder="输入模型 ID，如 dall-e-3" @keyup.enter="addProviderModel(provider.id, 'image')" />
+                <button class="add-model-btn" type="button" @click="addProviderModel(provider.id, 'image')">添加</button>
+                <button class="add-model-btn secondary" type="button" @click="() => pullProviderModels('image', provider.id)" :disabled="pullingModels || showModelPullModal">{{ pullingModels ? '拉取中...' : '拉取模型' }}</button>
+              </div>
+              <div v-if="modelPullError && activeProviderId === provider.id" class="model-pull-error">{{ modelPullError }}</div>
+              <div v-if="provider.models.length > 0" class="model-list-editor">
+                <div v-for="model in provider.models" :key="`${provider.id}-${model.id}`" class="model-chip-row">
+                  <label class="model-toggle"><input v-model="model.enabled" type="checkbox" /><span class="model-toggle-slider"></span></label>
+                  <div class="model-chip-main">
+                    <span class="model-chip-id">{{ model.id }}</span>
+                    <input v-model.trim="model.displayName" class="setting-input model-display-input" placeholder="显示名称，可留空" />
+                  </div>
+                  <button class="model-delete-btn" type="button" @click="removeProviderModel(provider.id, model.id, 'image')">删除</button>
+                </div>
+              </div>
+              <div v-else class="empty-models">暂未添加模型</div>
+            </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-card compact-card">
+      <div class="card-header"><h3>聊天参数</h3><span class="badge">全局</span></div>
+      <div class="card-body">
+        <div class="input-row">
+          <div class="input-group"><label>Temperature <span class="input-tip">创造性</span></label><input v-model.number="apiForm.globalTemperature" type="number" step="0.1" min="0" max="2" class="setting-input" /></div>
+          <div class="input-group"><label>Max Length <span class="input-tip">最大回复长度</span></label><input v-model.number="apiForm.globalMaxLength" type="number" min="100" max="32000" class="setting-input" /></div>
+        </div>
+        <div class="input-row">
+          <div class="input-group"><label>Context Size <span class="input-tip">历史消息数</span></label><input v-model.number="apiForm.globalContextSize" type="number" min="1" max="100" class="setting-input" /></div>
+          <div class="input-group"><label>Timeout <span class="input-tip">超时秒数</span></label><input v-model.number="apiForm.globalTimeout" type="number" min="10" max="300" class="setting-input" /></div>
+        </div>
+      </div>
+    </div>
 
 <button class="save-btn" @click="saveApiSettings" :disabled="apiSaving">
               <template v-if="apiSaving">
@@ -834,22 +891,37 @@ const apiSettingsLoading = ref(false)
 const apiSaving = ref(false)
 const apiSettings = ref<Record<string, any> | null>(null)
 type ManagedModel = { id: string; enabled: boolean; displayName: string }
+type ProviderKind = 'chat' | 'social' | 'image'
+type APIProviderForm = {
+  id: string
+  name: string
+  provider: string
+  apiKey: string
+  apiUrl: string
+  customUrl: string
+  model: string
+  models: ManagedModel[]
+  enabled: boolean
+  apiFormat: string
+}
 
 const apiForm = ref({
-globalApiKey: '',
-globalApiUrl: '',
-globalCustomUrl: '',
-globalModel: '',
-globalModels: [] as ManagedModel[],
 globalTemperature: 0.9,
 globalMaxLength: 4000,
 globalContextSize: 20,
 globalTimeout: 60,
-globalSocialApiKey: '',
-globalSocialApiUrl: '',
-globalSocialModel: '',
 })
-const newModelId = ref('')
+const providerState = ref({
+  chatProviders: [] as APIProviderForm[],
+  chatDefaultProviderId: '',
+  socialProviders: [] as APIProviderForm[],
+  socialDefaultProviderId: '',
+  imageProviders: [] as APIProviderForm[],
+  imageDefaultProviderId: '',
+})
+const providerDrafts = reactive<Record<string, string>>({})
+const expandedProviderIds = ref<string[]>([])
+const activeProviderId = ref('')
 const pullingModels = ref(false)
 const modelPullError = ref('')
 const showModelPullModal = ref(false)
@@ -858,18 +930,105 @@ const selectedPulledModelIds = ref<string[]>([])
 const modelPullSearch = ref('')
 const modelPullTab = ref<'new' | 'existing'>('new')
 
-const imgGenForm = ref({
-apiFormat: 'openai',
-novelaiUrl: '',
-novelaiKey: '',
-novelaiModel: 'nai-diffusion-4-5-full',
-openaiUrl: '',
-openaiKey: '',
-openaiModel: '',
-geminiUrl: '',
-geminiKey: '',
-geminiModel: '',
-})
+function providerPresetUrl(provider: string) {
+  if (provider === 'gemini') return 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions'
+  if (provider === 'openai') return 'https://api.openai.com/v1/chat/completions'
+  if (provider === 'openrouter') return 'https://openrouter.ai/api/v1/chat/completions'
+  if (provider === 'deepseek') return 'https://api.deepseek.com/chat/completions'
+  return ''
+}
+
+function createProvider(kind: ProviderKind, overrides: Partial<APIProviderForm> = {}): APIProviderForm {
+  const baseProvider = kind === 'image' ? 'openai' : 'openrouter'
+  const provider = overrides.provider || baseProvider
+  const baseName = kind === 'chat' ? '聊天供应商' : kind === 'social' ? '社交供应商' : '生图供应商'
+  const id = overrides.id || `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  return {
+    id,
+    name: overrides.name || baseName,
+    provider,
+    apiKey: overrides.apiKey || '',
+    apiUrl: overrides.apiUrl || (kind === 'image' ? '' : providerPresetUrl(provider)),
+    customUrl: overrides.customUrl || '',
+    model: overrides.model || '',
+    models: overrides.models || [],
+    enabled: overrides.enabled ?? true,
+    apiFormat: overrides.apiFormat || (kind === 'image' ? 'openai' : 'openai'),
+  }
+}
+
+function getProviders(kind: ProviderKind) {
+  if (kind === 'chat') return providerState.value.chatProviders
+  if (kind === 'social') return providerState.value.socialProviders
+  return providerState.value.imageProviders
+}
+
+function resolveProviderApiUrl(provider: APIProviderForm) {
+  if (provider.provider === 'custom') return provider.customUrl.trim()
+  return provider.apiUrl.trim() || providerPresetUrl(provider.provider)
+}
+
+function getEnabledProviderModels(provider: APIProviderForm) {
+  return provider.models.filter((model) => model.enabled)
+}
+
+function addProvider(kind: ProviderKind) {
+  const provider = createProvider(kind)
+  getProviders(kind).push(provider)
+  if (!expandedProviderIds.value.includes(provider.id)) expandedProviderIds.value.push(provider.id)
+  if (kind === 'chat' && !providerState.value.chatDefaultProviderId) providerState.value.chatDefaultProviderId = provider.id
+  if (kind === 'social' && !providerState.value.socialDefaultProviderId) providerState.value.socialDefaultProviderId = provider.id
+  if (kind === 'image' && !providerState.value.imageDefaultProviderId) providerState.value.imageDefaultProviderId = provider.id
+}
+
+function removeProvider(kind: ProviderKind, providerId: string) {
+  const providers = getProviders(kind)
+  const index = providers.findIndex((provider) => provider.id === providerId)
+  if (index < 0) return
+  providers.splice(index, 1)
+  expandedProviderIds.value = expandedProviderIds.value.filter((id) => id !== providerId)
+  delete providerDrafts[providerId]
+  if (kind === 'chat' && providerState.value.chatDefaultProviderId === providerId) {
+    providerState.value.chatDefaultProviderId = providers[0]?.id || ''
+  }
+  if (kind === 'social' && providerState.value.socialDefaultProviderId === providerId) {
+    providerState.value.socialDefaultProviderId = providers[0]?.id || ''
+  }
+  if (kind === 'image' && providerState.value.imageDefaultProviderId === providerId) {
+    providerState.value.imageDefaultProviderId = providers[0]?.id || ''
+  }
+}
+
+function isProviderExpanded(providerId: string) {
+  return expandedProviderIds.value.includes(providerId)
+}
+
+function toggleProviderExpanded(providerId: string) {
+  if (isProviderExpanded(providerId)) {
+    expandedProviderIds.value = expandedProviderIds.value.filter((id) => id !== providerId)
+    return
+  }
+  expandedProviderIds.value.push(providerId)
+}
+
+function addProviderModel(providerId: string, kind: ProviderKind = 'chat') {
+  const draft = normalizeModelId(providerDrafts[providerId] || '')
+  if (!draft) return
+  const provider = getProviders(kind).find((item) => item.id === providerId)
+  if (!provider) return
+  if (provider.models.some((model) => modelIdKey(model.id) === modelIdKey(draft))) {
+    showToast('该模型已存在', 'error')
+    return
+  }
+  provider.models.push({ id: draft, enabled: true, displayName: '' })
+  providerDrafts[providerId] = ''
+}
+
+function removeProviderModel(providerId: string, modelId: string, kind: ProviderKind = 'chat') {
+  const provider = getProviders(kind).find((item) => item.id === providerId)
+  if (!provider) return
+  provider.models = provider.models.filter((model) => model.id !== modelId)
+}
 
 function showToast(message: string, type: 'success' | 'error' = 'success') {
   toast.value = { show: true, message, type }
@@ -963,13 +1122,6 @@ function parseManagedModels(value: unknown): ManagedModel[] {
     .map((id) => ({ id, enabled: true, displayName: '' }))
 }
 
-function getEnabledModelIds() {
-  return apiForm.value.globalModels
-    .filter((model) => model.enabled)
-    .map((model) => model.id)
-}
-
-const enabledModels = computed(() => apiForm.value.globalModels.filter((model) => model.enabled))
 const couponDisplayRows = computed(() => {
   return couponList.value.map((coupon) => ({
     ...coupon,
@@ -991,8 +1143,10 @@ const filteredCouponList = computed(() => {
 })
 const managedModelDisplayMap = computed(() => {
   const map = new Map<string, string>()
-  for (const model of apiForm.value.globalModels) {
-    map.set(modelIdKey(model.id), model.displayName.trim() || model.id)
+  for (const provider of providerState.value.chatProviders) {
+    for (const model of provider.models) {
+      map.set(modelIdKey(model.id), model.displayName.trim() || model.id)
+    }
   }
   return map
 })
@@ -1019,56 +1173,13 @@ const modelPullStats = computed(() => {
 })
 
 function ensureDefaultModelValid() {
-  const enabledIds = getEnabledModelIds()
-  if (!enabledIds.length) {
-    apiForm.value.globalModel = ''
-    apiForm.value.globalSocialModel = ''
-    return
-  }
-  if (!enabledIds.includes(apiForm.value.globalModel)) {
-    apiForm.value.globalModel = enabledIds[0]
-  }
-  if (apiForm.value.globalSocialModel && !enabledIds.includes(apiForm.value.globalSocialModel)) {
-    apiForm.value.globalSocialModel = ''
-  }
-}
-
-function addModel() {
-  const id = normalizeModelId(newModelId.value)
-  if (!id) return
-  const exists = apiForm.value.globalModels.some((model) => modelIdKey(model.id) === modelIdKey(id))
-  if (exists) {
-    showToast('该模型已存在', 'error')
-    return
-  }
-  apiForm.value.globalModels.push({ id, enabled: true, displayName: '' })
-  newModelId.value = ''
-  ensureDefaultModelValid()
-}
-
-function mergeModels(models: ManagedModel[]) {
-  const merged = [...apiForm.value.globalModels]
-  for (const model of models) {
-    const index = merged.findIndex((item) => modelIdKey(item.id) === modelIdKey(model.id))
-    if (index >= 0) {
-      const current = merged[index]
-      merged[index] = {
-        ...current,
-        displayName: current.displayName || model.displayName || '',
-      }
-      continue
+  const defaultChat = providerState.value.chatProviders.find((provider) => provider.id === providerState.value.chatDefaultProviderId)
+  if (defaultChat) {
+    const enabledIds = getEnabledProviderModels(defaultChat).map((model) => model.id)
+    if (!enabledIds.includes(defaultChat.model)) {
+      defaultChat.model = enabledIds[0] || ''
     }
-    merged.push(model)
   }
-  apiForm.value.globalModels = merged
-  ensureDefaultModelValid()
-}
-
-function resolveApiUrl() {
-  if (apiForm.value.globalApiUrl === 'custom') {
-    return apiForm.value.globalCustomUrl.trim()
-  }
-  return apiForm.value.globalApiUrl.trim()
 }
 
 function extractModelItems(payload: any) {
@@ -1148,6 +1259,11 @@ const selectedVisiblePulledModelCount = computed(() => {
 })
 
 function confirmAddPulledModels() {
+  const provider = providerState.value.chatProviders.find((item) => item.id === activeProviderId.value)
+  if (!provider) {
+    showToast('未找到当前供应商', 'error')
+    return
+  }
   const selected = pulledModels.value
     .filter((model) => !model.alreadyExists && isPulledModelSelected(model.id))
     .map((model) => ({ id: model.id, enabled: true, displayName: model.displayName }))
@@ -1157,26 +1273,38 @@ function confirmAddPulledModels() {
     return
   }
 
-  const before = apiForm.value.globalModels.length
-  mergeModels(selected)
-  const addedCount = apiForm.value.globalModels.length - before
+  const before = provider.models.length
+  for (const model of selected) {
+    const exists = provider.models.find((item) => modelIdKey(item.id) === modelIdKey(model.id))
+    if (!exists) provider.models.push(model)
+  }
+  const addedCount = provider.models.length - before
   closeModelPullModal()
   showToast(addedCount > 0 ? `已添加 ${addedCount} 个模型` : '模型列表已是最新')
 }
 
-async function pullModels() {
+async function pullProviderModels(kind: ProviderKind, providerId: string) {
   pullingModels.value = true
   modelPullError.value = ''
+  activeProviderId.value = providerId
   try {
+    const provider = getProviders(kind).find((item) => item.id === providerId)
+    if (!provider) throw new Error('未找到供应商')
+    const request = {
+      apiUrl: kind === 'image' ? provider.apiUrl.trim() : resolveProviderApiUrl(provider),
+      apiKey: provider.apiKey.trim(),
+    }
+
     const response = await apiClient.post<any>('/api/ai/models', {
-      apiUrl: resolveApiUrl(),
-      apiKey: apiForm.value.globalApiKey,
+      apiUrl: request.apiUrl,
+      apiKey: request.apiKey,
     })
     const pulled = extractModelItems(response)
     if (!pulled.length) {
       throw new Error('接口已响应，但没有返回可用模型')
     }
-    const existingModels = new Map(apiForm.value.globalModels.map((model) => [modelIdKey(model.id), model]))
+
+    const existingModels = new Map(provider.models.map((model) => [modelIdKey(model.id), model]))
     pulledModels.value = pulled.map((model) => ({
       id: model.id,
       displayName: model.displayName,
@@ -1194,9 +1322,25 @@ async function pullModels() {
   }
 }
 
-function removeModel(id: string) {
-  apiForm.value.globalModels = apiForm.value.globalModels.filter((model) => model.id !== id)
-  ensureDefaultModelValid()
+async function testProviderConnection(kind: ProviderKind, providerId: string) {
+  pullingModels.value = true
+  modelPullError.value = ''
+  activeProviderId.value = providerId
+  try {
+    const provider = getProviders(kind).find((item) => item.id === providerId)
+    if (!provider) throw new Error('未找到供应商')
+    const apiUrl = kind === 'image' ? provider.apiUrl.trim() : resolveProviderApiUrl(provider)
+    const apiKey = provider.apiKey.trim()
+    const response = await apiClient.post<any>('/api/ai/models', { apiUrl, apiKey })
+    const pulled = extractModelItems(response)
+    if (!pulled.length) throw new Error('接口可连通，但未返回模型列表')
+    showToast(`连接正常，拉取到 ${pulled.length} 个模型`)
+  } catch (err: any) {
+    modelPullError.value = err.message || '测试连接失败'
+    showToast(modelPullError.value, 'error')
+  } finally {
+    pullingModels.value = false
+  }
 }
 
 async function fetchCreditSettings() {
@@ -1510,44 +1654,64 @@ async function fetchApiSettings() {
     const res = await apiClient.get<Record<string, any>>('/api/settings/api') as Record<string, any>
     apiSettings.value = res
     if (authStore.isSuperAdmin && res.global) {
-      apiForm.value.globalApiKey = res.global.api_key || ''
-      apiForm.value.globalApiUrl = res.global.api_url || ''
-      apiForm.value.globalCustomUrl = res.global.custom_url || ''
-      apiForm.value.globalModel = res.global.model || ''
-      apiForm.value.globalModels = parseManagedModels(res.global.model_list || [])
       apiForm.value.globalTemperature = res.global.temperature ?? 0.9
       apiForm.value.globalMaxLength = res.global.max_length ?? 4000
       apiForm.value.globalContextSize = res.global.context_size ?? 20
       apiForm.value.globalTimeout = res.global.timeout ?? 60
-      apiForm.value.globalSocialApiKey = res.global.social_api_key || ''
-      apiForm.value.globalSocialApiUrl = res.global.social_api_url || ''
-      apiForm.value.globalSocialModel = res.global.social_model || ''
-      ensureDefaultModelValid()
-    }
 
-    try {
-      const settingsData = await apiClient.get<Record<string, any>>('/api/settings')
-      if (settingsData.img_gen_config) {
-        const imgCfg = JSON.parse(settingsData.img_gen_config)
-        imgGenForm.value.apiFormat = imgCfg.apiFormat || 'openai'
-        if (imgCfg.novelai) {
-          imgGenForm.value.novelaiUrl = imgCfg.novelai.url || ''
-          imgGenForm.value.novelaiKey = imgCfg.novelai.key || ''
-          imgGenForm.value.novelaiModel = imgCfg.novelai.model || 'nai-diffusion-4-5-full'
-        }
-        if (imgCfg.openai) {
-          imgGenForm.value.openaiUrl = imgCfg.openai.url || ''
-          imgGenForm.value.openaiKey = imgCfg.openai.key || ''
-          imgGenForm.value.openaiModel = imgCfg.openai.model || ''
-        }
-        if (imgCfg.gemini) {
-          imgGenForm.value.geminiUrl = imgCfg.gemini.url || ''
-          imgGenForm.value.geminiKey = imgCfg.gemini.key || ''
-          imgGenForm.value.geminiModel = imgCfg.gemini.model || ''
-        }
-      }
-    } catch (e) {
-      console.error('Failed to load img gen config', e)
+      providerState.value.chatProviders = Array.isArray(res.global.chat_providers)
+        ? res.global.chat_providers.map((provider: any) => createProvider('chat', {
+            id: provider.id,
+            name: provider.name,
+            provider: provider.provider,
+            apiKey: provider.api_key,
+            apiUrl: provider.api_url,
+            customUrl: provider.custom_url,
+            model: provider.model,
+            models: parseManagedModels(provider.model_list || []),
+          }))
+        : []
+      providerState.value.chatDefaultProviderId = res.global.chat_default_provider_id || providerState.value.chatProviders[0]?.id || ''
+
+      providerState.value.socialProviders = Array.isArray(res.global.social_providers)
+        ? res.global.social_providers.map((provider: any) => createProvider('social', {
+            id: provider.id,
+            name: provider.name,
+            provider: provider.provider,
+            apiKey: provider.api_key,
+            apiUrl: provider.api_url,
+            customUrl: provider.custom_url,
+            model: provider.model,
+            models: parseManagedModels(provider.model_list || []),
+          }))
+        : []
+      providerState.value.socialDefaultProviderId = res.global.social_default_provider_id || providerState.value.socialProviders[0]?.id || ''
+
+      providerState.value.imageProviders = Array.isArray(res.global.image_providers)
+        ? res.global.image_providers.map((provider: any) => createProvider('image', {
+            id: provider.id,
+            name: provider.name,
+            provider: provider.provider,
+            apiKey: provider.api_key,
+            apiUrl: provider.api_url,
+            customUrl: provider.custom_url,
+            model: provider.model,
+            models: parseManagedModels(provider.model_list || []),
+            apiFormat: provider.api_format || provider.provider || 'openai',
+          }))
+        : []
+      providerState.value.imageDefaultProviderId = res.global.image_default_provider_id || providerState.value.imageProviders[0]?.id || ''
+
+      if (providerState.value.chatProviders.length === 0) addProvider('chat')
+      if (providerState.value.socialProviders.length === 0) addProvider('social')
+      if (providerState.value.imageProviders.length === 0) addProvider('image')
+      expandedProviderIds.value = [
+        ...providerState.value.chatProviders.map((provider) => provider.id),
+        ...providerState.value.socialProviders.map((provider) => provider.id),
+        ...providerState.value.imageProviders.map((provider) => provider.id),
+      ]
+
+      ensureDefaultModelValid()
     }
   } catch (err: any) {
     showToast('加载API设置失败', 'error')
@@ -1556,36 +1720,98 @@ async function fetchApiSettings() {
   }
 }
 
+type ModelPullMode = 'global' | 'social' | 'image-openai' | 'image-gemini'
+
 async function saveApiSettings() {
   apiSaving.value = true
   try {
     if (authStore.isSuperAdmin) {
+      const defaultChatProvider = providerState.value.chatProviders.find((provider) => provider.id === providerState.value.chatDefaultProviderId)
+      const defaultSocialProvider = providerState.value.socialProviders.find((provider) => provider.id === providerState.value.socialDefaultProviderId)
+      const defaultImageProvider = providerState.value.imageProviders.find((provider) => provider.id === providerState.value.imageDefaultProviderId)
+
       await apiClient.put('/api/settings/api', {
-        api_key: apiForm.value.globalApiKey,
-        api_url: apiForm.value.globalApiUrl,
-        custom_url: apiForm.value.globalCustomUrl,
-        model: apiForm.value.globalModel,
-        model_list: apiForm.value.globalModels.map((model) => ({
+        api_key: defaultChatProvider?.apiKey || '',
+        api_url: defaultChatProvider ? resolveProviderApiUrl(defaultChatProvider) : '',
+        custom_url: defaultChatProvider?.customUrl || '',
+        model: defaultChatProvider?.model || '',
+        model_list: (defaultChatProvider?.models || []).map((model) => ({
           id: model.id,
           enabled: model.enabled,
           display_name: model.displayName.trim(),
         })),
+        chat_providers: providerState.value.chatProviders.map((provider) => ({
+          id: provider.id,
+          name: provider.name.trim(),
+          provider: provider.provider,
+          api_key: provider.apiKey,
+          api_url: resolveProviderApiUrl(provider),
+          custom_url: provider.customUrl,
+          model: provider.model,
+          model_list: provider.models.map((model) => ({ id: model.id, enabled: model.enabled, display_name: model.displayName.trim() })),
+          enabled: provider.enabled,
+        })),
+        chat_default_provider_id: providerState.value.chatDefaultProviderId,
         temperature: apiForm.value.globalTemperature,
         max_length: apiForm.value.globalMaxLength,
         context_size: apiForm.value.globalContextSize,
         timeout: apiForm.value.globalTimeout,
-        social_api_key: apiForm.value.globalSocialApiKey,
-        social_api_url: apiForm.value.globalSocialApiUrl,
-        social_model: apiForm.value.globalSocialModel,
+        social_api_key: defaultSocialProvider?.apiKey || '',
+        social_api_url: defaultSocialProvider ? resolveProviderApiUrl(defaultSocialProvider) : '',
+        social_custom_url: defaultSocialProvider?.customUrl || '',
+        social_model: defaultSocialProvider?.model || '',
+        social_providers: providerState.value.socialProviders.map((provider) => ({
+          id: provider.id,
+          name: provider.name.trim(),
+          provider: provider.provider,
+          api_key: provider.apiKey,
+          api_url: resolveProviderApiUrl(provider),
+          custom_url: provider.customUrl,
+          model: provider.model,
+          model_list: provider.models.map((model) => ({ id: model.id, enabled: model.enabled, display_name: model.displayName.trim() })),
+          enabled: provider.enabled,
+        })),
+        social_default_provider_id: providerState.value.socialDefaultProviderId,
+        image_providers: providerState.value.imageProviders.map((provider) => ({
+          id: provider.id,
+          name: provider.name.trim(),
+          provider: provider.provider,
+          api_key: provider.apiKey,
+          api_url: provider.apiUrl.trim(),
+          custom_url: provider.customUrl,
+          model: provider.model,
+          model_list: provider.models.map((model) => ({ id: model.id, enabled: model.enabled, display_name: model.displayName.trim() })),
+          enabled: provider.enabled,
+          api_format: provider.apiFormat,
+        })),
+        image_default_provider_id: providerState.value.imageDefaultProviderId,
         is_global: true,
       })
 
       await apiClient.put('/api/settings', {
         img_gen_config: JSON.stringify({
-          apiFormat: imgGenForm.value.apiFormat,
-          novelai: { url: imgGenForm.value.novelaiUrl, key: imgGenForm.value.novelaiKey, model: imgGenForm.value.novelaiModel },
-          openai: { url: imgGenForm.value.openaiUrl, key: imgGenForm.value.openaiKey, model: imgGenForm.value.openaiModel },
-          gemini: { url: imgGenForm.value.geminiUrl, key: imgGenForm.value.geminiKey, model: imgGenForm.value.geminiModel },
+          apiFormat: defaultImageProvider?.apiFormat || 'openai',
+          novelai: providerState.value.imageProviders.find((provider) => provider.apiFormat === 'novelai')
+            ? {
+                url: providerState.value.imageProviders.find((provider) => provider.apiFormat === 'novelai')?.apiUrl || '',
+                key: providerState.value.imageProviders.find((provider) => provider.apiFormat === 'novelai')?.apiKey || '',
+                model: providerState.value.imageProviders.find((provider) => provider.apiFormat === 'novelai')?.model || '',
+              }
+            : { url: '', key: '', model: '' },
+          openai: providerState.value.imageProviders.find((provider) => provider.apiFormat === 'openai')
+            ? {
+                url: providerState.value.imageProviders.find((provider) => provider.apiFormat === 'openai')?.apiUrl || '',
+                key: providerState.value.imageProviders.find((provider) => provider.apiFormat === 'openai')?.apiKey || '',
+                model: providerState.value.imageProviders.find((provider) => provider.apiFormat === 'openai')?.model || '',
+              }
+            : { url: '', key: '', model: '' },
+          gemini: providerState.value.imageProviders.find((provider) => provider.apiFormat === 'gemini')
+            ? {
+                url: providerState.value.imageProviders.find((provider) => provider.apiFormat === 'gemini')?.apiUrl || '',
+                key: providerState.value.imageProviders.find((provider) => provider.apiFormat === 'gemini')?.apiKey || '',
+                model: providerState.value.imageProviders.find((provider) => provider.apiFormat === 'gemini')?.model || '',
+              }
+            : { url: '', key: '', model: '' },
         }),
       })
     }
@@ -2340,6 +2566,74 @@ onMounted(() => {
 
 .model-pull-item input {
   margin-top: 2px;
+}
+
+.provider-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.provider-card {
+  border: 1px solid var(--separator, rgba(120, 120, 128, 0.14));
+  border-radius: 16px;
+  padding: 16px;
+  background: var(--bg-secondary, rgba(120, 120, 128, 0.05));
+}
+
+.provider-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+}
+
+.provider-card-header-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.provider-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.provider-collapse-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.provider-summary {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.provider-default-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.compact-card {
+  margin-top: 16px;
 }
 
 .model-pull-item-main {

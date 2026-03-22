@@ -21,6 +21,125 @@ type SettingsHandler struct {
 	DB *database.DB
 }
 
+type APIProvider struct {
+	ID        string      `json:"id"`
+	Name      string      `json:"name"`
+	Provider  string      `json:"provider"`
+	APIKey    string      `json:"api_key"`
+	APIUrl    string      `json:"api_url"`
+	CustomUrl string      `json:"custom_url,omitempty"`
+	Model     string      `json:"model"`
+	ModelList interface{} `json:"model_list,omitempty"`
+	Enabled   bool        `json:"enabled"`
+	ApiFormat string      `json:"api_format,omitempty"`
+}
+
+func normalizeProviderID(value string) string {
+	value = strings.TrimSpace(strings.ToLower(value))
+	if value == "" {
+		return "provider"
+	}
+	value = strings.NewReplacer(" ", "-", "/", "-", "_", "-", ".", "-").Replace(value)
+	return value
+}
+
+func inferProviderLabel(apiURL string) string {
+	url := strings.ToLower(apiURL)
+	switch {
+	case strings.Contains(url, "openrouter"):
+		return "OpenRouter"
+	case strings.Contains(url, "deepseek"):
+		return "DeepSeek"
+	case strings.Contains(url, "generativelanguage.googleapis.com"):
+		return "Gemini AI Studio"
+	case strings.Contains(url, "openai"):
+		return "OpenAI"
+	case url == "":
+		return "Custom"
+	default:
+		return "Custom"
+	}
+}
+
+func (h *SettingsHandler) getAppSettingProviders(r *http.Request, key string) []APIProvider {
+	value, err := h.getAppSettingRaw(r, key)
+	if err != nil {
+		return nil
+	}
+
+	var providers []APIProvider
+	if err := json.Unmarshal(value, &providers); err != nil {
+		return nil
+	}
+	return providers
+}
+
+func (h *SettingsHandler) buildLegacyChatProvider(r *http.Request) APIProvider {
+	apiURL := h.getAppSettingString(r, "apiUrl", "")
+	return APIProvider{
+		ID:        "chat-default",
+		Name:      inferProviderLabel(apiURL),
+		Provider:  inferProviderLabel(apiURL),
+		APIKey:    h.getAppSettingString(r, "apiKey", ""),
+		APIUrl:    apiURL,
+		CustomUrl: h.getAppSettingString(r, "custom_url", ""),
+		Model:     h.getAppSettingString(r, "model", ""),
+		ModelList: h.getAppSettingJSON(r, "model_list", []interface{}{}),
+		Enabled:   true,
+	}
+}
+
+func (h *SettingsHandler) buildLegacySocialProvider(r *http.Request) APIProvider {
+	apiURL := h.getAppSettingString(r, "social_api_url", "")
+	return APIProvider{
+		ID:        "social-default",
+		Name:      inferProviderLabel(apiURL),
+		Provider:  inferProviderLabel(apiURL),
+		APIKey:    h.getAppSettingString(r, "social_api_key", ""),
+		APIUrl:    apiURL,
+		CustomUrl: h.getAppSettingString(r, "social_custom_url", ""),
+		Model:     h.getAppSettingString(r, "social_model", ""),
+		Enabled:   true,
+	}
+}
+
+func (h *SettingsHandler) buildLegacyImageProviders(r *http.Request) []APIProvider {
+	raw := h.getAppSettingString(r, "img_gen_config", "")
+	if raw == "" {
+		return nil
+	}
+
+	var config map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &config); err != nil {
+		return nil
+	}
+
+	providers := make([]APIProvider, 0, 3)
+	for _, key := range []string{"openai", "novelai", "gemini"} {
+		entry, ok := config[key].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		apiURL, _ := entry["url"].(string)
+		apiKey, _ := entry["key"].(string)
+		model, _ := entry["model"].(string)
+		if apiURL == "" && apiKey == "" && model == "" {
+			continue
+		}
+		providers = append(providers, APIProvider{
+			ID:        normalizeProviderID("image-" + key),
+			Name:      strings.ToUpper(key),
+			Provider:  key,
+			APIKey:    apiKey,
+			APIUrl:    apiURL,
+			Model:     model,
+			Enabled:   true,
+			ApiFormat: key,
+		})
+	}
+	return providers
+}
+
 func (h *SettingsHandler) getAppSettingRaw(r *http.Request, key string) ([]byte, error) {
 	var value []byte
 	err := h.DB.Pool.QueryRow(r.Context(), `
@@ -251,18 +370,26 @@ func (h *SettingsHandler) GetUserApiSettings(w http.ResponseWriter, r *http.Requ
 	// If super_admin, return global settings first, then user's personal settings
 	if isSuperAdmin {
 		var globalSettings struct {
-			ID           int64       `json:"id"`
-			APIKey       string      `json:"api_key"`
-			APIUrl       string      `json:"api_url"`
-			Model        string      `json:"model"`
-			ModelList    interface{} `json:"model_list"`
-			SocialAPIKey string      `json:"social_api_key"`
-			SocialAPIUrl string      `json:"social_api_url"`
-			SocialModel  string      `json:"social_model"`
-			Temperature  float64     `json:"temperature"`
-			MaxLength    int         `json:"max_length"`
-			ContextSize  int         `json:"context_size"`
-			Timeout      int         `json:"timeout"`
+			ID                      int64         `json:"id"`
+			APIKey                  string        `json:"api_key"`
+			APIUrl                  string        `json:"api_url"`
+			CustomUrl               string        `json:"custom_url"`
+			Model                   string        `json:"model"`
+			ModelList               interface{}   `json:"model_list"`
+			SocialAPIKey            string        `json:"social_api_key"`
+			SocialAPIUrl            string        `json:"social_api_url"`
+			SocialCustomUrl         string        `json:"social_custom_url"`
+			SocialModel             string        `json:"social_model"`
+			Temperature             float64       `json:"temperature"`
+			MaxLength               int           `json:"max_length"`
+			ContextSize             int           `json:"context_size"`
+			Timeout                 int           `json:"timeout"`
+			ChatProviders           []APIProvider `json:"chat_providers"`
+			ChatDefaultProviderID   string        `json:"chat_default_provider_id"`
+			SocialProviders         []APIProvider `json:"social_providers"`
+			SocialDefaultProviderID string        `json:"social_default_provider_id"`
+			ImageProviders          []APIProvider `json:"image_providers"`
+			ImageDefaultProviderID  string        `json:"image_default_provider_id"`
 		}
 		err := h.DB.Pool.QueryRow(r.Context(), `
 			SELECT id, COALESCE(api_key, ''), COALESCE(api_url, ''), COALESCE(model, '')
@@ -279,6 +406,7 @@ func (h *SettingsHandler) GetUserApiSettings(w http.ResponseWriter, r *http.Requ
 		if globalSettings.APIUrl == "" {
 			globalSettings.APIUrl = h.getAppSettingString(r, "apiUrl", "")
 		}
+		globalSettings.CustomUrl = h.getAppSettingString(r, "custom_url", "")
 		if globalSettings.Model == "" {
 			globalSettings.Model = h.getAppSettingString(r, "model", "")
 		}
@@ -286,11 +414,37 @@ func (h *SettingsHandler) GetUserApiSettings(w http.ResponseWriter, r *http.Requ
 		globalSettings.ModelList = h.getAppSettingJSON(r, "model_list", []interface{}{})
 		globalSettings.SocialAPIKey = h.getAppSettingString(r, "social_api_key", "")
 		globalSettings.SocialAPIUrl = h.getAppSettingString(r, "social_api_url", "")
+		globalSettings.SocialCustomUrl = h.getAppSettingString(r, "social_custom_url", "")
 		globalSettings.SocialModel = h.getAppSettingString(r, "social_model", "")
 		globalSettings.Temperature = h.getAppSettingFloat(r, "temperature", 0.9)
 		globalSettings.MaxLength = h.getAppSettingInt(r, "max_length", 4000)
 		globalSettings.ContextSize = h.getAppSettingInt(r, "context_size", 20)
 		globalSettings.Timeout = h.getAppSettingInt(r, "timeout", 60)
+
+		globalSettings.ChatProviders = h.getAppSettingProviders(r, "chat_providers")
+		if len(globalSettings.ChatProviders) == 0 {
+			globalSettings.ChatProviders = []APIProvider{h.buildLegacyChatProvider(r)}
+		}
+		globalSettings.ChatDefaultProviderID = h.getAppSettingString(r, "chat_default_provider_id", globalSettings.ChatProviders[0].ID)
+
+		globalSettings.SocialProviders = h.getAppSettingProviders(r, "social_providers")
+		if len(globalSettings.SocialProviders) == 0 {
+			legacy := h.buildLegacySocialProvider(r)
+			if legacy.APIUrl != "" || legacy.APIKey != "" || legacy.Model != "" {
+				globalSettings.SocialProviders = []APIProvider{legacy}
+			}
+		}
+		if len(globalSettings.SocialProviders) > 0 {
+			globalSettings.SocialDefaultProviderID = h.getAppSettingString(r, "social_default_provider_id", globalSettings.SocialProviders[0].ID)
+		}
+
+		globalSettings.ImageProviders = h.getAppSettingProviders(r, "image_providers")
+		if len(globalSettings.ImageProviders) == 0 {
+			globalSettings.ImageProviders = h.buildLegacyImageProviders(r)
+		}
+		if len(globalSettings.ImageProviders) > 0 {
+			globalSettings.ImageDefaultProviderID = h.getAppSettingString(r, "image_default_provider_id", globalSettings.ImageProviders[0].ID)
+		}
 
 		mw.JSON(w, http.StatusOK, map[string]interface{}{
 			"is_super_admin":   true,
@@ -340,18 +494,26 @@ func (h *SettingsHandler) UpdateUserApiSettings(w http.ResponseWriter, r *http.R
 	isSuperAdmin, _ := mw.GetIsSuperAdmin(r.Context())
 
 	var body struct {
-		APIKey       string          `json:"api_key"`
-		APIUrl       string          `json:"api_url"`
-		Model        string          `json:"model"`
-		ModelList    json.RawMessage `json:"model_list"`
-		SocialAPIKey string          `json:"social_api_key"`
-		SocialAPIUrl string          `json:"social_api_url"`
-		SocialModel  string          `json:"social_model"`
-		Temperature  float64         `json:"temperature"`
-		MaxLength    int             `json:"max_length"`
-		ContextSize  int             `json:"context_size"`
-		Timeout      int             `json:"timeout"`
-		IsGlobal     bool            `json:"is_global"` // Only super_admin can set global
+		APIKey                  string          `json:"api_key"`
+		APIUrl                  string          `json:"api_url"`
+		CustomUrl               string          `json:"custom_url"`
+		Model                   string          `json:"model"`
+		ModelList               json.RawMessage `json:"model_list"`
+		ChatProviders           json.RawMessage `json:"chat_providers"`
+		ChatDefaultProviderID   string          `json:"chat_default_provider_id"`
+		SocialAPIKey            string          `json:"social_api_key"`
+		SocialAPIUrl            string          `json:"social_api_url"`
+		SocialCustomUrl         string          `json:"social_custom_url"`
+		SocialModel             string          `json:"social_model"`
+		SocialProviders         json.RawMessage `json:"social_providers"`
+		SocialDefaultProviderID string          `json:"social_default_provider_id"`
+		ImageProviders          json.RawMessage `json:"image_providers"`
+		ImageDefaultProviderID  string          `json:"image_default_provider_id"`
+		Temperature             float64         `json:"temperature"`
+		MaxLength               int             `json:"max_length"`
+		ContextSize             int             `json:"context_size"`
+		Timeout                 int             `json:"timeout"`
+		IsGlobal                bool            `json:"is_global"` // Only super_admin can set global
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		mw.Error(w, http.StatusBadRequest, "invalid request body")
@@ -364,14 +526,19 @@ func (h *SettingsHandler) UpdateUserApiSettings(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Upsert user API settings
-	_, err := h.DB.Pool.Exec(r.Context(), `
-		INSERT INTO user_api_settings (user_id, api_key, api_url, model, is_global, updated_at)
-		VALUES ($1, $2, $3, $4, $5, NOW())
-		ON CONFLICT (user_id, is_global) 
-		WHERE is_global = $5
-		DO UPDATE SET api_key = $2, api_url = $3, model = $4, updated_at = NOW()
-	`, userID, body.APIKey, body.APIUrl, body.Model, body.IsGlobal)
+	// Update first, then insert if missing. This avoids relying on a composite
+	// unique index that may not exist in older deployments.
+	result, err := h.DB.Pool.Exec(r.Context(), `
+		UPDATE user_api_settings
+		SET api_key = $3, api_url = $4, model = $5, updated_at = NOW()
+		WHERE user_id = $1 AND is_global = $2
+	`, userID, body.IsGlobal, body.APIKey, body.APIUrl, body.Model)
+	if err == nil && result.RowsAffected() == 0 {
+		_, err = h.DB.Pool.Exec(r.Context(), `
+			INSERT INTO user_api_settings (user_id, api_key, api_url, model, is_global, updated_at)
+			VALUES ($1, $2, $3, $4, $5, NOW())
+		`, userID, body.APIKey, body.APIUrl, body.Model, body.IsGlobal)
+	}
 	if err != nil {
 		mw.Error(w, http.StatusInternalServerError, "failed to update API settings")
 		return
@@ -379,16 +546,18 @@ func (h *SettingsHandler) UpdateUserApiSettings(w http.ResponseWriter, r *http.R
 
 	if body.IsGlobal {
 		settingsToSync := map[string]interface{}{
-			"apiKey":         body.APIKey,
-			"apiUrl":         body.APIUrl,
-			"model":          body.Model,
-			"social_api_key": body.SocialAPIKey,
-			"social_api_url": body.SocialAPIUrl,
-			"social_model":   body.SocialModel,
-			"temperature":    body.Temperature,
-			"max_length":     body.MaxLength,
-			"context_size":   body.ContextSize,
-			"timeout":        body.Timeout,
+			"apiKey":            body.APIKey,
+			"apiUrl":            body.APIUrl,
+			"custom_url":        body.CustomUrl,
+			"model":             body.Model,
+			"social_api_key":    body.SocialAPIKey,
+			"social_api_url":    body.SocialAPIUrl,
+			"social_custom_url": body.SocialCustomUrl,
+			"social_model":      body.SocialModel,
+			"temperature":       body.Temperature,
+			"max_length":        body.MaxLength,
+			"context_size":      body.ContextSize,
+			"timeout":           body.Timeout,
 		}
 
 		for key, value := range settingsToSync {
@@ -411,6 +580,37 @@ func (h *SettingsHandler) UpdateUserApiSettings(w http.ResponseWriter, r *http.R
 		if err := h.upsertAppSetting(r, "model_list", modelListValue); err != nil {
 			mw.Error(w, http.StatusInternalServerError, "failed to update global setting: model_list")
 			return
+		}
+
+		providerSettings := map[string]json.RawMessage{
+			"chat_providers":   body.ChatProviders,
+			"social_providers": body.SocialProviders,
+			"image_providers":  body.ImageProviders,
+		}
+		for key, raw := range providerSettings {
+			if len(raw) == 0 {
+				continue
+			}
+			var parsed interface{}
+			if err := json.Unmarshal(raw, &parsed); err != nil {
+				mw.Error(w, http.StatusBadRequest, "invalid "+key)
+				return
+			}
+			if err := h.upsertAppSetting(r, key, parsed); err != nil {
+				mw.Error(w, http.StatusInternalServerError, "failed to update global setting: "+key)
+				return
+			}
+		}
+
+		for key, value := range map[string]string{
+			"chat_default_provider_id":   body.ChatDefaultProviderID,
+			"social_default_provider_id": body.SocialDefaultProviderID,
+			"image_default_provider_id":  body.ImageDefaultProviderID,
+		} {
+			if err := h.upsertAppSetting(r, key, value); err != nil {
+				mw.Error(w, http.StatusInternalServerError, "failed to update global setting: "+key)
+				return
+			}
 		}
 	}
 
