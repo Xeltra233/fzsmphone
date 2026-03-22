@@ -701,10 +701,24 @@ placeholder="qun_qrcode.jpg"
 
         <div class="model-pull-toolbar">
           <input v-model.trim="modelPullSearch" class="setting-input" placeholder="搜索显示名或模型 ID" />
-          <label class="checkbox-label model-pull-only-new">
-            <input v-model="modelPullOnlyNew" type="checkbox" />
-            <span>只看新增</span>
-          </label>
+          <div class="model-pull-tabs" v-if="pulledModels.length > 0">
+            <button
+              class="model-pull-tab-btn"
+              :class="{ active: modelPullTab === 'new' }"
+              type="button"
+              @click="modelPullTab = 'new'"
+            >
+              新增模型 ({{ newPulledModels.length }})
+            </button>
+            <button
+              class="model-pull-tab-btn"
+              :class="{ active: modelPullTab === 'existing' }"
+              type="button"
+              @click="modelPullTab = 'existing'"
+            >
+              已有模型 ({{ existingPulledModels.length }})
+            </button>
+          </div>
         </div>
 
         <div v-if="pulledModels.length > 0" class="model-pull-stats">
@@ -712,10 +726,11 @@ placeholder="qun_qrcode.jpg"
           <span>新增 {{ modelPullStats.newCount }} 个</span>
           <span>已存在 {{ modelPullStats.existingCount }} 个</span>
           <span>当前显示 {{ filteredPulledModels.length }} 个</span>
+          <span>当前已选 {{ selectedVisiblePulledModelCount }} 个</span>
         </div>
 
         <div class="model-pull-batch-actions" v-if="pulledModels.length > 0">
-          <button class="batch-action-btn" type="button" @click="selectAllPulledModels">全选新增</button>
+          <button class="batch-action-btn" type="button" @click="selectAllPulledModels">全选当前</button>
           <button class="batch-action-btn" type="button" @click="clearPulledModelSelection">清空选择</button>
         </div>
 
@@ -723,17 +738,18 @@ placeholder="qun_qrcode.jpg"
           {{ pulledModels.length === 0 ? '未拉取到可添加模型' : '没有匹配的模型' }}
         </div>
         <div v-else class="model-pull-list">
-          <label v-for="model in filteredPulledModels" :key="model.id" class="model-pull-item" :class="{ disabled: model.alreadyExists }">
+          <label v-for="model in filteredPulledModels" :key="model.id" class="model-pull-item" :class="{ disabled: model.alreadyExists, selected: isPulledModelSelected(model.id) }">
             <input
               type="checkbox"
+              v-model="selectedPulledModelIds"
+              :value="model.id"
               :checked="isPulledModelSelected(model.id)"
               :disabled="model.alreadyExists"
-              @change="togglePulledModel(model.id)"
             />
             <div class="model-pull-item-main">
               <span class="model-pull-display">{{ getPulledModelPreviewName(model) }}</span>
               <span class="model-pull-id">ID: {{ model.id }}</span>
-              <span class="model-pull-meta">{{ model.alreadyExists ? '已存在，已自动跳过' : '可添加到可用模型列表' }}</span>
+              <span class="model-pull-meta">{{ model.alreadyExists ? getPulledModelExistsReason(model) : '可添加到可用模型列表' }}</span>
             </div>
           </label>
         </div>
@@ -837,10 +853,10 @@ const newModelId = ref('')
 const pullingModels = ref(false)
 const modelPullError = ref('')
 const showModelPullModal = ref(false)
-const pulledModels = ref<Array<{ id: string; displayName: string; alreadyExists: boolean }>>([])
+const pulledModels = ref<Array<{ id: string; displayName: string; alreadyExists: boolean; existsReason: string }>>([])
 const selectedPulledModelIds = ref<string[]>([])
 const modelPullSearch = ref('')
-const modelPullOnlyNew = ref(false)
+const modelPullTab = ref<'new' | 'existing'>('new')
 
 const imgGenForm = ref({
 apiFormat: 'openai',
@@ -872,6 +888,20 @@ function modelIdKey(value: string) {
 
 function sanitizeDisplayName(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function pickModelCollection(payload: any): any[] {
+  if (Array.isArray(payload)) return payload
+  if (!payload || typeof payload !== 'object') return []
+
+  if (Array.isArray(payload.data)) return payload.data
+  if (payload.data && typeof payload.data === 'object' && Array.isArray(payload.data.data)) return payload.data.data
+  if (Array.isArray(payload.models)) return payload.models
+  if (payload.models && typeof payload.models === 'object' && Array.isArray(payload.models.data)) return payload.models.data
+  if (Array.isArray(payload.list)) return payload.list
+  if (payload.list && typeof payload.list === 'object' && Array.isArray(payload.list.data)) return payload.list.data
+
+  return []
 }
 
 function normalizeSearchText(value: string) {
@@ -946,10 +976,12 @@ const managedModelDisplayMap = computed(() => {
   }
   return map
 })
+const newPulledModels = computed(() => pulledModels.value.filter((model) => !model.alreadyExists))
+const existingPulledModels = computed(() => pulledModels.value.filter((model) => model.alreadyExists))
 const filteredPulledModels = computed(() => {
   const keyword = normalizeSearchText(modelPullSearch.value)
-  return pulledModels.value.filter((model) => {
-    if (modelPullOnlyNew.value && model.alreadyExists) return false
+  const source = modelPullTab.value === 'existing' ? existingPulledModels.value : newPulledModels.value
+  return source.filter((model) => {
     if (!keyword) return true
     const previewName = normalizeSearchText(getPulledModelPreviewName(model))
     return modelIdKey(model.id).includes(keyword) || previewName.includes(keyword)
@@ -1019,14 +1051,7 @@ function resolveApiUrl() {
 }
 
 function extractModelItems(payload: any) {
-  let list: any[] = []
-  if (Array.isArray(payload?.data)) {
-    list = payload.data
-  } else if (Array.isArray(payload?.models)) {
-    list = payload.models
-  } else if (Array.isArray(payload)) {
-    list = payload
-  }
+  const list = pickModelCollection(payload)
 
   return list
     .map((item) => {
@@ -1035,11 +1060,22 @@ function extractModelItems(payload: any) {
         return id ? { id, displayName: '' } : null
       }
       if (!item || typeof item !== 'object') return null
-      const id = normalizeModelId(item.id || item.name || '')
+      const id = normalizeModelId(item.id || item.name || item.model || '')
       if (!id) return null
+      const displayName = sanitizeDisplayName(
+        item.display_name
+        ?? item.displayName
+        ?? item.name_zh
+        ?? item.cn
+        ?? item.label
+        ?? item.title
+        ?? item.meta?.display_name
+        ?? item.meta?.displayName
+        ?? item.meta?.name
+      )
       return {
         id,
-        displayName: sanitizeDisplayName(item.display_name ?? item.displayName ?? item.label ?? item.title),
+        displayName,
       }
     })
     .filter((item): item is { id: string; displayName: string } => Boolean(item))
@@ -1051,35 +1087,29 @@ function closeModelPullModal() {
   pulledModels.value = []
   selectedPulledModelIds.value = []
   modelPullSearch.value = ''
-  modelPullOnlyNew.value = false
+  modelPullTab.value = 'new'
 }
 
 function isPulledModelSelected(id: string) {
   return selectedPulledModelIds.value.some((item) => modelIdKey(item) === modelIdKey(id))
 }
 
-function togglePulledModel(id: string) {
-  const key = modelIdKey(id)
-  const index = selectedPulledModelIds.value.findIndex((item) => modelIdKey(item) === key)
-  if (index >= 0) {
-    selectedPulledModelIds.value.splice(index, 1)
-    return
-  }
-  selectedPulledModelIds.value.push(id)
-}
-
 function selectAllPulledModels() {
-  selectedPulledModelIds.value = pulledModels.value.filter((model) => !model.alreadyExists).map((model) => model.id)
+  selectedPulledModelIds.value = filteredPulledModels.value.filter((model) => !model.alreadyExists).map((model) => model.id)
 }
 
 function clearPulledModelSelection() {
   selectedPulledModelIds.value = []
 }
 
+const selectedVisiblePulledModelCount = computed(() => {
+  return filteredPulledModels.value.filter((model) => isPulledModelSelected(model.id)).length
+})
+
 function confirmAddPulledModels() {
   const selected = pulledModels.value
     .filter((model) => !model.alreadyExists && isPulledModelSelected(model.id))
-    .map((model) => ({ id: model.id, enabled: true, displayName: '' }))
+    .map((model) => ({ id: model.id, enabled: true, displayName: model.displayName }))
 
   if (!selected.length) {
     showToast('没有可添加的新模型', 'error')
@@ -1105,13 +1135,15 @@ async function pullModels() {
     if (!pulled.length) {
       throw new Error('接口已响应，但没有返回可用模型')
     }
-    const existing = new Set(apiForm.value.globalModels.map((model) => modelIdKey(model.id)))
+    const existingModels = new Map(apiForm.value.globalModels.map((model) => [modelIdKey(model.id), model]))
     pulledModels.value = pulled.map((model) => ({
       id: model.id,
       displayName: model.displayName,
-      alreadyExists: existing.has(modelIdKey(model.id)),
+      alreadyExists: existingModels.has(modelIdKey(model.id)),
+      existsReason: existingModels.get(modelIdKey(model.id))?.displayName?.trim() ? '已存在，当前已配置自定义显示名' : '已存在于可用模型列表',
     }))
-    selectedPulledModelIds.value = pulledModels.value.filter((model) => !model.alreadyExists).map((model) => model.id)
+    selectedPulledModelIds.value = []
+    modelPullTab.value = newPulledModels.value.length > 0 ? 'new' : 'existing'
     showModelPullModal.value = true
   } catch (err: any) {
     modelPullError.value = err.message || '拉取模型失败'
@@ -1219,6 +1251,10 @@ function formatCouponExpiry(value: string | null) {
 
 function getPulledModelPreviewName(model: { id: string; displayName: string }) {
   return managedModelDisplayMap.value.get(modelIdKey(model.id)) || model.displayName || model.id
+}
+
+function getPulledModelExistsReason(model: { existsReason: string }) {
+  return model.existsReason || '已存在，已自动跳过'
 }
 
 function escapeCsvCell(value: string | number | boolean) {
@@ -2180,7 +2216,7 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  align-items: center;
+  align-items: flex-start;
   padding: 14px 18px 0;
 }
 
@@ -2189,8 +2225,27 @@ onMounted(() => {
   min-width: 220px;
 }
 
-.model-pull-only-new {
-  flex: 0 0 auto;
+.model-pull-tabs {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.model-pull-tab-btn {
+  border: 1px solid var(--separator, rgba(120, 120, 128, 0.14));
+  background: var(--bg-secondary, rgba(120, 120, 128, 0.06));
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.model-pull-tab-btn.active {
+  color: #5B6EF5;
+  border-color: rgba(91, 110, 245, 0.32);
+  background: rgba(91, 110, 245, 0.1);
 }
 
 .model-pull-batch-actions {
@@ -2233,6 +2288,12 @@ onMounted(() => {
 .model-pull-item.disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.model-pull-item.selected {
+  border-color: rgba(91, 110, 245, 0.48);
+  background: rgba(91, 110, 245, 0.12);
+  box-shadow: 0 0 0 1px rgba(91, 110, 245, 0.12);
 }
 
 .model-pull-item input {
