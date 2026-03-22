@@ -908,6 +908,26 @@ function normalizeSearchText(value: string) {
   return value.trim().toLowerCase()
 }
 
+const modelSearchAliasGroups = [
+  ['反截断', '防截断', '抗截断', '去截断', '免截断', '截断'],
+]
+
+function expandModelSearchKeywords(value: string) {
+  const normalized = normalizeSearchText(value)
+  if (!normalized) return []
+
+  const keywords = new Set([normalized])
+  for (const group of modelSearchAliasGroups) {
+    if (group.some((alias) => normalized.includes(alias))) {
+      for (const alias of group) {
+        keywords.add(alias)
+      }
+    }
+  }
+
+  return Array.from(keywords)
+}
+
 function isCouponExpired(value: string | null) {
   if (!value) return false
   const time = new Date(value).getTime()
@@ -979,13 +999,13 @@ const managedModelDisplayMap = computed(() => {
 const newPulledModels = computed(() => pulledModels.value.filter((model) => !model.alreadyExists))
 const existingPulledModels = computed(() => pulledModels.value.filter((model) => model.alreadyExists))
 const filteredPulledModels = computed(() => {
-  const keyword = normalizeSearchText(modelPullSearch.value)
-  const source = keyword
+  const keywords = expandModelSearchKeywords(modelPullSearch.value)
+  const source = keywords.length
     ? pulledModels.value
     : (modelPullTab.value === 'existing' ? existingPulledModels.value : newPulledModels.value)
   return source.filter((model) => {
-    if (!keyword) return true
-    return model.searchText.includes(keyword)
+    if (!keywords.length) return true
+    return keywords.some((keyword) => model.searchText.includes(keyword))
   })
 })
 const modelPullStats = computed(() => {
