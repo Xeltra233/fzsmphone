@@ -481,8 +481,8 @@ placeholder="qun_qrcode.jpg"
             </div>
             <div class="input-row">
               <div class="input-group">
-                <label>接口地址</label>
-                <input :value="resolveProviderApiUrl(provider)" class="setting-input" readonly />
+                <label>真实调用地址</label>
+                <div class="resolved-api-url">{{ resolveProviderApiUrl(provider) || '将根据当前提供商自动生成' }}</div>
               </div>
               <div class="input-group">
                 <label>API Key</label>
@@ -553,7 +553,7 @@ placeholder="qun_qrcode.jpg"
             </div>
             <div class="input-group" v-if="provider.provider === 'custom'"><label>自定义接口地址</label><input v-model.trim="provider.customUrl" class="setting-input" placeholder="https://api.example.com/v1/chat/completions" /></div>
             <div class="input-row">
-              <div class="input-group"><label>接口地址</label><input :value="resolveProviderApiUrl(provider)" class="setting-input" readonly /></div>
+              <div class="input-group"><label>真实调用地址</label><div class="resolved-api-url">{{ resolveProviderApiUrl(provider) || '将根据当前提供商自动生成' }}</div></div>
               <div class="input-group"><label>API Key</label><input v-model="provider.apiKey" type="password" class="setting-input" placeholder="sk-..." /></div>
             </div>
             <div class="input-group model-manager-group">
@@ -2679,6 +2679,19 @@ onMounted(() => {
 .provider-summary {
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.resolved-api-url {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--bg-tertiary, rgba(120, 120, 128, 0.08));
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-all;
 }
 
 .provider-default-radio {
