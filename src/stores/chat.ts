@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { getScopedItem } from '@/utils/userScopedStorage'
+import { getScopedItem, setScopedItem, removeScopedItem } from '@/utils/userScopedStorage'
 import { getCharacterById } from '@/utils/aiService'
 import type { CharacterData } from '@/utils/aiService'
 import { useCharactersStore } from '@/stores/characters'
@@ -72,7 +72,7 @@ export const useChatStore = defineStore('chat', () => {
   // localStorage helpers
   function loadConversations() {
     try {
-      const saved = localStorage.getItem(CONV_STORAGE_KEY)
+      const saved = getScopedItem(CONV_STORAGE_KEY)
       if (saved) {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) {
@@ -105,7 +105,7 @@ export const useChatStore = defineStore('chat', () => {
           description: c.character.description,
         } : null,
       }))
-      localStorage.setItem(CONV_STORAGE_KEY, JSON.stringify(toSave))
+      setScopedItem(CONV_STORAGE_KEY, JSON.stringify(toSave))
     } catch {
       // ignore
     }
@@ -115,7 +115,7 @@ export const useChatStore = defineStore('chat', () => {
     currentConversationId.value = conversationId
     try {
       const key = `chat-messages-${conversationId}`
-      const saved = localStorage.getItem(key)
+      const saved = getScopedItem(key)
       if (saved) {
         currentMessages.value = JSON.parse(saved)
       } else {
@@ -131,7 +131,7 @@ export const useChatStore = defineStore('chat', () => {
       const key = `chat-messages-${conversationId}`
       // 只保留最近200条
       const toSave = currentMessages.value.slice(-200)
-      localStorage.setItem(key, JSON.stringify(toSave))
+      setScopedItem(key, JSON.stringify(toSave))
     } catch {
       // ignore
     }
@@ -256,7 +256,7 @@ export const useChatStore = defineStore('chat', () => {
 
     // 删除消息
     try {
-      localStorage.removeItem(`chat-messages-${idStr}`)
+      removeScopedItem(`chat-messages-${idStr}`)
     } catch {
       // ignore
     }

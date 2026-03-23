@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { getScopedItem } from '@/utils/userScopedStorage'
+import { getScopedItem, setScopedItem } from '@/utils/userScopedStorage'
 import { ref, computed } from 'vue'
 import { getCharacterById } from '@/utils/aiService'
 import { smsApi } from '@/api/services'
@@ -71,7 +71,7 @@ export const useSmsStore = defineStore('sms', () => {
     } catch { /* API failed, fallback */ }
     // Fallback: localStorage
     try {
-      const saved = localStorage.getItem(SMS_STORAGE_KEY)
+      const saved = getScopedItem(SMS_STORAGE_KEY)
       if (saved) {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) conversations.value = parsed
@@ -105,7 +105,7 @@ export const useSmsStore = defineStore('sms', () => {
         ...c,
         messages: c.messages.slice(-100),
       }))
-      localStorage.setItem(SMS_STORAGE_KEY, JSON.stringify(toSave))
+      setScopedItem(SMS_STORAGE_KEY, JSON.stringify(toSave))
     } catch { /* ignore */ }
   }
 
