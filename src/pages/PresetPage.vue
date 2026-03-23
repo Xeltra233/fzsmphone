@@ -412,15 +412,50 @@ Character will never break immersion.
 
 const presets = ref<Preset[]>([])
 
+function presetSignatureLocal(item: { name?: string; content?: string; prefill?: string }) {
+  return [String(item.name || '').trim(), String(item.content || '').trim(), String(item.prefill || '').trim()].join('|')
+}
+
+async function migrateLocalPresetPromptItems(localItems: any[]) {
+  if (!Array.isArray(localItems) || localItems.length === 0) return
+  try {
+    const res = await presetApi.list()
+    const remoteItems = Array.isArray(res.data) ? res.data : []
+    for (const localPreset of localItems) {
+      const localPromptItems = normalizePromptItems(localPreset?.promptItems)
+      if (!localPromptItems?.length) continue
+      const matched = remoteItems.find((item: any) => presetSignatureLocal(item) === presetSignatureLocal(localPreset))
+      const matchedId = Number(matched?.id)
+      const remotePromptItems = getPromptItemsFromAny(matched)
+      if (!matched || !Number.isFinite(matchedId) || (remotePromptItems && remotePromptItems.length > 0)) continue
+      await presetApi.update(matchedId, {
+        name: matched.name,
+        emoji: matched.emoji,
+        category: matched.category,
+        description: matched.description,
+        content: matched.content,
+        prefill: matched.prefill,
+        enable_prefill: matched.enable_prefill,
+        gradient: matched.gradient,
+        prompt_items: localPromptItems,
+      })
+    }
+  } catch {
+    // ignore migration failure
+  }
+}
+
 // 从 API 然后 localStorage 加载
 async function loadPresets() {
   // 先读取本地缓存，用于补全 API 暂未持久化的 promptItems
   const localPromptItemsById = new Map<string, PromptItem[]>()
+  let localPresetCache: any[] = []
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       const parsed = JSON.parse(saved)
       if (Array.isArray(parsed)) {
+        localPresetCache = parsed
         for (const p of parsed) {
           const normalized = normalizePromptItems(p?.promptItems)
           if (normalized && p?.id) {
@@ -430,6 +465,8 @@ async function loadPresets() {
       }
     }
   } catch { /* ignore */ }
+
+  await migrateLocalPresetPromptItems(localPresetCache)
 
   try {
     const res = await presetApi.list()
@@ -981,7 +1018,7 @@ function handleImport(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
   const reader = new FileReader()
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
       const rawText = String(reader.result || '')
       let parsed: any
@@ -1008,7 +1045,7 @@ function handleImport(e: Event) {
         const normalized = normalizeImportItem(item, file.name)
         if (!normalized) continue
 
-        presets.value.unshift({
+        const importedPreset: Preset = {
           id: `preset-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           name: normalized.name,
           emoji: normalized.emoji,
@@ -1023,7 +1060,25 @@ function handleImport(e: Event) {
           updatedAt: formatDateStr(now),
           createdAt: now.toISOString(),
           isBuiltin: false,
-        })
+        }
+
+        presets.value.unshift(importedPreset)
+        try {
+          const res = await presetApi.create({
+            name: importedPreset.name,
+            emoji: importedPreset.emoji,
+            category: importedPreset.category,
+            description: importedPreset.description,
+            content: importedPreset.content,
+            prefill: importedPreset.prefill,
+            enable_prefill: importedPreset.enablePrefill,
+            gradient: importedPreset.gradient,
+            is_builtin: false,
+          })
+          if (res.id) importedPreset.id = String(res.id)
+        } catch {
+          // Keep local fallback if sync fails.
+        }
         importedNames.push(normalized.name)
       }
 

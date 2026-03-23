@@ -549,6 +549,25 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS character_storage_quota BIGINT NOT NU
 ALTER TABLE coupon_codes ADD COLUMN IF NOT EXISTS note TEXT NOT NULL DEFAULT '';
 ALTER TABLE coupon_codes ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
 CREATE INDEX IF NOT EXISTS idx_coupon_codes_active_created ON coupon_codes(is_active, created_at DESC);
-`,
+		`,
+	},
+	{
+		Version: 31,
+		Name:    "add_preset_prompt_items_and_worldbook_books",
+		SQL: `
+			ALTER TABLE presets
+			ADD COLUMN IF NOT EXISTS prompt_items JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+			CREATE TABLE IF NOT EXISTS worldbook_books (
+				id              BIGSERIAL PRIMARY KEY,
+				user_id         BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				name            TEXT NOT NULL DEFAULT '',
+				bind_chars      JSONB NOT NULL DEFAULT '[]'::jsonb,
+				entries         JSONB NOT NULL DEFAULT '[]'::jsonb,
+				created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE INDEX IF NOT EXISTS idx_worldbook_books_user ON worldbook_books(user_id, created_at DESC);
+		`,
 	},
 }

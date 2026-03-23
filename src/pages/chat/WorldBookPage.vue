@@ -331,6 +331,7 @@ import NavBar from '@/components/common/NavBar.vue'
 import { sendAIRequest } from '@/utils/aiService'
 import { parseAIJsonArray } from '@/utils/aiJsonParser'
 import { useSettingsStore } from '@/stores/settings'
+import { worldBookApi } from '@/api/services'
 
 interface WorldBookEntry {
   id: string
@@ -362,8 +363,6 @@ interface WorldBook {
   bindChars: string[]  // 绑定的角色ID列表
   createdAt: string
 }
-
-const STORAGE_KEY = 'worldBooks'
 
 const worldBooks = ref<WorldBook[]>([])
 const currentBookId = ref<string | null>(null)
@@ -455,35 +454,83 @@ const filteredEntries = computed(() => {
   return entries
 })
 
-// localStorage 操作
-function loadFromStorage() {
+async function loadWorldBooks() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      if (Array.isArray(parsed)) {
-        worldBooks.value = parsed
+    const res: any = await worldBookApi.list()
+    const list = Array.isArray(res.data) ? res.data : []
+    if (list.length === 0) {
+      try {
+        const saved = localStorage.getItem('worldBooks')
+        const localBooks = saved ? JSON.parse(saved) : []
+        if (Array.isArray(localBooks) && localBooks.length > 0) {
+          for (const localBook of localBooks) {
+            await worldBookApi.create({
+              name: localBook.name || '未命名世界书',
+              bind_chars: Array.isArray(localBook.bindChars) ? localBook.bindChars : [],
+              entries: Array.isArray(localBook.entries) ? localBook.entries : [],
+            } as any)
+          }
+          const migrated = await worldBookApi.list()
+          const migratedList = Array.isArray(migrated.data) ? migrated.data : []
+          worldBooks.value = migratedList.map((book: any) => ({
+            id: String(book.id),
+            name: book.name || '未命名世界书',
+            entries: Array.isArray(book.entries) ? book.entries : [],
+            bindChars: Array.isArray(book.bind_chars) ? book.bind_chars : [],
+            createdAt: book.created_at || new Date().toISOString(),
+          })) as any
+          currentBookId.value = worldBooks.value[0]?.id || null
+          return
+        }
+      } catch {
+        // ignore local migration failure
       }
     }
-  } catch {
-    // ignore
-  }
-
-  if (worldBooks.value.length > 0) {
-    currentBookId.value = worldBooks.value[0].id
+    worldBooks.value = list.map((book: any) => ({
+      id: String(book.id),
+      name: book.name || '未命名世界书',
+      entries: Array.isArray(book.entries) ? book.entries.map((entry: any, idx: number) => ({
+        id: String(entry.id || `entry-${idx}`),
+        title: entry.title || entry.key || `条目${idx + 1}`,
+        keywords: Array.isArray(entry.keywords) ? entry.keywords : [],
+        content: entry.content || '',
+        enabled: entry.enabled !== false && entry.is_enabled !== false,
+        keysecondary: Array.isArray(entry.keysecondary) ? entry.keysecondary : [],
+        constant: !!entry.constant,
+        selective: !!entry.selective,
+        selectiveLogic: typeof entry.selectiveLogic === 'number' ? entry.selectiveLogic : 0,
+        role: typeof entry.role === 'number' ? entry.role : 0,
+        scanDepth: typeof entry.scanDepth === 'number' ? entry.scanDepth : null,
+        caseSensitive: !!entry.caseSensitive,
+        matchWholeWords: !!entry.matchWholeWords,
+        order: typeof entry.order === 'number' ? entry.order : idx,
+        position: typeof entry.position === 'number' ? entry.position : 0,
+        depth: typeof entry.depth === 'number' ? entry.depth : 4,
+        probability: typeof entry.probability === 'number' ? entry.probability : 100,
+        useProbability: entry.useProbability !== false,
+        excludeRecursion: !!entry.excludeRecursion,
+      })) : [],
+      bindChars: Array.isArray(book.bind_chars) ? book.bind_chars : [],
+      createdAt: book.created_at || new Date().toISOString(),
+    }))
+    currentBookId.value = worldBooks.value[0]?.id || null
+  } catch (err) {
+    console.error('Failed to load worldbooks', err)
   }
 }
 
-function saveToStorage() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(worldBooks.value))
-  } catch {
-    // ignore
-  }
+async function persistBook(book: WorldBook) {
+  const numericId = Number(book.id)
+  if (!Number.isFinite(numericId)) return
+  await worldBookApi.update(numericId, {
+    name: book.name,
+    bind_chars: book.bindChars,
+    entries: book.entries,
+  } as any)
 }
 
 // 世界书操作
-function createNewBook() {
+async function createNewBook() {
   const name = prompt('输入世界书名称：', '新世界书')
   if (!name?.trim()) return
 
@@ -494,23 +541,37 @@ function createNewBook() {
     bindChars: [],
     createdAt: new Date().toISOString(),
   }
+  try {
+    const res: any = await worldBookApi.create({ name: book.name, bind_chars: [], entries: [] } as any)
+    if (res.id) book.id = String(res.id)
+  } catch (err) {
+    console.error('Failed to create worldbook', err)
+  }
   worldBooks.value.unshift(book)
   currentBookId.value = book.id
   showBookMenu.value = false
-  saveToStorage()
 }
 
-function editBookName() {
+async function editBookName() {
   if (!currentBook.value) return
   const name = prompt('修改世界书名称：', currentBook.value.name)
   if (!name?.trim()) return
   currentBook.value.name = name.trim()
-  saveToStorage()
+  await persistBook(currentBook.value)
 }
 
-function deleteBook() {
+async function deleteBook() {
   if (!currentBook.value) return
   if (!confirm(`确定要删除世界书「${currentBook.value.name}」吗？其中的所有条目都会被删除。`)) return
+
+  const deletingId = Number(currentBook.value.id)
+  if (Number.isFinite(deletingId)) {
+    try {
+      await worldBookApi.delete(deletingId)
+    } catch (err) {
+      console.error('Failed to delete worldbook', err)
+    }
+  }
 
   const idx = worldBooks.value.findIndex(b => b.id === currentBookId.value)
   worldBooks.value.splice(idx, 1)
@@ -520,7 +581,6 @@ function deleteBook() {
   } else {
     currentBookId.value = null
   }
-  saveToStorage()
 }
 
 function exportBook() {
@@ -635,7 +695,7 @@ function openEntryEditor(entry: WorldBookEntry | null) {
   showEntryForm.value = true
 }
 
-function saveEntry() {
+async function saveEntry() {
   if (!currentBook.value) return
   if (!entryForm.value.title.trim()) return
 
@@ -687,21 +747,23 @@ function saveEntry() {
     })
   }
 
-  saveToStorage()
+  await persistBook(currentBook.value)
   showEntryForm.value = false
 }
 
-function deleteEntry(id: string) {
+async function deleteEntry(id: string) {
   if (!currentBook.value) return
   if (!confirm('确定要删除此条目？')) return
   currentBook.value.entries = currentBook.value.entries.filter(e => e.id !== id)
   if (expandedEntryId.value === id) expandedEntryId.value = null
-  saveToStorage()
+  await persistBook(currentBook.value)
 }
 
-function toggleEntryEnabled(entry: WorldBookEntry) {
+async function toggleEntryEnabled(entry: WorldBookEntry) {
   entry.enabled = !entry.enabled
-  saveToStorage()
+  if (currentBook.value) {
+    await persistBook(currentBook.value)
+  }
 }
 
 // 导入
@@ -714,7 +776,7 @@ function handleImport(e: Event) {
   if (!file) return
 
   const reader = new FileReader()
-  reader.onload = () => {
+  reader.onload = async () => {
     try {
       const data = JSON.parse(reader.result as string)
       const bookName = data.name || file.name.replace(/\.json$/i, '')
@@ -819,9 +881,15 @@ function handleImport(e: Event) {
         createdAt: new Date().toISOString(),
       }
 
+      try {
+        const res: any = await worldBookApi.create({ name: newBook.name, bind_chars: [], entries } as any)
+        if (res.id) newBook.id = String(res.id)
+      } catch (err) {
+        console.error('Failed to import worldbook to backend', err)
+      }
+
       worldBooks.value.unshift(newBook)
       currentBookId.value = newBook.id
-      saveToStorage()
 
       alert(`成功导入世界书「${bookName}」，共 ${entries.length} 个条目`)
     } catch {
@@ -922,7 +990,7 @@ async function generateBatchEntries() {
     }))
 
     currentBook.value.entries.push(...newEntries)
-    saveToStorage()
+    await persistBook(currentBook.value)
     closeAIBatchModal()
   } catch (err: any) {
     aiBatchError.value = err.message || '生成失败，请重试'
@@ -932,7 +1000,7 @@ async function generateBatchEntries() {
 }
 
 onMounted(() => {
-  loadFromStorage()
+  loadWorldBooks()
 })
 </script>
 

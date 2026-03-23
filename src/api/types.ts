@@ -225,23 +225,46 @@ export interface PersonaInput {
 
 // ========== 世界书 ==========
 export interface WorldBookEntry {
-  id: number
-  user_id: number
-  key: string
+  id?: string | number
+  title?: string
+  key?: string
   content: string
   keywords: string[]
-  is_enabled: boolean
-  priority: number
+  enabled?: boolean
+  is_enabled?: boolean
+  priority?: number
+  keysecondary?: string[]
+  constant?: boolean
+  selective?: boolean
+  selectiveLogic?: number
+  role?: number
+  scanDepth?: number | null
+  caseSensitive?: boolean
+  matchWholeWords?: boolean
+  order?: number
+  position?: number
+  depth?: number
+  probability?: number
+  useProbability?: boolean
+  excludeRecursion?: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface WorldBookBook {
+  id: number
+  user_id: number
+  name: string
+  bind_chars: string[]
+  entries: WorldBookEntry[]
   created_at: string
   updated_at: string
 }
 
 export interface WorldBookInput {
-  key: string
-  content: string
-  keywords?: string[]
-  is_enabled?: boolean
-  priority?: number
+  name: string
+  bind_chars?: string[]
+  entries?: WorldBookEntry[]
 }
 
 // ========== 应用设置 ==========

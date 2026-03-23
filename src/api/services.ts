@@ -23,6 +23,7 @@ import type {
   Persona,
   PersonaInput,
   WorldBookEntry,
+  WorldBookBook,
   WorldBookInput,
   AppSettings,
   Restaurant,
