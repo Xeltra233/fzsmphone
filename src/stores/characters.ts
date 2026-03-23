@@ -40,8 +40,9 @@ export const useCharactersStore = defineStore('characters', () => {
   }
 
   async function createCharacter(data: CharacterInput) {
-    await characterApi.create(data)
+    const res = await characterApi.create(data)
     await fetchCharacters()
+    return res?.id
   }
 
   async function updateCharacter(id: number, data: CharacterInput) {

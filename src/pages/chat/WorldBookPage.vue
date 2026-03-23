@@ -2,6 +2,13 @@
   <div class="worldbook-page">
     <NavBar title="世界书" back-to="/friends">
       <template #right>
+        <button class="icon-btn" @click="toggleBatchMode" :title="batchMode ? '退出批量管理' : '批量管理'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <rect x="4" y="5" width="16" height="4" rx="1.5" />
+            <rect x="4" y="10" width="16" height="4" rx="1.5" />
+            <rect x="4" y="15" width="16" height="4" rx="1.5" />
+          </svg>
+        </button>
         <button class="icon-btn" @click="showBookMenu = true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <path d="M12 5v14M5 12h14" />
@@ -11,14 +18,26 @@
     </NavBar>
 
     <!-- 世界书选择器 -->
+    <div v-if="batchMode" class="batch-toolbar">
+      <div class="batch-summary">已选 {{ selectedBookIds.length }} 本</div>
+      <div class="batch-actions">
+        <button class="batch-btn" @click="toggleSelectAllBooks">{{ allBooksSelected ? '取消全选' : '全选当前' }}</button>
+        <button class="batch-btn" :disabled="selectedBookIds.length === 0" @click="batchExportBooks">批量导出</button>
+        <button class="batch-btn danger" :disabled="selectedBookIds.length === 0" @click="batchDeleteBooks">批量删除</button>
+      </div>
+    </div>
+
     <div class="book-tabs">
       <div
         v-for="book in worldBooks"
         :key="book.id"
         class="book-tab"
-        :class="{ active: currentBookId === book.id }"
-        @click="currentBookId = book.id"
+        :class="{ active: currentBookId === book.id, selected: batchMode && selectedBookIds.includes(String(book.id)) }"
+        @click="batchMode ? toggleBookSelection(book.id) : currentBookId = book.id"
       >
+        <label v-if="batchMode" class="batch-check" @click.stop>
+          <input type="checkbox" :checked="selectedBookIds.includes(String(book.id))" @change="toggleBookSelection(book.id)" />
+        </label>
         <span class="book-tab-icon">▤</span>
         <span class="book-tab-name">{{ book.name }}</span>
         <span class="book-tab-count">{{ book.entries.length }}</span>
@@ -370,6 +389,8 @@ const searchText = ref('')
 const expandedEntryId = ref<string | null>(null)
 const showEntryForm = ref(false)
 const showBookMenu = ref(false)
+const batchMode = ref(false)
+const selectedBookIds = ref<string[]>([])
 const editingEntry = ref<WorldBookEntry | null>(null)
 const keywordsInput = ref('')
 const importInput = ref<HTMLInputElement | null>(null)
@@ -439,6 +460,8 @@ const currentBook = computed(() => {
   if (!currentBookId.value) return null
   return worldBooks.value.find(b => b.id === currentBookId.value) || null
 })
+
+const allBooksSelected = computed(() => worldBooks.value.length > 0 && worldBooks.value.every(book => selectedBookIds.value.includes(String(book.id))))
 
 const filteredEntries = computed(() => {
   if (!currentBook.value) return []
@@ -550,6 +573,54 @@ async function createNewBook() {
   worldBooks.value.unshift(book)
   currentBookId.value = book.id
   showBookMenu.value = false
+}
+
+function toggleBatchMode() {
+  batchMode.value = !batchMode.value
+  if (!batchMode.value) selectedBookIds.value = []
+}
+
+function toggleBookSelection(id: string | number) {
+  const key = String(id)
+  if (selectedBookIds.value.includes(key)) {
+    selectedBookIds.value = selectedBookIds.value.filter(item => item !== key)
+    return
+  }
+  selectedBookIds.value.push(key)
+}
+
+function toggleSelectAllBooks() {
+  if (allBooksSelected.value) {
+    selectedBookIds.value = []
+    return
+  }
+  selectedBookIds.value = worldBooks.value.map(book => String(book.id))
+}
+
+async function batchDeleteBooks() {
+  if (selectedBookIds.value.length === 0) return
+  if (!confirm(`确定要删除选中的 ${selectedBookIds.value.length} 本世界书吗？`)) return
+  for (const id of selectedBookIds.value) {
+    const numericId = Number(id)
+    if (Number.isFinite(numericId)) {
+      await worldBookApi.delete(numericId)
+    }
+  }
+  selectedBookIds.value = []
+  batchMode.value = false
+  await loadWorldBooks()
+}
+
+function batchExportBooks() {
+  const selected = worldBooks.value.filter(book => selectedBookIds.value.includes(String(book.id)))
+  if (selected.length === 0) return
+  const blob = new Blob([JSON.stringify(selected, null, 2)], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `worldbooks-batch-${Date.now()}.json`
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 async function editBookName() {
@@ -1024,6 +1095,46 @@ onMounted(() => {
 
 .book-tabs::-webkit-scrollbar { display: none; }
 
+.batch-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  gap: 12px;
+  border-bottom: 0.5px solid var(--separator);
+  background: var(--bg-secondary, #f7f7fa);
+}
+
+.batch-summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.batch-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.batch-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--fill-tertiary, rgba(118,118,128,0.12));
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.batch-btn.danger {
+  background: rgba(255, 59, 48, 0.12);
+  color: #ff3b30;
+}
+
+.batch-check {
+  display: flex;
+  align-items: center;
+}
+
 .book-tab {
   display: flex;
   align-items: center;
@@ -1039,6 +1150,11 @@ onMounted(() => {
 .book-tab.active {
   background: var(--color-primary, #007aff);
   color: #fff;
+}
+
+.book-tab.selected {
+  box-shadow: inset 0 0 0 2px rgba(0, 122, 255, 0.35);
+  background: rgba(0, 122, 255, 0.12);
 }
 
 .book-tab-icon { font-size: 14px; }

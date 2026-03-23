@@ -619,25 +619,6 @@ async function importSingleCharacterFile(file: File) {
     }
   }
 
-  if (character.stExtensions?.character_book) {
-    try {
-      const charBook = character.stExtensions.character_book
-      const bookEntries = normalizeCharacterBookEntries(charBook)
-      if (bookEntries.length > 0) {
-        const res: any = await worldBookApi.create({
-          name: charBook.name || `${character.name}的世界书`,
-          bind_chars: [],
-          entries: bookEntries,
-        } as any)
-        if (res.id) {
-          character.worldBooks = [String(res.id)]
-        }
-      }
-    } catch (bookErr) {
-      console.warn('内嵌世界书导入失败:', bookErr)
-    }
-  }
-
   return character
 }
 
@@ -652,7 +633,7 @@ const handleFileImport = async (event: Event) => {
   for (const file of files) {
     try {
       const character = await importSingleCharacterFile(file)
-      await charactersStore.createCharacter({
+      const createdId = await charactersStore.createCharacter({
         name: character.name,
         avatar_url: character.avatar || '',
         description: character.description || '',
@@ -668,10 +649,45 @@ const handleFileImport = async (event: Event) => {
           alternateGreetings: character.alternateGreetings || [],
           depthPromptText: character.depthPromptText || '',
           depthPromptDepth: character.depthPromptDepth ?? 4,
-          worldBooks: character.worldBooks || [],
+          worldBooks: [],
           stExtensions: character.stExtensions || null,
         },
       })
+
+      if (createdId && character.stExtensions?.character_book) {
+        try {
+          const charBook = character.stExtensions.character_book
+          const bookEntries = normalizeCharacterBookEntries(charBook)
+          if (bookEntries.length > 0) {
+            const res: any = await worldBookApi.create({
+              name: charBook.name || `${character.name}的世界书`,
+              bind_chars: [String(createdId)],
+              entries: bookEntries,
+            } as any)
+            if (res.id) {
+              const created = charactersStore.getCharacterById(createdId)
+              if (created) {
+                const extra = { ...(created.extra || {}) }
+                extra.worldBooks = [String(res.id)]
+                await charactersStore.updateCharacter(createdId, {
+                  name: created.name,
+                  avatar_url: created.avatar_url || '',
+                  description: created.description || '',
+                  personality: created.personality || '',
+                  system_prompt: created.system_prompt || '',
+                  greeting: created.greeting || '',
+                  is_public: created.is_public || false,
+                  tags: created.tags || [],
+                  extra,
+                })
+              }
+            }
+          }
+        } catch (bookErr) {
+          console.warn('内嵌世界书导入失败:', bookErr)
+        }
+      }
+
       imported.push(character.name || file.name)
     } catch (error: any) {
       console.error(`导入失败: ${file.name}`, error)

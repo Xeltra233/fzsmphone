@@ -185,6 +185,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import NavBar from '@/components/common/NavBar.vue'
 import { useCharactersStore } from '@/stores/characters'
+import { worldBookApi } from '@/api/services'
 
 const router = useRouter()
 const route = useRoute()
@@ -319,36 +320,46 @@ const saveCharacter = async () => {
 }
 
 // 加载世界书列表
-const loadWorldBooks = () => {
-  const saved = localStorage.getItem('worldBooks')
-  if (saved) {
-    worldBooks.value = JSON.parse(saved)
+const loadWorldBooks = async () => {
+  try {
+    const res: any = await worldBookApi.list()
+    worldBooks.value = Array.isArray(res.data)
+      ? res.data.map((book: any) => ({
+          id: String(book.id),
+          name: book.name || '未命名世界书',
+          entries: Array.isArray(book.entries) ? book.entries : [],
+          bindChars: Array.isArray(book.bind_chars) ? book.bind_chars : [],
+        }))
+      : []
+  } catch (err) {
+    console.error('Failed to load worldbooks', err)
+    worldBooks.value = []
   }
 }
 
 // 获取世界书名称
-const getWorldBookName = (wbId: number): string => {
+const getWorldBookName = (wbId: number | string): string => {
   const wb = worldBooks.value.find((w: any) => w.id === wbId)
   return wb ? wb.name : '未知世界书'
 }
 
 // 切换世界书绑定
-const toggleWorldBook = (wbId: number) => {
+const toggleWorldBook = (wbId: number | string) => {
   if (!formData.value.worldBooks) {
-    formData.value.worldBooks = []
+    formData.value.worldBooks = [] as any
   }
-  const index = formData.value.worldBooks.indexOf(wbId)
+  const index = (formData.value.worldBooks as any[]).indexOf(wbId)
   if (index > -1) {
     formData.value.worldBooks.splice(index, 1)
   } else {
-    formData.value.worldBooks.push(wbId)
+    ;(formData.value.worldBooks as any[]).push(wbId)
   }
 }
 
 // 移除世界书绑定
-const removeWorldBook = (wbId: number) => {
+const removeWorldBook = (wbId: number | string) => {
   if (formData.value.worldBooks) {
-    formData.value.worldBooks = formData.value.worldBooks.filter((id: number) => id !== wbId)
+    formData.value.worldBooks = (formData.value.worldBooks as any[]).filter((id: number | string) => id !== wbId) as any
   }
 }
 
@@ -391,7 +402,7 @@ const loadCharacter = () => {
 
 onMounted(async () => {
   await charactersStore.fetchCharacters()
-  loadWorldBooks()
+  await loadWorldBooks()
   loadCharacter()
 })
 </script>
