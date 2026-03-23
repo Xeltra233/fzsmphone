@@ -177,7 +177,36 @@ func (h *AIProxyHandler) Chat(w http.ResponseWriter, r *http.Request) {
 
 		flusher, ok := w.(http.Flusher)
 		if !ok {
-			mw.Error(w, http.StatusInternalServerError, "streaming not supported")
+			log.Printf("[AIProxy] streaming unsupported by response writer, falling back to non-stream")
+			// Fallback to non-stream request instead of returning 500.
+			upstreamBody["stream"] = false
+			fallbackBody, _ := json.Marshal(upstreamBody)
+			fallbackReq, err := http.NewRequestWithContext(ctx, "POST", apiUrl, bytes.NewReader(fallbackBody))
+			if err != nil {
+				mw.Error(w, http.StatusInternalServerError, "failed to create fallback request")
+				return
+			}
+			fallbackReq.Header.Set("Content-Type", "application/json")
+			fallbackReq.Header.Set("Authorization", "Bearer "+apiKey)
+
+			fallbackResp, err := client.Do(fallbackReq)
+			if err != nil {
+				mw.Error(w, http.StatusBadGateway, fmt.Sprintf("AI API fallback request failed: %v", err))
+				return
+			}
+			defer fallbackResp.Body.Close()
+
+			if fallbackResp.StatusCode != http.StatusOK {
+				errorBody, _ := io.ReadAll(fallbackResp.Body)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(fallbackResp.StatusCode)
+				w.Write(errorBody)
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			io.Copy(w, fallbackResp.Body)
 			return
 		}
 

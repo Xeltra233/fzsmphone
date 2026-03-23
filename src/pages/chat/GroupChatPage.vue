@@ -441,11 +441,13 @@ async function getAIReply(member: GroupMember, userText: string): Promise<string
   ]
 
   const apiUrl = settingsStore.getApiUrl()
+  const providerId = settingsStore.getPlatformProviderId()
   const isStream = s.streamEnabled
 
   const response = await sendAIRequest({
-    apiKey: s.apiKey,
+    apiKey: s.apiSource === 'platform' ? '' : s.apiKey,
     apiUrl: apiUrl,
+    providerId,
     model: s.model,
     messages: aiMessages,
     temperature: Math.min((s.temperature || 0.7) + 0.1, 1.5),
