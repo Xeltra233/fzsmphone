@@ -9,6 +9,13 @@
             <rect x="4" y="15" width="16" height="4" rx="1.5" />
           </svg>
         </button>
+        <button v-if="batchMode" class="icon-btn" @click="batchExportConversations" title="批量导出">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+        </button>
         <button class="icon-btn" @click="showMenu = true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <path d="M12 5v14M5 12h14" />
@@ -340,6 +347,23 @@ function batchDeleteConversations() {
   selectedConversationIds.value.forEach(id => chatStore.deleteConversation(id))
   selectedConversationIds.value = []
   batchMode.value = false
+}
+
+function batchExportConversations() {
+  const selected = chatStore.conversations
+    .filter(c => selectedConversationIds.value.includes(String(c.id)))
+    .map(c => ({
+      ...c,
+      messages: chatStore.getMessagesByConversationId(String(c.id)),
+    }))
+  if (selected.length === 0) return
+  const blob = new Blob([JSON.stringify(selected, null, 2)], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `conversations-batch-${Date.now()}.json`
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 function handleAddFriend() {

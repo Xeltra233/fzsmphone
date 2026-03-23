@@ -24,6 +24,13 @@
             <rect x="4" y="15" width="16" height="4" rx="1.5" />
           </svg>
         </button>
+        <button v-if="batchMode" class="nav-btn" @click="batchExportCharacters" title="批量导出">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+        </button>
         <button class="nav-btn" @click="addCharacter" title="新建">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -209,6 +216,7 @@ import { sendAIRequest } from '@/utils/aiService'
 import { parseAIJsonArray } from '@/utils/aiJsonParser'
 import { useSettingsStore } from '@/stores/settings'
 import { useCharactersStore } from '@/stores/characters'
+import { worldBookApi } from '@/api/services'
 
 const router = useRouter()
 const settingsStore = useSettingsStore()
@@ -282,6 +290,18 @@ async function batchDeleteCharacters() {
   }
   selectedIds.value = []
   batchMode.value = false
+}
+
+function batchExportCharacters() {
+  const selected = characters.value.filter((character: any) => selectedIds.value.includes(String(character.id)))
+  if (selected.length === 0) return
+  const blob = new Blob([JSON.stringify(selected, null, 2)], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `characters-batch-${Date.now()}.json`
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 function formatStorageSize(bytes: number) {
@@ -603,17 +623,14 @@ async function importSingleCharacterFile(file: File) {
       const charBook = character.stExtensions.character_book
       const bookEntries = normalizeCharacterBookEntries(charBook)
       if (bookEntries.length > 0) {
-        const worldBooks = JSON.parse(localStorage.getItem('worldBooks') || '[]')
-        const bookId = `wb-${Date.now()}-${Math.floor(Math.random() * 1000)}`
-        worldBooks.unshift({
-          id: bookId,
+        const res: any = await worldBookApi.create({
           name: charBook.name || `${character.name}的世界书`,
+          bind_chars: [],
           entries: bookEntries,
-          bindChars: [String(character.id)],
-          createdAt: new Date().toISOString(),
-        })
-        localStorage.setItem('worldBooks', JSON.stringify(worldBooks))
-        character.worldBooks = [bookId]
+        } as any)
+        if (res.id) {
+          character.worldBooks = [String(res.id)]
+        }
       }
     } catch (bookErr) {
       console.warn('内嵌世界书导入失败:', bookErr)

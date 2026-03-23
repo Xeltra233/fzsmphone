@@ -137,6 +137,16 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  function getMessagesByConversationId(conversationId: string) {
+    try {
+      const key = `chat-messages-${conversationId}`
+      const saved = getScopedItem(key)
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  }
+
   // Actions
   function fetchConversations() {
     loadConversations()
@@ -309,6 +319,7 @@ export const useChatStore = defineStore('chat', () => {
     refreshConversationCharacters,
     loadMessages,
     saveMessages,
+    getMessagesByConversationId,
     saveConversations,
   }
 })
