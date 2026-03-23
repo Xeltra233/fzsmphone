@@ -22,7 +22,7 @@ func (h *PresetHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := h.DB.Pool.Query(r.Context(), `
 		SELECT id, user_id, name, emoji, category, description, content, prefill,
-		       enable_prefill, is_builtin, gradient, prompt_items, created_at, updated_at
+		       enable_prefill, is_builtin, gradient, prompt_items::text, created_at::text, updated_at::text
 		FROM presets WHERE user_id = $1
 		ORDER BY created_at DESC
 	`, userID)
@@ -140,7 +140,7 @@ func (h *PresetHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	err = h.DB.Pool.QueryRow(r.Context(), `
 		SELECT id, user_id, name, emoji, category, description, content, prefill,
-		       enable_prefill, is_builtin, gradient, prompt_items, created_at, updated_at
+		       enable_prefill, is_builtin, gradient, prompt_items::text, created_at::text, updated_at::text
 		FROM presets WHERE id = $1 AND user_id = $2
 	`, id, userID).Scan(&p.ID, &p.UserID, &p.Name, &p.Emoji, &p.Category,
 		&p.Description, &p.Content, &p.Prefill, &p.EnablePrefill,
