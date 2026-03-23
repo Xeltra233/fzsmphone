@@ -416,6 +416,22 @@ function presetSignatureLocal(item: { name?: string; content?: string; prefill?:
   return [String(item.name || '').trim(), String(item.content || '').trim(), String(item.prefill || '').trim()].join('|')
 }
 
+function mergeBuiltinPresets(remotePresets: Preset[]) {
+  const now = new Date().toISOString()
+  const merged = [...remotePresets]
+  const existing = new Set(remotePresets.map((item) => presetSignatureLocal(item)))
+  for (const builtin of builtinPresets) {
+    const signature = presetSignatureLocal(builtin)
+    if (existing.has(signature)) continue
+    merged.unshift({
+      ...builtin,
+      createdAt: builtin.createdAt || now,
+      updatedAt: builtin.updatedAt || formatDateStr(new Date()),
+    })
+  }
+  return merged
+}
+
 async function migrateLocalPresetPromptItems(localItems: any[]) {
   if (!Array.isArray(localItems) || localItems.length === 0) return
   try {
@@ -471,7 +487,7 @@ async function loadPresets() {
   try {
     const res = await presetApi.list()
     if (res.data && res.data.length > 0) {
-      presets.value = res.data.map((p: any) => ({
+      const remotePresets = res.data.map((p: any) => ({
         id: String(p.id),
         name: p.name || '',
         emoji: p.emoji || '◈',
@@ -487,6 +503,7 @@ async function loadPresets() {
         createdAt: p.created_at || '',
         isBuiltin: p.is_builtin || false,
       }))
+      presets.value = mergeBuiltinPresets(remotePresets)
       saveToStorage()
       activePresetId.value = localStorage.getItem(ACTIVE_KEY) || null
       return
