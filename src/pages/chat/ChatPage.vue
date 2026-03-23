@@ -1060,8 +1060,20 @@ watch(
 onMounted(async () => {
   await settingsStore.fetchAvailableModels()
   await charactersStore.fetchCharacters()
+  chatStore.fetchConversations()
   if (conversationId.value) {
-    chatStore.fetchMessages(conversationId.value)
+    const existingConversation = chatStore.conversations.find((c: any) => String(c.id) === String(conversationId.value))
+    if (existingConversation) {
+      chatStore.fetchMessages(String(existingConversation.id))
+    } else {
+      const maybeCharacter = charactersStore.getCharacterById(Number(conversationId.value)) as any
+      if (maybeCharacter) {
+        const conv = chatStore.createConversation(String(maybeCharacter.id))
+        chatStore.fetchMessages(String(conv.id))
+      } else {
+        chatStore.fetchMessages(conversationId.value)
+      }
+    }
   }
   scrollToBottom(false)
 })
