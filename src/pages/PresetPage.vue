@@ -1073,6 +1073,7 @@ function handleImport(e: Event) {
             prefill: importedPreset.prefill,
             enable_prefill: importedPreset.enablePrefill,
             gradient: importedPreset.gradient,
+            ...(importedPreset.promptItems?.length ? { prompt_items: importedPreset.promptItems } : {}),
             is_builtin: false,
           })
           if (res.id) importedPreset.id = String(res.id)
