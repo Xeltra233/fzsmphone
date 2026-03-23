@@ -208,6 +208,7 @@ export const useChatStore = defineStore('chat', () => {
     // 检查是否已有该角色的会话
     const existing = conversations.value.find(c => c.characterId === charIdStr)
     if (existing) {
+      currentConversationId.value = existing.id
       return existing
     }
 
