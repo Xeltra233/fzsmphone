@@ -21,7 +21,7 @@ func (h *DiaryHandler) List(w http.ResponseWriter, r *http.Request) {
 	userID, _ := mw.GetUserID(r.Context())
 
 	rows, err := h.DB.Pool.Query(r.Context(), `
-		SELECT id, user_id, title, content, mood, weather, tags, is_private, created_at, updated_at
+		SELECT id, user_id, title, content, mood, weather, tags, is_private, created_at::text, updated_at::text
 		FROM diaries WHERE user_id = $1
 		ORDER BY created_at DESC
 	`, userID)
@@ -121,7 +121,7 @@ func (h *DiaryHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = h.DB.Pool.QueryRow(r.Context(), `
-		SELECT id, user_id, title, content, mood, weather, tags, is_private, created_at, updated_at
+		SELECT id, user_id, title, content, mood, weather, tags, is_private, created_at::text, updated_at::text
 		FROM diaries WHERE id = $1 AND user_id = $2
 	`, id, userID).Scan(&d.ID, &d.UserID, &d.Title, &d.Content, &d.Mood,
 		&d.Weather, &d.Tags, &d.IsPrivate, &d.CreatedAt, &d.UpdatedAt)

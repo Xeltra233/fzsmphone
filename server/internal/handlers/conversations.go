@@ -23,7 +23,7 @@ func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := h.DB.Pool.Query(r.Context(), `
 		SELECT c.id, c.user_id, c.character_id, c.title, c.is_group, c.last_message,
-		       c.last_at, c.created_at, c.updated_at,
+		       c.last_at::text, c.created_at::text, c.updated_at::text,
 		       ch.name AS char_name, ch.avatar_url AS char_avatar
 		FROM conversations c
 		LEFT JOIN characters ch ON ch.id = c.character_id
@@ -134,7 +134,7 @@ func (h *ConversationHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = h.DB.Pool.QueryRow(r.Context(), `
-		SELECT id, user_id, character_id, title, is_group, last_message, last_at, created_at, updated_at
+		SELECT id, user_id, character_id, title, is_group, last_message, last_at::text, created_at::text, updated_at::text
 		FROM conversations WHERE id = $1 AND user_id = $2
 	`, id, userID).Scan(&cv.ID, &cv.UserID, &cv.CharacterID, &cv.Title, &cv.IsGroup,
 		&cv.LastMessage, &cv.LastAt, &cv.CreatedAt, &cv.UpdatedAt)
@@ -196,7 +196,7 @@ func (h *ConversationHandler) ListMessages(w http.ResponseWriter, r *http.Reques
 	}
 
 	rows, err := h.DB.Pool.Query(r.Context(), `
-		SELECT id, conversation_id, role, content, msg_type, created_at
+		SELECT id, conversation_id, role, content, msg_type, created_at::text
 		FROM messages WHERE conversation_id = $1
 		ORDER BY created_at ASC
 	`, convID)

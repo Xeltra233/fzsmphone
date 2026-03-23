@@ -21,7 +21,7 @@ func (h *PersonaHandler) List(w http.ResponseWriter, r *http.Request) {
 	userID, _ := mw.GetUserID(r.Context())
 
 	rows, err := h.DB.Pool.Query(r.Context(), `
-		SELECT id, user_id, name, description, avatar_url, is_default, created_at, updated_at
+		SELECT id, user_id, name, description, avatar_url, is_default, created_at::text, updated_at::text
 		FROM user_personas WHERE user_id = $1
 		ORDER BY is_default DESC, created_at ASC
 	`, userID)
