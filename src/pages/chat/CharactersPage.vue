@@ -160,6 +160,7 @@
           v-for="character in filteredCharacters"
           :key="character.id"
           class="list-item"
+          :class="{ 'is-selected': batchMode && selectedIds.includes(String(character.id)) }"
           @click="batchMode ? toggleCharacterSelection(character.id) : editCharacter(character)"
         >
           <label v-if="batchMode" class="batch-check" @click.stop>
@@ -961,6 +962,11 @@ onMounted(() => charactersStore.fetchCharacters())
 
 .list-item:last-child { border-bottom: none; }
 .list-item:active { background: var(--fill-tertiary, rgba(0, 0, 0, 0.05)); }
+
+.list-item.is-selected {
+  background: rgba(0, 122, 255, 0.10);
+  box-shadow: inset 3px 0 0 0 var(--brand-primary, #007aff);
+}
 
 .avatar {
   width: 50px;

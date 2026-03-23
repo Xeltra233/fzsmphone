@@ -61,6 +61,7 @@
           v-for="conv in filteredConversations"
           :key="conv.id"
           class="conv-item"
+          :class="{ 'is-selected': batchMode && selectedConversationIds.includes(String(conv.id)) }"
           @click="batchMode ? toggleConversationSelection(conv.id) : openConversation(conv)"
         >
           <label v-if="batchMode" class="batch-check" @click.stop>
@@ -530,6 +531,11 @@ onMounted(() => {
 
 .conv-item:active {
   background: var(--fill-tertiary);
+}
+
+.conv-item.is-selected {
+  background: rgba(0, 122, 255, 0.10);
+  box-shadow: inset 3px 0 0 0 var(--brand-primary, #007aff);
 }
 
 .conv-avatar {
