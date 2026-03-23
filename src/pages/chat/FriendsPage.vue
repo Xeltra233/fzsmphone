@@ -2,6 +2,13 @@
   <div class="friends-page">
     <NavBar title="消息" back-to="/">
       <template #right>
+        <button class="icon-btn" @click="toggleBatchMode" :title="batchMode ? '退出批量管理' : '批量管理'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <rect x="4" y="5" width="16" height="4" rx="1.5" />
+            <rect x="4" y="10" width="16" height="4" rx="1.5" />
+            <rect x="4" y="15" width="16" height="4" rx="1.5" />
+          </svg>
+        </button>
         <button class="icon-btn" @click="showMenu = true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <path d="M12 5v14M5 12h14" />
@@ -28,6 +35,14 @@
 
     <!-- Conversation List -->
     <div class="conversation-list" v-if="!showCharacterPicker">
+      <div v-if="batchMode" class="batch-toolbar">
+        <div class="batch-summary">已选 {{ selectedConversationIds.length }} 项</div>
+        <div class="batch-actions">
+          <button class="batch-btn" @click="toggleSelectAllConversations">{{ allConversationsSelected ? '取消全选' : '全选当前' }}</button>
+          <button class="batch-btn danger" :disabled="selectedConversationIds.length === 0" @click="batchDeleteConversations">批量删除</button>
+        </div>
+      </div>
+
       <div v-if="filteredConversations.length === 0" class="empty-state">
         <div class="empty-emoji">◌</div>
         <div class="empty-title">还没有聊天</div>
@@ -39,8 +54,11 @@
           v-for="conv in filteredConversations"
           :key="conv.id"
           class="conv-item"
-          @click="openConversation(conv)"
+          @click="batchMode ? toggleConversationSelection(conv.id) : openConversation(conv)"
         >
+          <label v-if="batchMode" class="batch-check" @click.stop>
+            <input type="checkbox" :checked="selectedConversationIds.includes(String(conv.id))" @change="toggleConversationSelection(conv.id)" />
+          </label>
           <div class="conv-avatar">
             <img
               v-if="getConvAvatar(conv)"
@@ -70,7 +88,7 @@
           </div>
 
           <!-- Delete button -->
-          <button class="conv-delete" @click.stop="handleDelete(conv.id)">
+          <button v-if="!batchMode" class="conv-delete" @click.stop="handleDelete(conv.id)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="3 6 5 6 21 6" />
               <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -226,6 +244,8 @@ const chatStore = useChatStore()
 const charactersStore = useCharactersStore()
 
 const searchQuery = ref('')
+const batchMode = ref(false)
+const selectedConversationIds = ref<string[]>([])
 const showMenu = ref(false)
 const showCharacterPicker = ref(false)
 const showGroupPicker = ref(false)
@@ -241,6 +261,8 @@ const filteredConversations = computed(() => {
     return name.includes(q)
   })
 })
+
+const allConversationsSelected = computed(() => filteredConversations.value.length > 0 && filteredConversations.value.every(c => selectedConversationIds.value.includes(String(c.id))))
 
 function getConvAvatar(conv: Conversation): string {
   return conv.character?.avatar || (conv.character as any)?.avatar_url || ''
@@ -286,6 +308,38 @@ function loadCharacters() {
     scenario: item.extra?.scenario || '',
     firstMessage: item.greeting || '',
   }))
+}
+
+function toggleBatchMode() {
+  batchMode.value = !batchMode.value
+  if (!batchMode.value) selectedConversationIds.value = []
+}
+
+function toggleConversationSelection(id: string | number) {
+  const key = String(id)
+  if (selectedConversationIds.value.includes(key)) {
+    selectedConversationIds.value = selectedConversationIds.value.filter(item => item !== key)
+    return
+  }
+  selectedConversationIds.value.push(key)
+}
+
+function toggleSelectAllConversations() {
+  if (allConversationsSelected.value) {
+    selectedConversationIds.value = selectedConversationIds.value.filter(id => !filteredConversations.value.some(c => String(c.id) === id))
+    return
+  }
+  const merged = new Set(selectedConversationIds.value)
+  filteredConversations.value.forEach(c => merged.add(String(c.id)))
+  selectedConversationIds.value = Array.from(merged)
+}
+
+function batchDeleteConversations() {
+  if (selectedConversationIds.value.length === 0) return
+  if (!confirm(`确定要删除选中的 ${selectedConversationIds.value.length} 个会话吗？聊天记录也会被删除`)) return
+  selectedConversationIds.value.forEach(id => chatStore.deleteConversation(id))
+  selectedConversationIds.value = []
+  batchMode.value = false
 }
 
 function handleAddFriend() {
@@ -397,6 +451,46 @@ onMounted(() => {
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+.batch-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  gap: 12px;
+  border-bottom: 0.5px solid var(--separator);
+  background: var(--bg-secondary, #f7f7fa);
+}
+
+.batch-summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.batch-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.batch-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--fill-tertiary, rgba(118,118,128,0.12));
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.batch-btn.danger {
+  background: rgba(255, 59, 48, 0.12);
+  color: #ff3b30;
+}
+
+.batch-check {
+  display: flex;
+  align-items: center;
 }
 
 .conv-item {

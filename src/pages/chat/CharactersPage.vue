@@ -17,6 +17,13 @@
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
         </button>
+        <button class="nav-btn" @click="toggleBatchMode" :title="batchMode ? '退出批量管理' : '批量管理'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="5" width="16" height="4" rx="1.5" />
+            <rect x="4" y="10" width="16" height="4" rx="1.5" />
+            <rect x="4" y="15" width="16" height="4" rx="1.5" />
+          </svg>
+        </button>
         <button class="nav-btn" @click="addCharacter" title="新建">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -125,6 +132,14 @@
 
     <!-- 内容区 -->
     <div class="page-content">
+      <div v-if="batchMode" class="batch-toolbar">
+        <div class="batch-summary">已选 {{ selectedIds.length }} 项</div>
+        <div class="batch-actions">
+          <button class="batch-btn" @click="toggleSelectAllCurrent">{{ allCurrentSelected ? '取消全选' : '全选当前' }}</button>
+          <button class="batch-btn danger" :disabled="selectedIds.length === 0" @click="batchDeleteCharacters">批量删除</button>
+        </div>
+      </div>
+
       <!-- 空状态 -->
       <div v-if="filteredCharacters.length === 0" class="empty-state">
         <div class="empty-icon">{{ currentType === 'char' ? '◎' : '○' }}</div>
@@ -138,8 +153,11 @@
           v-for="character in filteredCharacters"
           :key="character.id"
           class="list-item"
-          @click="editCharacter(character)"
+          @click="batchMode ? toggleCharacterSelection(character.id) : editCharacter(character)"
         >
+          <label v-if="batchMode" class="batch-check" @click.stop>
+            <input type="checkbox" :checked="selectedIds.includes(String(character.id))" @change="toggleCharacterSelection(character.id)" />
+          </label>
           <div class="avatar">
             <img
               v-if="character.avatar && (character.avatar.startsWith('data:') || character.avatar.startsWith('http'))"
@@ -197,6 +215,8 @@ const settingsStore = useSettingsStore()
 const charactersStore = useCharactersStore()
 
 const currentType = ref('char')
+const batchMode = ref(false)
+const selectedIds = ref<string[]>([])
 const characters = computed(() => charactersStore.charItems.map((item) => ({
   id: item.id,
   type: item.extra?.type || 'char',
@@ -220,12 +240,48 @@ const filteredCharacters = computed(() => {
   return characters.value.filter((c: any) => c.type === currentType.value)
 })
 
+const allCurrentSelected = computed(() => filteredCharacters.value.length > 0 && filteredCharacters.value.every((c: any) => selectedIds.value.includes(String(c.id))))
+
 const addCharacter = () => {
   router.push(`/character/edit/new?type=${currentType.value}`)
 }
 
 const importCharacter = () => {
   fileInput.value?.click()
+}
+
+function toggleBatchMode() {
+  batchMode.value = !batchMode.value
+  if (!batchMode.value) selectedIds.value = []
+}
+
+function toggleCharacterSelection(id: string | number) {
+  const key = String(id)
+  if (selectedIds.value.includes(key)) {
+    selectedIds.value = selectedIds.value.filter(item => item !== key)
+    return
+  }
+  selectedIds.value.push(key)
+}
+
+function toggleSelectAllCurrent() {
+  if (allCurrentSelected.value) {
+    selectedIds.value = selectedIds.value.filter(id => !filteredCharacters.value.some((c: any) => String(c.id) === id))
+    return
+  }
+  const merged = new Set(selectedIds.value)
+  filteredCharacters.value.forEach((c: any) => merged.add(String(c.id)))
+  selectedIds.value = Array.from(merged)
+}
+
+async function batchDeleteCharacters() {
+  if (selectedIds.value.length === 0) return
+  if (!confirm(`确定要删除选中的 ${selectedIds.value.length} 张角色卡吗？`)) return
+  for (const id of selectedIds.value) {
+    await charactersStore.deleteCharacter(Number(id))
+  }
+  selectedIds.value = []
+  batchMode.value = false
 }
 
 function formatStorageSize(bytes: number) {
@@ -1177,5 +1233,45 @@ onMounted(() => charactersStore.fetchCharacters())
 .ai-batch-footer .btn-icon {
   width: 18px;
   height: 18px;
+}
+
+.batch-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  gap: 12px;
+  border-bottom: 0.5px solid var(--separator, rgba(0,0,0,0.1));
+  background: var(--bg-secondary, #f7f7fa);
+}
+
+.batch-summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.batch-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.batch-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--fill-tertiary, rgba(118,118,128,0.12));
+  color: var(--text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.batch-btn.danger {
+  background: rgba(255, 59, 48, 0.12);
+  color: #ff3b30;
+}
+
+.batch-check {
+  display: flex;
+  align-items: center;
 }
 </style>
