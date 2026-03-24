@@ -407,8 +407,9 @@ function confirmCreateGroup() {
   router.push(`/group/${conv.id}`)
 }
 
-function startChat(char: LocalCharacter) {
+async function startChat(char: LocalCharacter) {
   showCharacterPicker.value = false
+  chatStore.fetchConversations()
   const conv = chatStore.createConversation(char.id)
   if (conv) {
     router.push(`/chat/${conv.id}`)
